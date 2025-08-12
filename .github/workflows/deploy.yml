@@ -1,4 +1,4 @@
-name: Deploy LifeTracker
+name: Build and Deploy LifeTracker
 
 on:
   push:
@@ -6,25 +6,66 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Build Backend
+      run: |
+        cd backend
+        npm ci
+        npm run build
+
+    - name: Build Frontend
+      run: |
+        cd frontend
+        npm ci
+        npm run build
+
+    - name: Create deployment package
+      run: |
+        mkdir -p deploy-package
+
+        # 复制后端文件
+        cp -r backend/dist deploy-package/backend-dist
+        cp backend/package.json deploy-package/backend-package.json
+        cp backend/package-lock.json deploy-package/backend-package-lock.json
+
+        # 复制前端文件
+        cp -r frontend/.next deploy-package/frontend-dist
+        cp frontend/package.json deploy-package/frontend-package.json
+
+        # 复制配置文件
+        cp docker-compose.prod.yml deploy-package/ || cp docker-compose.yml deploy-package/docker-compose.prod.yml
+        cp -r nginx deploy-package/
+        cp deploy-prod.sh deploy-package/ || echo "#!/bin/bash" > deploy-package/deploy-prod.sh
+
+        # 创建压缩包
+        tar -czf deploy-package.tar.gz deploy-package/
+
     - name: Setup SSH
       uses: webfactory/ssh-agent@v0.8.0
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: Test SSH connection
+    - name: Upload deployment package
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "echo 'SSH connection successful'"
+        scp -o StrictHostKeyChecking=no deploy-package.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/
 
     - name: Deploy to server
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+          set -e
+
           # 进入项目目录
           cd /opt/lifetracker || {
             echo "创建项目目录..."
@@ -32,15 +73,19 @@ jobs:
             cd /opt/lifetracker
           }
 
-          # 克隆或更新代码
-          if [ -d ".git" ]; then
-            echo "更新代码..."
-            git fetch origin
-            git reset --hard origin/main
-          else
-            echo "克隆代码..."
-            git clone ${{ github.server_url }}/${{ github.repository }}.git .
+          # 备份现有部署
+          if [ -d "current" ]; then
+            echo "备份现有部署..."
+            rm -rf backup || true
+            mv current backup || true
           fi
+
+          # 解压新的部署包
+          echo "解压部署包..."
+          mkdir -p current
+          cd current
+          tar -xzf /tmp/deploy-package.tar.gz --strip-components=1
+          rm -f /tmp/deploy-package.tar.gz
           
           # 创建SSL证书目录
           mkdir -p nginx/ssl
@@ -54,52 +99,22 @@ jobs:
           echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
           echo "NODE_ENV=production" >> .env
 
-          # 检查SSL证书是否存在，如果不存在则创建自签名证书
-          if [ ! -f "nginx/ssl/cert.pem" ] || [ ! -f "nginx/ssl/key.pem" ]; then
-            echo "创建自签名SSL证书..."
-            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-              -keyout nginx/ssl/key.pem \
-              -out nginx/ssl/cert.pem \
-              -subj "/C=CN/ST=State/L=City/O=LifeTracker/CN=${{ secrets.DOMAIN_NAME }}"
-          fi
-          
-          # 停止现有服务
-          echo "停止现有服务..."
-          docker-compose down --remove-orphans || true
-          
-          # 清理旧镜像
-          echo "清理旧镜像..."
-          docker system prune -f || true
-          
-          # 使用简化部署脚本
-          echo "使用简化部署脚本..."
-          chmod +x deploy-simple.sh
-          ./deploy-simple.sh
-          
-          # 等待服务启动
-          echo "等待服务启动..."
-          sleep 30
-          
-          # 同步数据库
-          echo "同步数据库..."
-          docker-compose exec -T backend npx prisma db push || echo "数据库同步失败，请手动检查"
-          
-          # 检查服务状态
-          echo "检查服务状态..."
-          docker-compose ps
-          
-          echo "部署完成！"
+          # 执行生产部署脚本
+          echo "🚀 执行生产部署..."
+          chmod +x deploy-prod.sh
+          ./deploy-prod.sh
         EOF
 
     - name: Verify deployment
       run: |
         # 等待服务完全启动
-        sleep 120
-        
+        sleep 180
+
         # 检查服务是否正常
         if curl -f https://${{ secrets.DOMAIN_NAME }}/api/health; then
           echo "✅ 部署成功！服务正常运行"
         else
           echo "❌ 部署可能有问题，请检查服务状态"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /opt/lifetracker/current && docker-compose -f docker-compose.prod.yml ps && docker-compose -f docker-compose.prod.yml logs --tail=50"
           exit 1
         fi
