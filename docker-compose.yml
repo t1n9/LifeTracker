@@ -3,7 +3,7 @@ version: '3.3'
 services:
   # PostgreSQL Database
   postgres:
-    image: https://rugjamqi.mirror.aliyuncs.com
+    image: registry.cn-hangzhou.aliyuncs.com/library/postgres:15-alpine
     container_name: lifetracker-postgres
     restart: unless-stopped
     environment:
@@ -23,7 +23,7 @@ services:
 
   # Redis Cache
   redis:
-    image: redis:7-alpine
+    image: registry.cn-hangzhou.aliyuncs.com/library/redis:7-alpine
     container_name: lifetracker-redis
     restart: unless-stopped
     ports:
@@ -90,7 +90,7 @@ services:
 
   # Nginx Reverse Proxy (for production)
   nginx:
-    image: nginx:alpine
+    image: registry.cn-hangzhou.aliyuncs.com/library/nginx:alpine
     container_name: lifetracker-nginx
     restart: unless-stopped
     ports:

@@ -1,5 +1,5 @@
 # 使用Node.js 18作为基础镜像
-FROM node:18-alpine
+FROM registry.cn-hangzhou.aliyuncs.com/library/node:18-alpine
 
 # 设置工作目录
 WORKDIR /app
