@@ -47,14 +47,12 @@ jobs:
           
           # 生成环境变量文件
           echo "生成环境变量文件..."
-          cat > .env << 'ENVEOF'
-          DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}
-          DB_NAME=lifetracker
-          DB_USER=lifetracker
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          NODE_ENV=production
-          ENVEOF
+          echo "DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}" > .env
+          echo "DB_NAME=lifetracker" >> .env
+          echo "DB_USER=lifetracker" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          echo "NODE_ENV=production" >> .env
 
           # 检查SSL证书是否存在，如果不存在则创建自签名证书
           if [ ! -f "nginx/ssl/cert.pem" ] || [ ! -f "nginx/ssl/key.pem" ]; then
@@ -73,9 +71,10 @@ jobs:
           echo "清理旧镜像..."
           docker system prune -f || true
           
-          # 构建并启动服务
-          echo "构建并启动服务..."
-          docker-compose up --build -d
+          # 使用简化部署脚本
+          echo "使用简化部署脚本..."
+          chmod +x deploy-simple.sh
+          ./deploy-simple.sh
           
           # 等待服务启动
           echo "等待服务启动..."
@@ -95,7 +94,7 @@ jobs:
     - name: Verify deployment
       run: |
         # 等待服务完全启动
-        sleep 60
+        sleep 120
         
         # 检查服务是否正常
         if curl -f https://${{ secrets.DOMAIN_NAME }}/api/health; then
