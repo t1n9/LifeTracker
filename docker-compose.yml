@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.3'
 
 services:
   # PostgreSQL Database
@@ -54,10 +54,8 @@ services:
     ports:
       - "3002:3002"
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -82,8 +80,7 @@ services:
     ports:
       - "3001:3001"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -107,8 +104,6 @@ services:
       - backend
     networks:
       - lifetracker-network
-    profiles:
-      - production
 
 volumes:
   postgres_data:
