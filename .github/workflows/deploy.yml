@@ -1,0 +1,102 @@
+name: Deploy LifeTracker
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Deploy to server
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+          # 进入项目目录
+          cd /opt/lifetracker || {
+            echo "创建项目目录..."
+            mkdir -p /opt/lifetracker
+            cd /opt/lifetracker
+          }
+
+          # 克隆或更新代码
+          if [ -d ".git" ]; then
+            echo "更新代码..."
+            git fetch origin
+            git reset --hard origin/main
+          else
+            echo "克隆代码..."
+            git clone ${{ github.server_url }}/${{ github.repository }}.git .
+          fi
+          
+          # 创建SSL证书目录
+          mkdir -p nginx/ssl
+          
+          # 生成环境变量文件
+          echo "生成环境变量文件..."
+          cat > .env << 'ENVEOF'
+          DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}
+          DB_NAME=lifetracker
+          DB_USER=lifetracker
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          NODE_ENV=production
+          ENVEOF
+
+          # 检查SSL证书是否存在，如果不存在则创建自签名证书
+          if [ ! -f "nginx/ssl/cert.pem" ] || [ ! -f "nginx/ssl/key.pem" ]; then
+            echo "创建自签名SSL证书..."
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+              -keyout nginx/ssl/key.pem \
+              -out nginx/ssl/cert.pem \
+              -subj "/C=CN/ST=State/L=City/O=LifeTracker/CN=${{ secrets.DOMAIN_NAME }}"
+          fi
+          
+          # 停止现有服务
+          echo "停止现有服务..."
+          docker-compose down --remove-orphans || true
+          
+          # 清理旧镜像
+          echo "清理旧镜像..."
+          docker system prune -f || true
+          
+          # 构建并启动服务
+          echo "构建并启动服务..."
+          docker-compose up --build -d
+          
+          # 等待服务启动
+          echo "等待服务启动..."
+          sleep 30
+          
+          # 同步数据库
+          echo "同步数据库..."
+          docker-compose exec -T backend npx prisma db push || echo "数据库同步失败，请手动检查"
+          
+          # 检查服务状态
+          echo "检查服务状态..."
+          docker-compose ps
+          
+          echo "部署完成！"
+        EOF
+
+    - name: Verify deployment
+      run: |
+        # 等待服务完全启动
+        sleep 60
+        
+        # 检查服务是否正常
+        if curl -f https://${{ secrets.DOMAIN_NAME }}/api/health; then
+          echo "✅ 部署成功！服务正常运行"
+        else
+          echo "❌ 部署可能有问题，请检查服务状态"
+          exit 1
+        fi

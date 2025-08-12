@@ -1,0 +1,277 @@
+// 重新设计的数据库模式 - 更健壮、更灵活
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户表 - 核心用户信息
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  name          String?
+  timezone      String   @default("Asia/Shanghai")
+  isActive      Boolean  @default(true) @map("is_active")
+  emailVerified Boolean  @default(false) @map("email_verified")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  profile           UserProfile?
+  settings          UserSettings?
+  tasks             Task[]
+  studyRecords      StudyRecord[]
+  pomodoroSessions  PomodoroSession[]
+  exerciseRecords   ExerciseRecord[]
+  expenseRecords    ExpenseRecord[]
+  healthRecords     HealthRecord[]
+  dailyEntries      DailyEntry[]
+  categories        Category[]
+
+  @@map("users")
+}
+
+// 用户配置表 - 个人设置和目标
+model UserProfile {
+  id         String    @id @default(uuid())
+  userId     String    @unique @map("user_id")
+  targetName String?   @map("target_name") // 雅思、考研等
+  targetDate DateTime? @map("target_date") @db.Date
+  examDate   DateTime? @map("exam_date") @db.Date
+  theme      String    @default("dark")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+// 用户设置表 - 应用设置
+model UserSettings {
+  id                    String  @id @default(uuid())
+  userId                String  @unique @map("user_id")
+  pomodoroWorkDuration  Int     @default(25) @map("pomodoro_work_duration") // minutes
+  pomodoroBreakDuration Int     @default(5) @map("pomodoro_break_duration") // minutes
+  pomodoroLongBreak     Int     @default(15) @map("pomodoro_long_break") // minutes
+  autoStartBreaks       Boolean @default(false) @map("auto_start_breaks")
+  autoStartPomodoros    Boolean @default(false) @map("auto_start_pomodoros")
+  soundEnabled          Boolean @default(true) @map("sound_enabled")
+  notificationsEnabled  Boolean @default(true) @map("notifications_enabled")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+// 分类表 - 统一管理各种分类（运动、消费等）
+model Category {
+  id          String      @id @default(uuid())
+  userId      String      @map("user_id")
+  type        CategoryType // EXERCISE, EXPENSE, STUDY
+  name        String
+  description String?
+  color       String?     // 用于UI显示
+  icon        String?     // 图标
+  unit        String?     // 单位（如：次、公里、元）
+  isActive    Boolean     @default(true) @map("is_active")
+  sortOrder   Int         @default(0) @map("sort_order")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseRecords ExerciseRecord[]
+  expenseRecords  ExpenseRecord[]
+
+  @@unique([userId, type, name])
+  @@map("categories")
+}
+
+enum CategoryType {
+  EXERCISE
+  EXPENSE
+  STUDY
+}
+
+// 任务表
+model Task {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  title       String
+  description String?   @db.Text
+  isCompleted Boolean   @default(false) @map("is_completed")
+  priority    Int       @default(1) // 1-5
+  dueDate     DateTime? @map("due_date") @db.Date
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studyRecords     StudyRecord[]
+  pomodoroSessions PomodoroSession[]
+
+  @@index([userId, isCompleted])
+  @@index([userId, dueDate])
+  @@map("tasks")
+}
+
+// 学习记录表
+model StudyRecord {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  taskId    String?  @map("task_id")
+  subject   String?  // 学科
+  duration  Int      // 分钟
+  startedAt DateTime @map("started_at")
+  endedAt   DateTime @map("ended_at")
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([userId, startedAt])
+  @@map("study_records")
+}
+
+// 番茄钟会话表
+model PomodoroSession {
+  id        String         @id @default(uuid())
+  userId    String         @map("user_id")
+  taskId    String?        @map("task_id")
+  type      PomodoroType
+  status    PomodoroStatus
+  duration  Int            // 分钟
+  startedAt DateTime       @map("started_at")
+  endedAt   DateTime?      @map("ended_at")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([userId, startedAt])
+  @@map("pomodoro_sessions")
+}
+
+enum PomodoroStatus {
+  PENDING
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum PomodoroType {
+  WORK
+  SHORT_BREAK
+  LONG_BREAK
+}
+
+// 运动记录表
+model ExerciseRecord {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  categoryId String   @map("category_id")
+  date       DateTime @db.Date
+  value      Float    // 数量或距离
+  unit       String   // 单位
+  duration   Int?     // 持续时间（分钟）
+  feeling    String?  // 感受
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, date])
+  @@index([userId, date])
+  @@map("exercise_records")
+}
+
+// 消费记录表
+model ExpenseRecord {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  categoryId  String?  @map("category_id") // 可选，用于分类
+  date        DateTime @db.Date
+  amount      Float
+  description String
+  type        ExpenseType // MEAL, TRANSPORT, ENTERTAINMENT, OTHER
+  mealType    MealType?   @map("meal_type") // 如果是餐饮
+  time        String?     // 消费时间 HH:mm
+  notes       String?     @db.Text
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId, date])
+  @@index([userId, type])
+  @@map("expense_records")
+}
+
+enum ExpenseType {
+  MEAL
+  TRANSPORT
+  ENTERTAINMENT
+  SHOPPING
+  EDUCATION
+  HEALTH
+  OTHER
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+// 健康记录表
+model HealthRecord {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  date         DateTime @db.Date
+  weight       Float?
+  sleepHours   Float?   @map("sleep_hours")
+  sleepQuality Int?     @map("sleep_quality") // 1-5
+  phoneUsage   Float?   @map("phone_usage") // hours
+  mood         Int?     // 1-5
+  energy       Int?     // 1-5
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("health_records")
+}
+
+// 每日记录表
+model DailyEntry {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  date           DateTime @db.Date
+  dayStart       String?  @map("day_start") @db.Text // 每日开始计划
+  dayReflection  String?  @map("day_reflection") @db.Text // 每日反思
+  reflectionTime String?  @map("reflection_time") // 反思时间
+  importantInfo  String?  @map("important_info") @db.Text // 重要信息
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("daily_entries")
+}
