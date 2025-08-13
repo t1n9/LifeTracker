@@ -63,13 +63,16 @@ jobs:
         cp -r nginx deploy-package/
         # 确保超简化配置存在
         cp nginx/nginx.ultra-simple.conf deploy-package/nginx/
-        cp deploy-prod.sh deploy-package/ || echo "#!/bin/bash" > deploy-package/deploy-prod.sh
-        cp deploy-native.sh deploy-package/
-        cp deploy-simple-native.sh deploy-package/
-        cp deploy-minimal.sh deploy-package/
-        cp init-prisma.sh deploy-package/
-        cp fix-nginx.sh deploy-package/
-        cp fix-403.sh deploy-package/
+        cp scripts/deployment/deploy-prod.sh deploy-package/ || echo "#!/bin/bash" > deploy-package/deploy-prod.sh
+        cp scripts/deployment/deploy-native.sh deploy-package/
+        cp scripts/deployment/deploy-simple-native.sh deploy-package/
+        cp scripts/deployment/deploy-minimal.sh deploy-package/
+        cp scripts/development/init-prisma.sh deploy-package/
+        cp scripts/maintenance/fix-nginx.sh deploy-package/
+        cp scripts/maintenance/fix-403.sh deploy-package/
+        # 复制配置文件（如果存在）
+        cp scripts/deployment/deploy.config.sh deploy-package/ 2>/dev/null || echo "# 配置文件" > deploy-package/deploy.config.sh
+        cp scripts/deployment/deploy.config.example.sh deploy-package/ 2>/dev/null || true
 
         # 创建压缩包
         tar -czf deploy-package.tar.gz deploy-package/
@@ -165,7 +168,7 @@ jobs:
             echo "✅ 部署成功！HTTP服务正常运行"
           else
             echo "⚠️ API健康检查失败，尝试修复403错误..."
-            ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /opt/lifetracker/current && chmod +x scripts/maintenance/fix-403.sh && ./scripts/maintenance/fix-403.sh"
+            ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /opt/lifetracker/current && chmod +x fix-403.sh && ./fix-403.sh"
 
             # 再次检查
             sleep 10
