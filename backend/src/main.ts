@@ -19,9 +19,25 @@ async function bootstrap() {
   app.use(compression());
   app.use(cookieParser());
 
-  // CORS配置
+  // CORS配置 - 支持多个域名
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://t1n9.xyz',
+    'https://www.t1n9.xyz'
+  ];
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // 允许没有origin的请求（如移动应用、Postman等）
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   });
 
