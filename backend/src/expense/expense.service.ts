@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ExpenseTypeEnum } from '@prisma/client';
 import { getTodayStart, getDaysAgoStart, getTodayEnd } from '../common/utils/date.util';
+
+// 定义枚举常量，避免运行时undefined问题
+const ExpenseTypeEnum = {
+  MEAL: 'MEAL',
+  OTHER: 'OTHER'
+} as const;
 
 @Injectable()
 export class ExpenseService {

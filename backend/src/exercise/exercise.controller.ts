@@ -13,7 +13,14 @@ import {
 import { IsString, IsNumber, IsEnum, IsOptional, IsIn, Min } from 'class-validator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ExerciseService } from './exercise.service';
-import { ExerciseTypeEnum } from '@prisma/client';
+
+// 定义枚举常量，避免运行时undefined问题
+const ExerciseTypeEnum = {
+  COUNT: 'COUNT',
+  DISTANCE: 'DISTANCE'
+} as const;
+
+type ExerciseTypeEnum = typeof ExerciseTypeEnum[keyof typeof ExerciseTypeEnum];
 
 export class CreateExerciseTypeDto {
   @IsString()

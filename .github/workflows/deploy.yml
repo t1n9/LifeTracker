@@ -23,6 +23,8 @@ jobs:
       run: |
         cd backend
         npm ci
+        # 生成Prisma客户端
+        npx prisma generate
         npm run build
 
     - name: Build Frontend
