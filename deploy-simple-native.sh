@@ -33,6 +33,20 @@ else
     echo "⚠️ 未找到package.json，跳过依赖安装"
 fi
 
+# 初始化Prisma
+if [ -f "init-prisma.sh" ]; then
+    echo "🔧 使用Prisma初始化脚本..."
+    chmod +x init-prisma.sh
+    ./init-prisma.sh || echo "⚠️ Prisma初始化失败，继续尝试..."
+else
+    echo "🔧 生成Prisma客户端..."
+    if command -v npx &> /dev/null; then
+        npx prisma generate || echo "⚠️ Prisma生成失败，继续尝试..."
+    else
+        echo "⚠️ npx不可用，跳过Prisma生成"
+    fi
+fi
+
 # 设置环境变量并启动后端
 export NODE_ENV=production
 export DATABASE_URL="postgresql://lifetracker:TINGWU...123@localhost:5432/lifetracker"

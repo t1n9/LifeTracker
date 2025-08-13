@@ -22,9 +22,35 @@ fi
 
 echo "✅ Node.js版本: $(node --version)"
 
-# 直接启动后端（无需安装依赖）
+# 启动后端服务（检查依赖）
 echo "🔧 启动后端服务..."
 cd $(dirname $0)
+
+# 检查后端文件是否存在
+if [ ! -f "backend-dist/main.js" ]; then
+    echo "❌ 后端编译文件不存在: backend-dist/main.js"
+    exit 1
+fi
+
+# 检查是否需要安装依赖
+if [ ! -d "node_modules" ] || [ ! -f "node_modules/@nestjs/core/package.json" ]; then
+    echo "📦 检测到缺少依赖，安装生产依赖..."
+    if [ -f "package.json" ] && [ -f "package-lock.json" ]; then
+        npm ci --only=production
+    elif [ -f "backend-package.json" ]; then
+        cp backend-package.json package.json
+        npm install --only=production
+    else
+        echo "❌ 未找到package.json文件"
+        exit 1
+    fi
+fi
+
+# 生成Prisma客户端
+if [ ! -d "node_modules/.prisma" ]; then
+    echo "🔧 生成Prisma客户端..."
+    npx prisma generate || echo "⚠️ Prisma生成失败，继续尝试..."
+fi
 
 # 设置环境变量
 export NODE_ENV=production
@@ -33,12 +59,6 @@ export REDIS_URL="redis://localhost:6379"
 export JWT_SECRET="your-super-secret-jwt-key-change-this-in-production-TINGWU...123"
 export CORS_ORIGIN="https://${DOMAIN_NAME}"
 export PORT=${BACKEND_PORT}
-
-# 检查后端文件是否存在
-if [ ! -f "backend-dist/main.js" ]; then
-    echo "❌ 后端编译文件不存在: backend-dist/main.js"
-    exit 1
-fi
 
 # 后台启动后端（无依赖）
 echo "🚀 启动后端进程..."

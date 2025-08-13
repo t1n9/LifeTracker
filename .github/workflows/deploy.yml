@@ -48,6 +48,8 @@ jobs:
         # 复制到根目录以便部署脚本使用
         cp backend/package.json deploy-package/package.json
         cp backend/package-lock.json deploy-package/package-lock.json
+        # 复制Prisma schema文件
+        cp -r backend/prisma deploy-package/prisma
 
         # 复制前端文件
         cp -r frontend/.next deploy-package/frontend-dist
@@ -61,6 +63,7 @@ jobs:
         cp deploy-native.sh deploy-package/
         cp deploy-simple-native.sh deploy-package/
         cp deploy-minimal.sh deploy-package/
+        cp init-prisma.sh deploy-package/
 
         # 创建压缩包
         tar -czf deploy-package.tar.gz deploy-package/

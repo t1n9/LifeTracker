@@ -96,6 +96,14 @@ else
     echo "⚠️ 未找到package.json，跳过依赖安装"
 fi
 
+# 生成Prisma客户端
+echo "🔧 生成Prisma客户端..."
+if command -v npx &> /dev/null; then
+    npx prisma generate || echo "⚠️ Prisma生成失败，继续尝试..."
+else
+    echo "⚠️ npx不可用，跳过Prisma生成"
+fi
+
 # 创建systemd服务文件
 sudo tee /etc/systemd/system/lifetracker-backend.service > /dev/null <<EOF
 [Unit]
