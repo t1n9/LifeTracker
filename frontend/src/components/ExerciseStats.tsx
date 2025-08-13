@@ -45,7 +45,7 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
 
       const types = typesResponse.data.data || [];
       const records = recordsResponse.data.data || [];
-      const feeling = feelingResponse.data.data.feeling || '';
+      const feeling = feelingResponse.data.data?.feeling || '';
 
       setExerciseTypes(types);
       setTodayRecords(records);
