@@ -8,6 +8,8 @@ const ExpenseTypeEnum = {
   OTHER: 'OTHER'
 } as const;
 
+type ExpenseTypeEnum = typeof ExpenseTypeEnum[keyof typeof ExpenseTypeEnum];
+
 @Injectable()
 export class ExpenseService {
   constructor(private prisma: PrismaService) {}

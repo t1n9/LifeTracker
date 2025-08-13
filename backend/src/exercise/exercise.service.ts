@@ -8,6 +8,8 @@ const ExerciseTypeEnum = {
   DISTANCE: 'DISTANCE'
 } as const;
 
+type ExerciseTypeEnum = typeof ExerciseTypeEnum[keyof typeof ExerciseTypeEnum];
+
 @Injectable()
 export class ExerciseService {
   constructor(private prisma: PrismaService) {}
