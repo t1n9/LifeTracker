@@ -16,17 +16,18 @@ const nextConfig = {
   // experimental: {
   //   outputFileTracingRoot: undefined, // 移除不支持的配置
   // },
-  // 静态导出时不需要rewrites
-  // async rewrites() {
-  //   return [
-  //     {
-  //       source: '/api/:path*',
-  //       destination: process.env.NODE_ENV === 'production'
-  //         ? 'http://backend:3002/api/:path*'
-  //         : 'http://localhost:3002/api/:path*',
-  //     },
-  //   ];
-  // },
+  // 开发环境使用rewrites，生产环境静态导出时不需要
+  async rewrites() {
+    if (process.env.NODE_ENV === 'development') {
+      return [
+        {
+          source: '/api/:path*',
+          destination: 'http://localhost:3002/api/:path*',
+        },
+      ];
+    }
+    return [];
+  },
 };
 
 module.exports = nextConfig;

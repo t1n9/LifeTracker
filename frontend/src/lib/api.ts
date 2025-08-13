@@ -1,10 +1,12 @@
 import axios from 'axios';
 
-// 静态导出模式，直接使用API URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.host}/api`
-    : 'http://localhost:3002/api');
+// 开发环境和生产环境的API配置
+const API_URL = process.env.NODE_ENV === 'development'
+  ? '/api'  // 开发环境使用Next.js代理
+  : process.env.NEXT_PUBLIC_API_URL ||
+    (typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.host}/api`
+      : 'http://localhost:3002/api');
 
 // 创建axios实例
 export const api = axios.create({
