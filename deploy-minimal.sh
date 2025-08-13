@@ -89,28 +89,76 @@ else
     exit 1
 fi
 
-# 配置Nginx（超简化配置）
+# 配置Nginx（使用Let's Encrypt证书）
 echo "🌐 配置Nginx..."
 
-# 使用超简化Nginx配置
-if [ -f "nginx/nginx.ultra-simple.conf" ]; then
-    echo "使用超简化Nginx配置..."
-    sudo cp nginx/nginx.ultra-simple.conf /etc/nginx/nginx.conf
-    # 移除sites-enabled配置，使用主配置
-    sudo rm -f /etc/nginx/sites-enabled/*
+# 检查Let's Encrypt证书是否存在
+CERT_PATH="/etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem"
+KEY_PATH="/etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem"
+
+if [ -f "$CERT_PATH" ] && [ -f "$KEY_PATH" ]; then
+    echo "✅ 找到Let's Encrypt证书，使用正式SSL证书"
+    SSL_CERT="$CERT_PATH"
+    SSL_KEY="$KEY_PATH"
 else
-    echo "创建简单的sites配置..."
+    echo "⚠️ 未找到Let's Encrypt证书，尝试获取..."
+    # 安装certbot
+    sudo apt-get update
+    sudo apt-get install -y certbot python3-certbot-nginx
+
+    # 先启动基本的HTTP服务
+    sudo tee /etc/nginx/sites-available/lifetracker-temp > /dev/null <<EOF
+server {
+    listen 80 default_server;
+    server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
+
+    location / {
+        root /var/www/html;
+        index index.html;
+        try_files \$uri \$uri/ /index.html;
+    }
+}
+EOF
+
+    sudo rm -f /etc/nginx/sites-enabled/*
+    sudo ln -sf /etc/nginx/sites-available/lifetracker-temp /etc/nginx/sites-enabled/
+    sudo systemctl reload nginx
+
+    # 获取Let's Encrypt证书
+    sudo certbot --nginx -d ${DOMAIN_NAME} -d www.${DOMAIN_NAME} --non-interactive --agree-tos --email admin@${DOMAIN_NAME}
+
+    if [ -f "$CERT_PATH" ] && [ -f "$KEY_PATH" ]; then
+        echo "✅ Let's Encrypt证书获取成功"
+        SSL_CERT="$CERT_PATH"
+        SSL_KEY="$KEY_PATH"
+    else
+        echo "❌ Let's Encrypt证书获取失败，使用HTTP模式"
+        SSL_CERT=""
+        SSL_KEY=""
+    fi
+fi
+
+# 创建最终的Nginx配置
+if [ -n "$SSL_CERT" ] && [ -n "$SSL_KEY" ]; then
+    echo "创建HTTPS配置..."
     sudo tee /etc/nginx/sites-available/lifetracker > /dev/null <<EOF
 server {
     listen 80 default_server;
-    listen 443 ssl default_server;
     server_name _;
-    
-    # 简单的SSL配置
-    ssl_certificate $(pwd)/nginx/ssl/cert.pem;
-    ssl_certificate_key $(pwd)/nginx/ssl/key.pem;
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl default_server;
+    server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
+
+    # Let's Encrypt SSL配置
+    ssl_certificate $SSL_CERT;
+    ssl_certificate_key $SSL_KEY;
     ssl_protocols TLSv1.2 TLSv1.3;
-    
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
     # API代理
     location /api/ {
         proxy_pass http://127.0.0.1:${BACKEND_PORT}/api/;
@@ -121,13 +169,13 @@ server {
         proxy_read_timeout 300;
         proxy_connect_timeout 300;
     }
-    
+
     # 健康检查
     location /health {
         return 200 "OK";
         add_header Content-Type text/plain;
     }
-    
+
     # 静态文件
     location / {
         root /var/www/html;
@@ -141,6 +189,44 @@ server {
     }
 }
 EOF
+else
+    echo "创建HTTP配置..."
+    sudo tee /etc/nginx/sites-available/lifetracker > /dev/null <<EOF
+server {
+    listen 80 default_server;
+    server_name _;
+
+    # API代理
+    location /api/ {
+        proxy_pass http://127.0.0.1:${BACKEND_PORT}/api/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300;
+        proxy_connect_timeout 300;
+    }
+
+    # 健康检查
+    location /health {
+        return 200 "OK";
+        add_header Content-Type text/plain;
+    }
+
+    # 静态文件
+    location / {
+        root /var/www/html;
+        index index.html;
+        try_files \$uri \$uri/ /index.html;
+
+        # 基本缓存
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+            expires 1d;
+        }
+    }
+}
+EOF
+fi
 
 # 复制前端文件
 echo "📁 复制前端文件..."

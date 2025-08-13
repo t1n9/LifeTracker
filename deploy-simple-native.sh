@@ -88,8 +88,8 @@ server {
     listen 443 ssl;
     server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
     
-    ssl_certificate $(pwd)/nginx/ssl/cert.pem;
-    ssl_certificate_key $(pwd)/nginx/ssl/key.pem;
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;
     
     # API代理
     location /api/ {

@@ -50,14 +50,15 @@ fi
 # 加载环境变量
 source .env
 
-# 创建SSL证书
-mkdir -p nginx/ssl
-if [ ! -f "nginx/ssl/cert.pem" ] || [ ! -f "nginx/ssl/key.pem" ]; then
-    echo "🔒 创建自签名SSL证书..."
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout nginx/ssl/key.pem \
-        -out nginx/ssl/cert.pem \
-        -subj "/C=CN/ST=State/L=City/O=LifeTracker/CN=${DOMAIN_NAME}"
+# 检查Let's Encrypt证书
+CERT_PATH="/etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem"
+KEY_PATH="/etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem"
+
+if [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
+    echo "🔒 获取Let's Encrypt证书..."
+    sudo apt-get update
+    sudo apt-get install -y certbot python3-certbot-nginx
+    sudo certbot --nginx -d ${DOMAIN_NAME} -d www.${DOMAIN_NAME} --non-interactive --agree-tos --email admin@${DOMAIN_NAME}
 fi
 
 # 设置PostgreSQL
@@ -173,8 +174,8 @@ http {
         listen 443 ssl default_server;
         server_name _;
 
-        ssl_certificate /opt/lifetracker/current/nginx/ssl/cert.pem;
-        ssl_certificate_key /opt/lifetracker/current/nginx/ssl/key.pem;
+        ssl_certificate /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;
         ssl_protocols TLSv1.2 TLSv1.3;
 
         location /api/ {
