@@ -28,9 +28,10 @@ export default function LoginForm() {
 
       login(response.data.user, response.data.accessToken);
       console.log('登录成功:', response.data.user.name || response.data.user.email);
-    } catch (error: any) {
-      console.error('登录失败', error.response?.data?.message || error.message);
-      alert(error.response?.data?.message || '请检查您的登录信息');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      console.error('登录失败', err.response?.data?.message || err.message);
+      alert(err.response?.data?.message || '请检查您的登录信息');
     } finally {
       setIsLoading(false);
     }

@@ -56,8 +56,9 @@ export async function fetchDayData(date: string): Promise<DayData | null> {
   try {
     const response = await api.get(`/history/day/${date}`);
     return response.data.data || null;
-  } catch (error: any) {
-    if (error.response?.status === 404) {
+  } catch (error: unknown) {
+    const err = error as { response?: { status?: number } };
+    if (err.response?.status === 404) {
       return null; // 该日期没有数据
     }
     console.error(`获取${date}数据失败:`, error);

@@ -659,7 +659,8 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   const playNotificationSound = (type: 'start' | 'complete' | 'break') => {
     try {
       // 创建音频上下文
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const audioContext = new AudioContextClass();
 
       // 不同类型的音频频率
       const frequencies = {

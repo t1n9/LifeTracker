@@ -69,8 +69,8 @@ export default function ChangePasswordForm({ onClose, onSuccess }: ChangePasswor
         onClose();
       }, 1500);
 
-    } catch (error: any) {
-      setError(error.message || '修改密码失败，请重试');
+    } catch (error: unknown) {
+      setError((error as Error).message || '修改密码失败，请重试');
     } finally {
       setIsLoading(false);
     }

@@ -30,8 +30,8 @@ export default function TasksCard() {
   });
 
   const tasks = tasksData?.data || [];
-  const pendingTasks = tasks.filter((task: any) => !task.isCompleted);
-  const completedTasks = tasks.filter((task: any) => task.isCompleted);
+  const pendingTasks = tasks.filter((task: { isCompleted: boolean }) => !task.isCompleted);
+  const completedTasks = tasks.filter((task: { isCompleted: boolean }) => task.isCompleted);
 
   const handleStartPomodoro = (taskId: string) => {
     startPomodoro(taskId);
@@ -66,7 +66,7 @@ export default function TasksCard() {
               </Text>
             ) : (
               <VStack spacing={2} align="stretch">
-                {pendingTasks.slice(0, 3).map((task: any) => (
+                {pendingTasks.slice(0, 3).map((task: { id: string; title: string; isCompleted: boolean }) => (
                   <HStack
                     key={task.id}
                     p={2}
