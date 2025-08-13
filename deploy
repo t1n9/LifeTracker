@@ -6,7 +6,7 @@
 set -e
 
 # 默认配置
-DEFAULT_CONFIG="deploy.config.sh"
+DEFAULT_CONFIG="scripts/deployment/deploy.config.sh"
 CONFIG_FILE=""
 
 # 解析命令行参数

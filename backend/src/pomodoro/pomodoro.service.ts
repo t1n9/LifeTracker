@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StartPomodoroDto } from '../study/dto/create-study.dto';
+import { formatDateString, parseDateString } from '../common/utils/date.util';
 
 interface ActiveSession {
   id: string;
@@ -229,6 +230,8 @@ export class PomodoroService {
   // 创建学习记录（正计时完成时）
   private async createStudyRecord(session: ActiveSession, durationMinutes: number) {
     try {
+      const completedAt = new Date();
+
       // 创建学习记录
       const studyRecord = await this.prisma.studyRecord.create({
         data: {
@@ -237,12 +240,15 @@ export class PomodoroService {
           duration: durationMinutes,
           notes: `正计时专注 ${durationMinutes} 分钟`,
           startedAt: session.startedAt,
-          completedAt: new Date(),
+          completedAt,
           taskId: session.taskId,
         },
       });
 
       console.log(`📚 创建学习记录: ${durationMinutes}分钟`);
+
+      // 更新每日数据汇总（正计时完成，增加番茄数量）
+      await this.updateDailyData(session.userId, completedAt, durationMinutes, true);
 
       // 番茄数量通过统计pomodoroSessions动态计算，无需手动更新
       if (session.taskId) {
@@ -476,6 +482,7 @@ export class PomodoroService {
     });
 
     // 创建学习记录
+    const completedAt = new Date();
     await this.prisma.studyRecord.create({
       data: {
         userId: session.userId,
@@ -483,14 +490,57 @@ export class PomodoroService {
         duration: session.duration,
         subject: '番茄时钟',
         startedAt: session.startedAt,
-        completedAt: new Date(),
+        completedAt,
       },
     });
+
+    // 更新每日数据汇总（倒计时完成，增加番茄数量）
+    await this.updateDailyData(session.userId, completedAt, session.duration, true);
 
     // 移除活跃会话
     this.activeSessions.delete(sessionId);
 
     console.log(`🍅 番茄钟完成: ${sessionId}, 用户: ${session.userId}, 时长: ${session.duration}分钟`);
+  }
+
+  // 更新每日数据汇总
+  private async updateDailyData(userId: string, completedAt: Date, duration: number, incrementPomodoro: boolean = false) {
+    // 获取完成时间对应的日期
+    const dateStr = formatDateString(completedAt);
+    const date = parseDateString(dateStr);
+
+    // 准备更新数据
+    const updateData: any = {
+      totalMinutes: {
+        increment: duration,
+      },
+    };
+
+    // 如果需要增加番茄数量
+    if (incrementPomodoro) {
+      updateData.pomodoroCount = {
+        increment: 1,
+      };
+    }
+
+    // 更新或创建每日数据
+    await this.prisma.dailyData.upsert({
+      where: {
+        userId_date: {
+          userId,
+          date,
+        },
+      },
+      update: updateData,
+      create: {
+        userId,
+        date,
+        totalMinutes: duration,
+        pomodoroCount: incrementPomodoro ? 1 : 0,
+      },
+    });
+
+    console.log(`📊 更新每日数据: 用户${userId}, 日期${dateStr}, 增加${duration}分钟${incrementPomodoro ? ', 增加1个番茄' : ''}`);
   }
 
   // 健康检查

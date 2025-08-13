@@ -6,16 +6,15 @@ import Dashboard from '@/components/Dashboard';
 import LoginForm from '@/components/auth/LoginForm';
 
 export default function Home() {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, setToken } = useAuthStore();
 
   useEffect(() => {
     // 检查本地存储的token
     const token = localStorage.getItem('token');
     if (token && !isAuthenticated) {
-      // 这里可以验证token的有效性
-      // 暂时直接跳转到仪表板
+      setToken(token);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, setToken]);
 
   if (isLoading) {
     return (

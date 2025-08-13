@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { exerciseAPI } from '@/lib/api';
+import { exerciseAPI, userAPI } from '@/lib/api';
 
 interface ExerciseType {
   id: string;
@@ -28,6 +28,7 @@ interface ExerciseStatsProps {
 const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
   const [exerciseTypes, setExerciseTypes] = useState<ExerciseType[]>([]);
   const [todayRecords, setTodayRecords] = useState<TodayRecord[]>([]);
+  const [exerciseConfig, setExerciseConfig] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
   const [distanceValues, setDistanceValues] = useState<Record<string, number>>({});
@@ -37,19 +38,22 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [typesResponse, recordsResponse, feelingResponse] = await Promise.all([
+      const [typesResponse, recordsResponse, feelingResponse, configResponse] = await Promise.all([
         exerciseAPI.getExerciseTypes(),
         exerciseAPI.getTodayRecords(),
         exerciseAPI.getExerciseFeeling(),
+        userAPI.getExerciseConfig(),
       ]);
 
       const types = typesResponse.data.data || [];
       const records = recordsResponse.data.data || [];
       const feeling = feelingResponse.data.data?.feeling || '';
+      const config = configResponse.data || {};
 
       setExerciseTypes(types);
       setTodayRecords(records);
       setExerciseFeeling(feeling);
+      setExerciseConfig(config);
 
       // 初始化里程型运动的输入框值
       const initialDistanceValues: Record<string, number> = {};
@@ -206,9 +210,28 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
     loadData();
   }, []);
 
-  // 按类型分组运动
-  const countExercises = exerciseTypes.filter(e => e.type === 'COUNT');
-  const distanceExercises = exerciseTypes.filter(e => e.type === 'DISTANCE');
+  // 根据用户配置过滤运动类型
+  const getExerciseNameKey = (name: string) => {
+    const nameMap: Record<string, string> = {
+      '单杠': 'showPullUps',
+      '深蹲': 'showSquats',
+      '俯卧撑': 'showPushUps',
+      '跑步': 'showRunning',
+      '游泳': 'showSwimming',
+      '骑行': 'showCycling'
+    };
+    return nameMap[name];
+  };
+
+  const isExerciseVisible = (exercise: ExerciseType) => {
+    if (!exerciseConfig) return true; // 配置未加载时显示所有
+    const configKey = getExerciseNameKey(exercise.name);
+    return configKey ? exerciseConfig[configKey] : true;
+  };
+
+  // 按类型分组运动并根据配置过滤
+  const countExercises = exerciseTypes.filter(e => e.type === 'COUNT' && isExerciseVisible(e));
+  const distanceExercises = exerciseTypes.filter(e => e.type === 'DISTANCE' && isExerciseVisible(e));
 
   return (
     <div className="card">

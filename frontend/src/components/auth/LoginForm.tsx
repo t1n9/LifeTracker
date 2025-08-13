@@ -26,8 +26,8 @@ export default function LoginForm() {
         password: formData.password,
       });
 
-      login(response.data.user, response.data.accessToken);
-      console.log('登录成功:', response.data.user.name || response.data.user.email);
+      login(response.data.accessToken);
+      console.log('登录成功');
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
       console.error('登录失败', err.response?.data?.message || err.message);

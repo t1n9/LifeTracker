@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { userAPI, studyAPI, taskAPI, api } from '@/lib/api';
 import HistoryViewer from './HistoryViewer';
@@ -10,6 +11,7 @@ import ImportantInfo from './ImportantInfo';
 import ExerciseStats from './ExerciseStats';
 import ExpenseStats from './ExpenseStats';
 import ChangePasswordForm from './auth/ChangePasswordForm';
+
 
 // CSS变量样式
 const cssVariables = `
@@ -1395,11 +1397,14 @@ const cssVariables = `
 `;
 
 export default function Dashboard() {
-  const { user, logout, updateTheme } = useAuthStore();
+  const router = useRouter();
+  const { logout } = useAuthStore();
+  const [user, setUser] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [theme, setTheme] = useState<'dark' | 'light'>('light'); // 默认浅色，等用户数据加载后再设置
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+
   const [tasks, setTasks] = useState<Array<{
     id: string,
     title: string,
@@ -1422,6 +1427,16 @@ export default function Dashboard() {
   const [lastAddedMinutes, setLastAddedMinutes] = useState(0);
   const [lastAddedRecordId, setLastAddedRecordId] = useState<string | null>(null);
 
+  // 加载用户数据
+  const loadUserData = async () => {
+    try {
+      const response = await userAPI.getProfile();
+      setUser(response.data);
+    } catch (error) {
+      console.error('加载用户数据失败:', error);
+    }
+  };
+
   // 主题切换处理
   const handleThemeToggle = async () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
@@ -1430,8 +1445,6 @@ export default function Dashboard() {
     try {
       // 同步到后端
       await userAPI.updateTheme(newTheme);
-      // 更新本地store
-      updateTheme(newTheme);
       console.log(`🎨 主题已切换为: ${newTheme}`);
     } catch (error) {
       console.error('主题更新失败:', error);
@@ -1526,11 +1539,10 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (user) {
-      loadTodayStats();
-      loadTasks();
-    }
-  }, [user]);
+    loadUserData();
+    loadTodayStats();
+    loadTasks();
+  }, []);
 
   // 实时时间更新
   useEffect(() => {
@@ -1716,7 +1728,14 @@ export default function Dashboard() {
             
             {/* 用户信息和退出按钮 */}
             <div className="flex justify-center items-center gap-4" style={{ marginTop: '1rem' }}>
-              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <span
+                className="text-sm"
+                style={{
+                  color: 'var(--text-secondary)',
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: '4px'
+                }}
+              >
                 欢迎，{user?.name || user?.email}
               </span>
               <button onClick={handleLogout} className="btn btn-secondary btn-sm">
@@ -2002,7 +2021,7 @@ export default function Dashboard() {
                   if (item.action === 'history') {
                     setIsHistoryOpen(true);
                   } else if (item.action === 'settings') {
-                    setIsChangePasswordOpen(true);
+                    router.push('/profile');
                   } else {
                     // 其他功能按钮的处理逻辑
                     console.log(`点击了${item.action}`);
@@ -2062,6 +2081,7 @@ export default function Dashboard() {
           }}
         />
       )}
+
     </div>
   );
 }

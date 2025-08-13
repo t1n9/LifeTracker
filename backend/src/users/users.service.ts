@@ -63,6 +63,27 @@ export class UsersService {
     });
   }
 
+  // 获取用户运动配置
+  async getExerciseConfig(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        showPullUps: true,
+        showSquats: true,
+        showPushUps: true,
+        showRunning: true,
+        showSwimming: true,
+        showCycling: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error('用户不存在');
+    }
+
+    return user;
+  }
+
   // 获取用户统计信息
   async getUserStats(userId: string) {
     const [

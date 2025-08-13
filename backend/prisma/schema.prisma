@@ -1,6 +1,3 @@
-// 重新设计的数据库模式 - 更健壮、更灵活
-// 解决数据冗余、查询效率和扩展性问题
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,80 +8,76 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  passwordHash  String   @map("password_hash")
-  name          String?
-  targetName    String?  @map("target_name") // 雅思
-  targetDate    DateTime? @map("target_date") @db.Timestamptz // 考试日期
-  examDate      DateTime? @map("exam_date") @db.Timestamptz // 考研日期
-  timezone      String   @default("Asia/Shanghai")
-  theme         String   @default("dark")
-  isActive      Boolean  @default(true) @map("is_active")
-  emailVerified Boolean  @default(false) @map("email_verified")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
-
-  // Relations
-  tasks                 Task[]
-  studyRecords          StudyRecord[]
-  pomodoroSessions      PomodoroSession[]
-  countdowns            Countdown[]
-  userSettings          UserSettings?
-  dailyData             DailyData[]
-  exerciseRecords       ExerciseRecord[] @relation("UserExerciseRecords")
-  exerciseTypes         ExerciseType[]   @relation("UserExerciseTypes")
-  expenseRecords        ExpenseRecord[]  @relation("UserExpenseRecords")
-  healthRecords         HealthRecord[]
-  importantInfos        ImportantInfo[]
+  id               String            @id @default(uuid())
+  email            String            @unique
+  passwordHash     String            @map("password_hash")
+  name             String?
+  targetName       String?           @map("target_name")
+  targetDate       DateTime?         @map("target_date") @db.Timestamptz(6)
+  examDate         DateTime?         @map("exam_date") @db.Timestamptz(6)
+  timezone         String            @default("Asia/Shanghai")
+  theme            String            @default("dark")
+  isActive         Boolean           @default(true) @map("is_active")
+  emailVerified    Boolean           @default(false) @map("email_verified")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  showPullUps      Boolean?          @default(true) @map("show_pull_ups")
+  showSquats       Boolean?          @default(true) @map("show_squats")
+  showPushUps      Boolean?          @default(true) @map("show_push_ups")
+  showRunning      Boolean?          @default(true) @map("show_running")
+  showSwimming     Boolean?          @default(false) @map("show_swimming")
+  showCycling      Boolean?          @default(false) @map("show_cycling")
+  countdowns       Countdown[]
+  dailyData        DailyData[]
+  exerciseRecords  ExerciseRecord[]  @relation("UserExerciseRecords")
+  exerciseTypes    ExerciseType[]    @relation("UserExerciseTypes")
+  expenseRecords   ExpenseRecord[]   @relation("UserExpenseRecords")
+  healthRecords    HealthRecord[]
+  importantInfos   ImportantInfo[]
+  pomodoroSessions PomodoroSession[]
+  studyRecords     StudyRecord[]
+  tasks            Task[]
+  userSettings     UserSettings?
 
   @@map("users")
 }
 
 model UserSettings {
-  id                    String  @id @default(uuid())
-  userId                String  @unique @map("user_id")
-  pomodoroWorkDuration  Int     @default(25) @map("pomodoro_work_duration") // minutes
-  pomodoroBreakDuration Int     @default(5) @map("pomodoro_break_duration") // minutes
-  pomodoroLongBreak     Int     @default(15) @map("pomodoro_long_break") // minutes
-  pomodoroSoundEnabled  Boolean @default(true) @map("pomodoro_sound_enabled")
-  notificationsEnabled  Boolean @default(true) @map("notifications_enabled")
-  dailyGoalHours        Float   @default(8.0) @map("daily_goal_hours")
-  weeklyGoalHours       Float   @default(40.0) @map("weekly_goal_hours")
-
-  // 学科配置
-  studySubjects         Json    @default("{}") @map("study_subjects")
-  exerciseTypes         Json    @default("{}") @map("exercise_types")
-  expenseCategories     Json    @default("{}") @map("expense_categories")
-  themeConfig           Json    @default("{}") @map("theme_config")
-
-  // 当前重要信息ID
+  id                     String  @id @default(uuid())
+  userId                 String  @unique @map("user_id")
+  pomodoroWorkDuration   Int     @default(25) @map("pomodoro_work_duration")
+  pomodoroBreakDuration  Int     @default(5) @map("pomodoro_break_duration")
+  pomodoroLongBreak      Int     @default(15) @map("pomodoro_long_break")
+  pomodoroSoundEnabled   Boolean @default(true) @map("pomodoro_sound_enabled")
+  notificationsEnabled   Boolean @default(true) @map("notifications_enabled")
+  dailyGoalHours         Float   @default(8.0) @map("daily_goal_hours")
+  weeklyGoalHours        Float   @default(40.0) @map("weekly_goal_hours")
+  studySubjects          Json    @default("{}") @map("study_subjects")
+  exerciseTypes          Json    @default("{}") @map("exercise_types")
+  expenseCategories      Json    @default("{}") @map("expense_categories")
+  themeConfig            Json    @default("{}") @map("theme_config")
   currentImportantInfoId String? @map("current_important_info_id")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_settings")
 }
 
 model Task {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id")
-  title       String
-  description String?   @db.Text
-  subject     String?
-  priority    Int       @default(0)
-  isCompleted Boolean   @default(false) @map("is_completed")
-  dueDate     DateTime? @map("due_date") @db.Timestamptz
-  estimatedHours Float? @map("estimated_hours")
-  actualHours    Float? @map("actual_hours")
-
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
-
-  // Relations
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  studyRecords     StudyRecord[]
+  id               String            @id @default(uuid())
+  userId           String            @map("user_id")
+  title            String
+  description      String?
+  subject          String?
+  priority         Int               @default(0)
+  isCompleted      Boolean           @default(false) @map("is_completed")
+  dueDate          DateTime?         @map("due_date") @db.Timestamptz(6)
+  estimatedHours   Float?            @map("estimated_hours")
+  actualHours      Float?            @map("actual_hours")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
   pomodoroSessions PomodoroSession[]
+  studyRecords     StudyRecord[]
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("tasks")
 }
@@ -93,108 +86,96 @@ model StudyRecord {
   id          String    @id @default(uuid())
   userId      String    @map("user_id")
   taskId      String?   @map("task_id")
-  duration    Int       // minutes
+  duration    Int
   subject     String?
-  notes       String?   @db.Text
-  startedAt   DateTime  @map("started_at") @db.Timestamptz
-  completedAt DateTime? @map("completed_at") @db.Timestamptz
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
-
-  // Relations
-  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  notes       String?
+  startedAt   DateTime  @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  task        Task?     @relation(fields: [taskId], references: [id])
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("study_records")
 }
 
 model PomodoroSession {
-  id             String            @id @default(uuid())
-  userId         String            @map("user_id")
-  taskId         String?           @map("task_id")
-  duration       Int               // minutes (planned duration)
-  actualDuration Int?              @map("actual_duration") // minutes (actual duration for count-up mode)
+  id             String         @id @default(uuid())
+  userId         String         @map("user_id")
+  taskId         String?        @map("task_id")
+  duration       Int
+  actualDuration Int?           @map("actual_duration")
   status         PomodoroStatus
-  type           PomodoroType      @default(WORK)
-  isCountUpMode  Boolean           @default(false) @map("is_count_up_mode") // 是否为正计时模式
-  countUpTime    Int?              @default(0) @map("count_up_time") // 正计时已用时间（秒）
-  startedAt      DateTime          @map("started_at") @db.Timestamptz
-  completedAt    DateTime?         @map("completed_at") @db.Timestamptz
-  pausedAt       DateTime?         @map("paused_at") @db.Timestamptz
-  resumedAt      DateTime?         @map("resumed_at") @db.Timestamptz
-  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
-
-  // Relations
-  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  type           PomodoroType   @default(WORK)
+  startedAt      DateTime       @map("started_at") @db.Timestamptz(6)
+  completedAt    DateTime?      @map("completed_at") @db.Timestamptz(6)
+  pausedAt       DateTime?      @map("paused_at") @db.Timestamptz(6)
+  resumedAt      DateTime?      @map("resumed_at") @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  countUpTime    Int?           @default(0) @map("count_up_time")
+  isCountUpMode  Boolean        @default(false) @map("is_count_up_mode")
+  task           Task?          @relation(fields: [taskId], references: [id])
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("pomodoro_sessions")
 }
 
 model Countdown {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id")
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
   title       String
-  description String?   @db.Text
-  targetDate  DateTime  @map("target_date") @db.Timestamptz
-  isActive    Boolean   @default(true) @map("is_active")
-  color       String    @default("#3182CE")
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  description String?
+  targetDate  DateTime @map("target_date") @db.Timestamptz(6)
+  isActive    Boolean  @default(true) @map("is_active")
+  color       String   @default("#3182CE")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("countdowns")
 }
 
-// 每日数据汇总表
 model DailyData {
-  id               String    @id @default(uuid())
-  userId           String    @map("user_id")
-  date             DateTime  @db.Date
-  totalMinutes     Int       @default(0) @map("total_minutes")
-  pomodoroCount    Int       @default(0) @map("pomodoro_count")
-  dayStart         String?   @db.Text @map("day_start")
-  dayReflection    String?   @db.Text @map("day_reflection")
-  reflectionTime   String?   @map("reflection_time")
-  focusMode        Boolean   @default(false) @map("focus_mode")
-  focusQuoteIndex  Int       @default(0) @map("focus_quote_index")
-  exerciseFeeling  String?   @map("exercise_feeling")
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  date            DateTime @db.Date
+  totalMinutes    Int      @default(0) @map("total_minutes")
+  pomodoroCount   Int      @default(0) @map("pomodoro_count")
+  dayStart        String?  @map("day_start")
+  dayReflection   String?  @map("day_reflection")
+  reflectionTime  String?  @map("reflection_time")
+  focusMode       Boolean  @default(false) @map("focus_mode")
+  focusQuoteIndex Int      @default(0) @map("focus_quote_index")
+  exerciseFeeling String?  @map("exercise_feeling")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
   @@map("daily_data")
 }
 
-// 重要信息表
 model ImportantInfo {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
-  content   String   @db.Text
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("important_info")
 }
 
-// 运动记录表
 model ExerciseRecord {
-  id          String      @id @default(uuid())
-  userId      String      @map("user_id")
-  exerciseId  String      @map("exercise_id")
-  date        DateTime    @db.Date
-  value       Float       // 数量或距离
-  unit        String      // 单位：次、公里等
-  notes       String?     @db.Text
-  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
-
-  user        User        @relation("UserExerciseRecords", fields: [userId], references: [id], onDelete: Cascade)
-  exercise    ExerciseType @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  id         String       @id @default(uuid())
+  userId     String       @map("user_id")
+  exerciseId String       @map("exercise_id")
+  date       DateTime     @db.Date
+  value      Float
+  unit       String
+  notes      String?
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  exercise   ExerciseType @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  user       User         @relation("UserExerciseRecords", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, exerciseId, date])
   @@index([userId, date])
@@ -202,91 +183,81 @@ model ExerciseRecord {
   @@map("exercise_records")
 }
 
-// 运动类型表
 model ExerciseType {
-  id          String   @id @default(uuid())
-  userId      String   @map("user_id")
-  name        String   // 运动名称：单杠、跑步等
-  type        ExerciseTypeEnum // COUNT 或 DISTANCE
-  unit        String   // 单位：次、公里等
-  increment   Float?   // 计数型运动的增量
-  icon        String?  // 图标
-  color       String?  // 颜色
-  isActive    Boolean  @default(true) @map("is_active")
-  sortOrder   Int      @default(0) @map("sort_order")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
-
-  user        User     @relation("UserExerciseTypes", fields: [userId], references: [id], onDelete: Cascade)
-  records     ExerciseRecord[]
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  name      String
+  type      ExerciseTypeEnum
+  unit      String
+  increment Float?
+  icon      String?
+  color     String?
+  isActive  Boolean          @default(true) @map("is_active")
+  sortOrder Int              @default(0) @map("sort_order")
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  records   ExerciseRecord[]
+  user      User             @relation("UserExerciseTypes", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, name])
   @@map("exercise_types")
 }
 
-enum ExerciseTypeEnum {
-  COUNT    // 计数型：单杠、深蹲、俯卧撑
-  DISTANCE // 里程型：跑步、骑行、游泳
-}
-
-// 迁移日志表
 model MigrationLog {
   id            String   @id @default(uuid())
   migrationName String   @map("migration_name")
-  status        String   // started, completed, failed
-  details       String?  @db.Text
-  createdAt     DateTime @map("created_at") @db.Timestamptz
+  status        String
+  details       String?
+  createdAt     DateTime @map("created_at") @db.Timestamptz(6)
 
   @@map("migration_logs")
 }
 
-// 消费记录表 - 统一的消费数据存储
 model ExpenseRecord {
-  id          String      @id @default(uuid())
-  userId      String      @map("user_id")
-  date        DateTime    @db.Date
+  id          String          @id @default(uuid())
+  userId      String          @map("user_id")
+  date        DateTime        @db.Date
   type        ExpenseTypeEnum
-  category    String      // 餐饮类别(breakfast/lunch/dinner)或其他消费类别
-  amount      Float       // 金额
-  description String?     @db.Text // 描述（其他消费的项目名称）
-  time        String?     // 消费时间 HH:mm
-  notes       String?     @db.Text
-  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  category    String
+  amount      Float
+  description String?
+  time        String?
+  notes       String?
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user        User            @relation("UserExpenseRecords", fields: [userId], references: [id], onDelete: Cascade)
 
-  user        User        @relation("UserExpenseRecords", fields: [userId], references: [id], onDelete: Cascade)
-
-  // 优化查询性能的索引
   @@index([userId, date])
   @@index([userId, type])
   @@index([userId, date, type])
   @@map("expense_records")
 }
 
-enum ExpenseTypeEnum {
-  MEAL  // 餐饮：早餐、午餐、晚餐
-  OTHER // 其他消费
-}
-
-
-
-// 健康记录表
 model HealthRecord {
   id           String   @id @default(uuid())
   userId       String   @map("user_id")
   date         DateTime @db.Date
   weight       Float?
   sleepHours   Float?   @map("sleep_hours")
-  sleepQuality Int?     @map("sleep_quality") // 1-5
-  phoneUsage   Float?   @map("phone_usage") // hours
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sleepQuality Int?     @map("sleep_quality")
+  phoneUsage   Float?   @map("phone_usage")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
   @@index([userId, date])
   @@map("health_records")
+}
+
+enum ExerciseTypeEnum {
+  COUNT
+  DISTANCE
+}
+
+enum ExpenseTypeEnum {
+  MEAL
+  OTHER
 }
 
 enum PomodoroStatus {
@@ -302,5 +273,3 @@ enum PomodoroType {
   SHORT_BREAK
   LONG_BREAK
 }
-
-

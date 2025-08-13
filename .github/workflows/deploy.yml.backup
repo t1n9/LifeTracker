@@ -123,28 +123,28 @@ jobs:
 
           # 尝试多种部署方案（从最简单到最复杂）
           echo "🚀 尝试最小化部署..."
-          chmod +x scripts/deployment/deploy-minimal.sh
-          if ./scripts/deployment/deploy-minimal.sh; then
+          chmod +x deploy-minimal.sh
+          if ./deploy-minimal.sh; then
             echo "✅ 最小化部署成功"
           else
             echo "⚠️ 最小化部署失败，尝试简化原生部署..."
-            chmod +x scripts/deployment/deploy-simple-native.sh
-            if ./scripts/deployment/deploy-simple-native.sh; then
+            chmod +x deploy-simple-native.sh
+            if ./deploy-simple-native.sh; then
               echo "✅ 简化原生部署成功"
             else
               echo "⚠️ 简化部署失败，尝试完整原生部署..."
-              chmod +x scripts/deployment/deploy-native.sh
-              if ./scripts/deployment/deploy-native.sh; then
+              chmod +x deploy-native.sh
+              if ./deploy-native.sh; then
                 echo "✅ 完整原生部署成功"
               else
                 echo "⚠️ 原生部署失败，尝试修复Nginx..."
-                chmod +x scripts/maintenance/fix-nginx.sh
-                if ./scripts/maintenance/fix-nginx.sh ${{ secrets.DOMAIN_NAME }}; then
+                chmod +x fix-nginx.sh
+                if ./fix-nginx.sh ${{ secrets.DOMAIN_NAME }}; then
                   echo "✅ Nginx修复成功"
                 else
                   echo "⚠️ Nginx修复失败，尝试Docker部署..."
-                  chmod +x scripts/deployment/deploy-prod.sh
-                  ./scripts/deployment/deploy-prod.sh
+                  chmod +x deploy-prod.sh
+                  ./deploy-prod.sh
                 fi
               fi
             fi
@@ -165,7 +165,7 @@ jobs:
             echo "✅ 部署成功！HTTP服务正常运行"
           else
             echo "⚠️ API健康检查失败，尝试修复403错误..."
-            ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /opt/lifetracker/current && chmod +x scripts/maintenance/fix-403.sh && ./scripts/maintenance/fix-403.sh"
+            ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /opt/lifetracker/current && chmod +x fix-403.sh && ./fix-403.sh"
 
             # 再次检查
             sleep 10

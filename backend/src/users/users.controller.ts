@@ -26,6 +26,13 @@ export class UsersController {
       theme: user.theme,
       createdAt: user.createdAt,
       userSettings: user.userSettings,
+      // 运动配置
+      showPullUps: user.showPullUps,
+      showSquats: user.showSquats,
+      showPushUps: user.showPushUps,
+      showRunning: user.showRunning,
+      showSwimming: user.showSwimming,
+      showCycling: user.showCycling,
     };
   }
 
@@ -33,6 +40,12 @@ export class UsersController {
   @ApiOperation({ summary: '更新用户资料' })
   async updateProfile(@Request() req, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(req.user.id, updateUserDto);
+  }
+
+  @Get('exercise-config')
+  @ApiOperation({ summary: '获取运动配置' })
+  async getExerciseConfig(@Request() req) {
+    return this.usersService.getExerciseConfig(req.user.id);
   }
 
   @Get('stats')

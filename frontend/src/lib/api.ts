@@ -101,6 +101,7 @@ export const userAPI = {
   updateProfile: (data: Record<string, unknown>) => api.patch('/users/profile', data),
   getStats: () => api.get('/users/stats'),
   updateTheme: (theme: string) => api.patch('/users/theme', { theme }),
+  getExerciseConfig: () => api.get('/users/exercise-config'),
 };
 
 export const taskAPI = {

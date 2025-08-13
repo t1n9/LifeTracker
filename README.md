@@ -17,6 +17,7 @@
 ## ✨ 功能特性
 
 ### 🎯 核心功能
+
 - **📅 倒计时功能**: 考研日期倒计时，自定义重要日期提醒
 - **🍅 番茄钟**: 可配置的专注时间管理工具
 - **📚 学习记录**: 任务管理、学习时长统计、进度追踪
@@ -26,6 +27,7 @@
 - **🔐 用户系统**: 安全的用户认证和数据隔离
 
 ### 🛠️ 技术特性
+
 - **📱 响应式设计**: 支持桌面和移动设备
 - **🐳 Docker 部署**: 一键部署，环境隔离
 - **🔄 自动部署**: GitHub Actions CI/CD
@@ -35,6 +37,7 @@
 ## 🛠️ 技术栈
 
 ### 前端
+
 - **框架**: Next.js 14 + TypeScript
 - **UI库**: Chakra UI
 - **状态管理**: Zustand
@@ -42,6 +45,7 @@
 - **图表**: Recharts
 
 ### 后端
+
 - **框架**: NestJS + TypeScript
 - **数据库**: MySQL + Prisma ORM
 - **缓存**: Redis
@@ -49,6 +53,7 @@
 - **API文档**: Swagger
 
 ### DevOps
+
 - **容器化**: Docker + Docker Compose
 - **CI/CD**: GitHub Actions
 - **代码质量**: ESLint + Prettier
@@ -66,12 +71,13 @@
 ### ⚡ 一键部署
 
 1. **克隆项目**
+
    ```bash
    git clone https://github.com/your-username/LifeTracker.git
    cd LifeTracker
    ```
-
 2. **配置部署参数**
+
    ```bash
    # 复制配置文件模板
    cp deploy.config.example.sh deploy.config.sh
@@ -79,8 +85,8 @@
    # 编辑配置文件
    nano deploy.config.sh
    ```
-
 3. **执行部署**
+
    ```bash
    # 一键部署
    chmod +x deploy.sh
@@ -106,11 +112,13 @@ docker-compose logs -f
 ## 📦 本地开发
 
 ### 环境要求
+
 - Node.js >= 18.0.0
 - npm >= 9.0.0
 - Docker & Docker Compose (可选)
 
 ### 安装依赖
+
 ```bash
 # 安装根目录依赖
 npm install
@@ -120,6 +128,7 @@ npm run setup
 ```
 
 ### 环境配置
+
 ```bash
 # 复制环境变量模板
 cp backend/.env.example backend/.env
@@ -130,6 +139,7 @@ cp frontend/.env.example frontend/.env
 ```
 
 ### 启动开发服务器
+
 ```bash
 # 同时启动前后端开发服务器
 npm run dev
@@ -140,6 +150,7 @@ npm run dev:backend   # 后端: http://localhost:3001
 ```
 
 ### 使用Docker (推荐)
+
 ```bash
 # 构建并启动所有服务
 npm run docker:up
@@ -188,11 +199,13 @@ npm run format
 ## 🚀 部署
 
 ### 生产环境构建
+
 ```bash
 npm run build
 ```
 
 ### Docker部署
+
 ```bash
 # 生产环境部署
 docker-compose -f docker-compose.prod.yml up -d
@@ -224,18 +237,19 @@ docker-compose -f docker-compose.prod.yml up -d
 ### 生产环境部署
 
 1. **服务器要求**
+
    - Ubuntu 20.04+ / CentOS 8+
    - Docker & Docker Compose
    - 2GB+ RAM, 20GB+ 存储空间
    - 域名: t1n9.xyz (IP: 120.25.232.54)
-
 2. **自动部署**
+
    ```bash
    # 推送代码到GitHub主分支即可自动部署
    git push origin main
    ```
-
 3. **手动部署**
+
    ```bash
    # 一键部署脚本
    ./deploy.sh
@@ -265,7 +279,7 @@ docker-compose exec backend npx prisma db push
 
 ### 👤 默认账户
 
-- **邮箱**: 1378006836@qq.com
+- **邮箱**: 
 - **密码**: 123456
 
 > ⚠️ 请登录后立即修改密码
@@ -280,7 +294,3 @@ docker-compose exec backend npx prisma db push
 ## 🙏 致谢
 
 感谢所有为这个项目做出贡献的开发者！
-
----
-
-**粤ICP备2025456526号-1**
