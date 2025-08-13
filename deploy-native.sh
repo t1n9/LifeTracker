@@ -112,19 +112,88 @@ EOF
 # 启动后端服务
 sudo systemctl daemon-reload
 sudo systemctl enable lifetracker-backend
-sudo systemctl start lifetracker-backend
+
+if sudo systemctl start lifetracker-backend; then
+    echo "✅ 后端服务启动成功"
+    sleep 5
+    # 检查服务状态
+    if sudo systemctl is-active --quiet lifetracker-backend; then
+        echo "✅ 后端服务运行正常"
+    else
+        echo "❌ 后端服务启动后异常，查看日志："
+        sudo journalctl -u lifetracker-backend --no-pager -l
+        return 1
+    fi
+else
+    echo "❌ 后端服务启动失败，查看日志："
+    sudo journalctl -u lifetracker-backend --no-pager -l
+    return 1
+fi
 
 # 配置Nginx
 echo "🌐 配置Nginx..."
-sudo cp nginx/nginx.simple.conf /etc/nginx/nginx.conf
+
+# 创建Nginx配置，替换变量
+sed "s/\${DOMAIN_NAME}/${DOMAIN_NAME}/g" nginx/nginx.simple.conf > /tmp/nginx.conf
+sudo cp /tmp/nginx.conf /etc/nginx/nginx.conf
+
+# 测试Nginx配置
+if ! sudo nginx -t; then
+    echo "❌ Nginx配置测试失败，使用默认配置"
+    # 创建简单的默认配置
+    sudo tee /etc/nginx/nginx.conf > /dev/null <<EOF
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    upstream backend {
+        server localhost:3002;
+    }
+
+    server {
+        listen 80;
+        listen 443 ssl;
+        server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
+
+        ssl_certificate $(pwd)/nginx/ssl/cert.pem;
+        ssl_certificate_key $(pwd)/nginx/ssl/key.pem;
+
+        location /api/ {
+            proxy_pass http://backend/api/;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+        }
+
+        location / {
+            root /var/www/html;
+            index index.html;
+            try_files \$uri \$uri/ /index.html;
+        }
+    }
+}
+EOF
+fi
 
 # 复制前端文件到Nginx目录
 sudo rm -rf /var/www/html/*
-sudo cp -r frontend-dist/* /var/www/html/
+sudo mkdir -p /var/www/html
+sudo cp -r frontend-dist/* /var/www/html/ || echo "前端文件复制失败"
 
 # 启动Nginx
 sudo systemctl enable nginx
-sudo systemctl start nginx
+if sudo systemctl start nginx; then
+    echo "✅ Nginx启动成功"
+else
+    echo "❌ Nginx启动失败，查看错误日志："
+    sudo journalctl -u nginx --no-pager -l
+    return 1
+fi
 
 echo "✅ 原生部署完成！"
 echo "🌐 网站地址: https://${DOMAIN_NAME}"

@@ -54,6 +54,7 @@ jobs:
         cp -r nginx deploy-package/
         cp deploy-prod.sh deploy-package/ || echo "#!/bin/bash" > deploy-package/deploy-prod.sh
         cp deploy-native.sh deploy-package/
+        cp deploy-simple-native.sh deploy-package/
 
         # 创建压缩包
         tar -czf deploy-package.tar.gz deploy-package/
@@ -105,15 +106,21 @@ jobs:
           echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
           echo "NODE_ENV=production" >> .env
 
-          # 尝试原生部署（避免Docker网络问题）
-          echo "🚀 尝试原生部署..."
-          chmod +x deploy-native.sh
-          if ./deploy-native.sh; then
-            echo "✅ 原生部署成功"
+          # 尝试多种部署方案
+          echo "🚀 尝试简化原生部署..."
+          chmod +x deploy-simple-native.sh
+          if ./deploy-simple-native.sh; then
+            echo "✅ 简化原生部署成功"
           else
-            echo "⚠️ 原生部署失败，尝试Docker部署..."
-            chmod +x deploy-prod.sh
-            ./deploy-prod.sh
+            echo "⚠️ 简化部署失败，尝试完整原生部署..."
+            chmod +x deploy-native.sh
+            if ./deploy-native.sh; then
+              echo "✅ 完整原生部署成功"
+            else
+              echo "⚠️ 原生部署失败，尝试Docker部署..."
+              chmod +x deploy-prod.sh
+              ./deploy-prod.sh
+            fi
           fi
         EOF
 
