@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { getTodayStart, getDaysAgoStart, getTodayEnd } from '../common/utils/date.util';
+import { getTodayStart, getDaysAgoStart, getTodayEnd, getCurrentTimeString, getCurrentBeijingTime } from '../common/utils/date.util';
 
 // 定义枚举常量，避免运行时undefined问题
 const ExpenseTypeEnum = {
@@ -100,6 +100,9 @@ export class ExpenseService {
           type: ExpenseTypeEnum.MEAL,
           category: data.category,
           amount: difference,
+          time: getCurrentTimeString(), // 添加当前时间
+          createdAt: getCurrentBeijingTime(), // 使用北京时间
+          updatedAt: getCurrentBeijingTime(), // 使用北京时间
         },
       });
     }
@@ -124,6 +127,9 @@ export class ExpenseService {
         description: data.description,
         amount: data.amount,
         notes: data.notes,
+        time: getCurrentTimeString(), // 添加当前时间
+        createdAt: getCurrentBeijingTime(), // 使用北京时间
+        updatedAt: getCurrentBeijingTime(), // 使用北京时间
       },
     });
   }

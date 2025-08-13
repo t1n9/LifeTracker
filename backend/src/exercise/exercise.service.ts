@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { getTodayStart, getDaysAgoStart, getTodayEnd } from '../common/utils/date.util';
+import { getTodayStart, getDaysAgoStart, getTodayEnd, getCurrentBeijingTime } from '../common/utils/date.util';
 
 // 定义枚举常量，避免运行时undefined问题
 const ExerciseTypeEnum = {
@@ -142,6 +142,8 @@ export class ExerciseService {
         value: data.value,
         unit: exerciseType?.unit || '',
         notes: data.notes,
+        createdAt: getCurrentBeijingTime(), // 使用北京时间
+        updatedAt: getCurrentBeijingTime(), // 使用北京时间
       },
       include: {
         exercise: true,
@@ -189,6 +191,8 @@ export class ExerciseService {
           value: difference,
           unit: exerciseType.unit,
           notes: data.notes,
+          createdAt: getCurrentBeijingTime(), // 使用北京时间
+          updatedAt: getCurrentBeijingTime(), // 使用北京时间
         },
         include: {
           exercise: true,

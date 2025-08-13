@@ -71,15 +71,48 @@ else
     exit 1
 fi
 
-# 配置Nginx（使用超简化配置）
+# 配置Nginx（使用标准配置）
 echo "🌐 配置Nginx..."
 
-# 使用超简化Nginx配置
-if [ -f "nginx/nginx.ultra-simple.conf" ]; then
-    echo "使用超简化Nginx配置..."
-    sudo cp nginx/nginx.ultra-simple.conf /etc/nginx/nginx.conf
-    # 移除sites-enabled配置，使用主配置
-    sudo rm -f /etc/nginx/sites-enabled/*
+# 使用标准nginx配置而不是ultra-simple
+echo "使用标准Nginx配置..."
+
+# 恢复标准nginx.conf
+sudo tee /etc/nginx/nginx.conf > /dev/null <<EOF
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+    worker_connections 768;
+}
+
+http {
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    gzip on;
+
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}
+EOF
+
+# 移除旧的sites配置
+sudo rm -f /etc/nginx/sites-enabled/*
 else
     echo "创建简单的sites配置..."
 
@@ -163,6 +196,9 @@ server {
 }
 EOF
     fi
+
+# 启用站点配置
+sudo ln -sf /etc/nginx/sites-available/lifetracker /etc/nginx/sites-enabled/
 
 # 复制前端文件
 echo "📁 复制前端文件..."

@@ -5,35 +5,34 @@
 
 /**
  * 获取北京时间的今日开始时间 (00:00:00)
+ * 返回北京时间的今日开始，用于date字段
  */
 export function getTodayStart(): Date {
   const now = new Date();
-  // 转换为北京时间
-  const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-  beijingTime.setUTCHours(0, 0, 0, 0);
-  // 转换回 UTC 时间存储到数据库
-  return new Date(beijingTime.getTime() - (8 * 60 * 60 * 1000));
+  // 获取北京时间
+  const beijingTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
+  beijingTime.setHours(0, 0, 0, 0);
+  return beijingTime;
 }
 
 /**
  * 获取北京时间的今日结束时间 (23:59:59.999)
+ * 返回北京时间的今日结束，用于date字段
  */
 export function getTodayEnd(): Date {
   const now = new Date();
-  // 转换为北京时间
-  const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-  beijingTime.setUTCHours(23, 59, 59, 999);
-  // 转换回 UTC 时间存储到数据库
-  return new Date(beijingTime.getTime() - (8 * 60 * 60 * 1000));
+  // 获取北京时间
+  const beijingTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
+  beijingTime.setHours(23, 59, 59, 999);
+  return beijingTime;
 }
 
 /**
  * 获取北京时间的当前时间
  */
 export function getNowBeijing(): Date {
-  const now = new Date();
-  // 转换为北京时间
-  return new Date(now.getTime() + (8 * 60 * 60 * 1000));
+  // 获取北京时间
+  return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
 }
 
 /**
@@ -41,12 +40,11 @@ export function getNowBeijing(): Date {
  */
 export function getDaysAgoStart(days: number): Date {
   const now = new Date();
-  // 转换为北京时间
-  const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-  beijingTime.setUTCDate(beijingTime.getUTCDate() - days + 1);
-  beijingTime.setUTCHours(0, 0, 0, 0);
-  // 转换回 UTC 时间存储到数据库
-  return new Date(beijingTime.getTime() - (8 * 60 * 60 * 1000));
+  // 获取北京时间
+  const beijingTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
+  beijingTime.setDate(beijingTime.getDate() - days + 1);
+  beijingTime.setHours(0, 0, 0, 0);
+  return beijingTime;
 }
 
 /**
@@ -61,4 +59,19 @@ export function toBeijingTime(utcDate: Date): Date {
  */
 export function toUTCTime(beijingDate: Date): Date {
   return new Date(beijingDate.getTime() - (8 * 60 * 60 * 1000));
+}
+
+/**
+ * 获取当前北京时间的时间字符串 (HH:mm)
+ */
+export function getCurrentTimeString(): string {
+  const beijingTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
+  return beijingTime.toTimeString().slice(0, 5); // HH:mm
+}
+
+/**
+ * 获取当前北京时间，用于createdAt和updatedAt字段
+ */
+export function getCurrentBeijingTime(): Date {
+  return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
 }
