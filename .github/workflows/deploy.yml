@@ -59,6 +59,8 @@ jobs:
         cp docker-compose.prod.yml deploy-package/ || cp docker-compose.yml deploy-package/docker-compose.prod.yml
         cp docker-compose.simple.yml deploy-package/
         cp -r nginx deploy-package/
+        # 确保超简化配置存在
+        cp nginx/nginx.ultra-simple.conf deploy-package/nginx/
         cp deploy-prod.sh deploy-package/ || echo "#!/bin/bash" > deploy-package/deploy-prod.sh
         cp deploy-native.sh deploy-package/
         cp deploy-simple-native.sh deploy-package/

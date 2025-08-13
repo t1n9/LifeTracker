@@ -152,13 +152,12 @@ fi
 # 配置Nginx
 echo "🌐 配置Nginx..."
 
-# 创建Nginx配置，替换变量
-sed "s/\${DOMAIN_NAME}/${DOMAIN_NAME}/g" nginx/nginx.simple.conf > /tmp/nginx.conf
-sudo cp /tmp/nginx.conf /etc/nginx/nginx.conf
-
-# 测试Nginx配置
-if ! sudo nginx -t; then
-    echo "❌ Nginx配置测试失败，使用默认配置"
+# 使用超简化配置
+if [ -f "nginx/nginx.ultra-simple.conf" ]; then
+    echo "使用超简化Nginx配置..."
+    sudo cp nginx/nginx.ultra-simple.conf /etc/nginx/nginx.conf
+else
+    echo "❌ 未找到超简化配置，创建默认配置"
     # 创建简单的默认配置
     sudo tee /etc/nginx/nginx.conf > /dev/null <<EOF
 events {
@@ -169,20 +168,17 @@ http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
 
-    upstream backend {
-        server localhost:3002;
-    }
-
     server {
-        listen 80;
-        listen 443 ssl;
-        server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
+        listen 80 default_server;
+        listen 443 ssl default_server;
+        server_name _;
 
-        ssl_certificate $(pwd)/nginx/ssl/cert.pem;
-        ssl_certificate_key $(pwd)/nginx/ssl/key.pem;
+        ssl_certificate /opt/lifetracker/current/nginx/ssl/cert.pem;
+        ssl_certificate_key /opt/lifetracker/current/nginx/ssl/key.pem;
+        ssl_protocols TLSv1.2 TLSv1.3;
 
         location /api/ {
-            proxy_pass http://backend/api/;
+            proxy_pass http://127.0.0.1:3002/api/;
             proxy_set_header Host \$host;
             proxy_set_header X-Real-IP \$remote_addr;
             proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -197,6 +193,13 @@ http {
     }
 }
 EOF
+fi
+
+# 测试Nginx配置
+if ! sudo nginx -t; then
+    echo "❌ Nginx配置测试失败"
+    sudo nginx -t
+    return 1
 fi
 
 # 复制前端文件到Nginx目录

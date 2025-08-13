@@ -89,11 +89,18 @@ else
     exit 1
 fi
 
-# 配置Nginx（最简单的配置）
+# 配置Nginx（超简化配置）
 echo "🌐 配置Nginx..."
 
-# 创建最简单的Nginx配置
-sudo tee /etc/nginx/sites-available/lifetracker > /dev/null <<EOF
+# 使用超简化Nginx配置
+if [ -f "nginx/nginx.ultra-simple.conf" ]; then
+    echo "使用超简化Nginx配置..."
+    sudo cp nginx/nginx.ultra-simple.conf /etc/nginx/nginx.conf
+    # 移除sites-enabled配置，使用主配置
+    sudo rm -f /etc/nginx/sites-enabled/*
+else
+    echo "创建简单的sites配置..."
+    sudo tee /etc/nginx/sites-available/lifetracker > /dev/null <<EOF
 server {
     listen 80 default_server;
     listen 443 ssl default_server;
