@@ -22,9 +22,15 @@ echo "🔧 启动后端服务..."
 cd $(dirname $0)
 
 # 安装依赖
-if [ -f "backend-package.json" ]; then
-    cp backend-package.json package.json
+if [ -f "package.json" ] && [ -f "package-lock.json" ]; then
+    echo "📦 安装后端依赖..."
     npm ci --only=production
+elif [ -f "backend-package.json" ]; then
+    echo "📦 使用npm install安装依赖..."
+    cp backend-package.json package.json
+    npm install --only=production
+else
+    echo "⚠️ 未找到package.json，跳过依赖安装"
 fi
 
 # 设置环境变量并启动后端
