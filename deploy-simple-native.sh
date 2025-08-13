@@ -120,16 +120,7 @@ server {
     ssl_certificate $CERT_PATH;
     ssl_certificate_key $KEY_PATH;
     ssl_protocols TLSv1.2 TLSv1.3;
-EOF
-    else
-        echo "⚠️ 未找到Let's Encrypt证书，创建HTTP配置"
-        sudo tee /etc/nginx/sites-available/lifetracker > /dev/null <<EOF
-server {
-    listen 80;
-    server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
-EOF
-    fi
-    
+
     # API代理
     location /api/ {
         proxy_pass http://localhost:3002/api/;
@@ -138,7 +129,7 @@ EOF
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
-    
+
     # 静态文件
     location / {
         root /var/www/html;
@@ -147,6 +138,31 @@ EOF
     }
 }
 EOF
+    else
+        echo "⚠️ 未找到Let's Encrypt证书，创建HTTP配置"
+        sudo tee /etc/nginx/sites-available/lifetracker > /dev/null <<EOF
+server {
+    listen 80;
+    server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
+
+    # API代理
+    location /api/ {
+        proxy_pass http://localhost:3002/api/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    # 静态文件
+    location / {
+        root /var/www/html;
+        index index.html;
+        try_files \$uri \$uri/ /index.html;
+    }
+}
+EOF
+    fi
 
 # 复制前端文件
 echo "📁 复制前端文件..."
