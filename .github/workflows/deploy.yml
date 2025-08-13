@@ -157,7 +157,7 @@ jobs:
     - name: Verify deployment
       run: |
         # 等待服务完全启动
-        sleep 180
+        sleep 30
 
         # 检查服务是否正常（跳过SSL验证）
         if curl -f -k https://${{ secrets.DOMAIN_NAME }}/api/health; then

@@ -19,6 +19,7 @@ model User {
   theme            String            @default("dark")
   isActive         Boolean           @default(true) @map("is_active")
   emailVerified    Boolean           @default(false) @map("email_verified")
+  isAdmin          Boolean           @default(false) @map("is_admin")
   createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
   showPullUps      Boolean?          @default(true) @map("show_pull_ups")
@@ -272,4 +273,17 @@ enum PomodoroType {
   WORK
   SHORT_BREAK
   LONG_BREAK
+}
+
+// 系统配置表
+model SystemConfig {
+  id                    Int      @id @default(autoincrement())
+  key                   String   @unique
+  value                 String
+  description           String?
+  isPublic              Boolean  @default(false) @map("is_public") // 是否为公开配置
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("system_configs")
 }

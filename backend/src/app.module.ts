@@ -14,6 +14,7 @@ import { ImportantInfoModule } from './important-info/important-info.module';
 import { ExerciseModule } from './exercise/exercise.module';
 import { ExpenseModule } from './expense/expense.module';
 import { MigrationModule } from './migration/migration.module';
+import { SystemConfigModule } from './system-config/system-config.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TimeFormatInterceptor, TimeValidationInterceptor } from './common/interceptors/time-format.interceptor';
@@ -46,6 +47,7 @@ import { TimeFormatInterceptor, TimeValidationInterceptor } from './common/inter
     ExerciseModule,
     ExpenseModule,
     MigrationModule,
+    SystemConfigModule,
   ],
   controllers: [AppController],
   providers: [

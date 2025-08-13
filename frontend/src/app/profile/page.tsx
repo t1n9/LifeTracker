@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Save, Edit, Activity } from 'lucide-react';
+import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Save, Edit, Activity, Settings } from 'lucide-react';
 import { userAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import SystemConfigPanel from '@/components/admin/SystemConfigPanel';
 
 interface UserData {
   name: string;
@@ -12,6 +13,7 @@ interface UserData {
   targetName: string;
   targetDate: string;
   examDate: string;
+  isAdmin: boolean;
   // 运动配置
   showPullUps: boolean;
   showSquats: boolean;
@@ -30,7 +32,7 @@ interface PasswordData {
 export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, logout } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'exercise'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'exercise' | 'admin'>('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [error, setError] = useState('');
@@ -43,6 +45,7 @@ export default function ProfilePage() {
     targetName: '',
     targetDate: '',
     examDate: '',
+    isAdmin: false,
     // 运动配置默认值
     showPullUps: true,
     showSquats: true,
@@ -87,6 +90,7 @@ export default function ProfilePage() {
         targetName: user.targetName || '',
         targetDate: user.targetDate ? user.targetDate.split('T')[0] : '',
         examDate: user.examDate ? user.examDate.split('T')[0] : '',
+        isAdmin: user.isAdmin || false,
         // 运动配置
         showPullUps: user.showPullUps ?? true,
         showSquats: user.showSquats ?? true,
@@ -585,6 +589,15 @@ export default function ProfilePage() {
               <Lock size={18} />
               修改密码
             </button>
+            {userData.isAdmin && (
+              <button
+                className={`tab-button ${activeTab === 'admin' ? 'active' : ''}`}
+                onClick={() => setActiveTab('admin')}
+              >
+                <Settings size={18} />
+                系统配置
+              </button>
+            )}
           </div>
 
           {/* 错误和成功提示 */}
@@ -972,6 +985,11 @@ export default function ProfilePage() {
                 </button>
               </div>
             </form>
+          )}
+
+          {/* 系统配置标签页（仅管理员可见） */}
+          {activeTab === 'admin' && userData.isAdmin && (
+            <SystemConfigPanel />
           )}
         </div>
       </div>

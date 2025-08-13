@@ -24,6 +24,7 @@ export class UsersController {
       targetDate: user.targetDate,
       examDate: user.examDate,
       theme: user.theme,
+      isAdmin: user.isAdmin,
       createdAt: user.createdAt,
       userSettings: user.userSettings,
       // 运动配置

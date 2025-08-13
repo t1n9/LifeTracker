@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth';
-import { authAPI } from '@/lib/api';
+import { authAPI, systemConfigAPI } from '@/lib/api';
 
 export default function LoginForm() {
-  const [isLogin] = useState(true); // 固定为登录模式，不允许注册
+  const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -15,23 +16,48 @@ export default function LoginForm() {
 
   const { login } = useAuthStore();
 
+  // 获取系统配置
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const response = await systemConfigAPI.getPublicConfigs();
+        setRegistrationEnabled(response.data.registration_enabled === 'true');
+      } catch (error) {
+        console.error('获取系统配置失败:', error);
+        setRegistrationEnabled(false);
+      }
+    };
+    fetchConfig();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // 只支持登录
-      const response = await authAPI.login({
-        email: formData.email,
-        password: formData.password,
-      });
-
-      login(response.data.accessToken);
-      console.log('登录成功');
+      if (isLogin) {
+        // 登录
+        const response = await authAPI.login({
+          email: formData.email,
+          password: formData.password,
+        });
+        login(response.data.accessToken);
+        console.log('登录成功');
+      } else {
+        // 注册
+        const response = await authAPI.register({
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+        });
+        login(response.data.accessToken);
+        console.log('注册成功');
+      }
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
-      console.error('登录失败', err.response?.data?.message || err.message);
-      alert(err.response?.data?.message || '请检查您的登录信息');
+      const action = isLogin ? '登录' : '注册';
+      console.error(`${action}失败`, err.response?.data?.message || err.message);
+      alert(err.response?.data?.message || `${action}失败，请检查您的信息`);
     } finally {
       setIsLoading(false);
     }
@@ -203,12 +229,60 @@ export default function LoginForm() {
                 if (!isLoading) (e.target as HTMLButtonElement).style.backgroundColor = '#1e40af';
               }}
             >
-              {isLoading ? '登录中...' : '登录'}
+              {isLoading ? (isLogin ? '登录中...' : '注册中...') : (isLogin ? '登录' : '注册')}
             </button>
           </div>
         </form>
 
-        {/* 注册功能已关闭 */}
+        {/* 模式切换 */}
+        {registrationEnabled && (
+          <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+            <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+              {isLogin ? '还没有账号？' : '已有账号？'}
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsLogin(!isLogin)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#1e40af',
+                fontSize: '0.875rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                padding: '0.25rem 0.5rem',
+                borderRadius: '4px',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => {
+                (e.target as HTMLButtonElement).style.color = '#1d4ed8';
+                (e.target as HTMLButtonElement).style.backgroundColor = '#f1f5f9';
+              }}
+              onMouseOut={(e) => {
+                (e.target as HTMLButtonElement).style.color = '#1e40af';
+                (e.target as HTMLButtonElement).style.backgroundColor = 'transparent';
+              }}
+            >
+              {isLogin ? '立即注册' : '返回登录'}
+            </button>
+          </div>
+        )}
+
+        {!registrationEnabled && !isLogin && (
+          <div style={{
+            textAlign: 'center',
+            marginTop: '1rem',
+            padding: '1rem',
+            backgroundColor: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: '8px'
+          }}>
+            <p style={{ color: '#92400e', fontSize: '0.875rem', margin: 0 }}>
+              注册功能暂时关闭，请联系管理员
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ICP备案信息 */}

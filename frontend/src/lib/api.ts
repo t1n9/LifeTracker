@@ -210,3 +210,11 @@ export const expenseAPI = {
   deleteOtherExpense: (id: string) => api.delete(`/expense/others/${id}`),
   getExpenseStats: (days?: number) => api.get('/expense/stats', { params: { days } }),
 };
+
+// 系统配置API
+export const systemConfigAPI = {
+  getPublicConfigs: () => api.get('/system-config/public'),
+  getAllConfigs: () => api.get('/system-config'),
+  updateConfig: (key: string, data: { value: string; description?: string; isPublic?: boolean }) =>
+    api.put(`/system-config/${key}`, data),
+};
