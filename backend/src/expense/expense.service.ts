@@ -40,20 +40,23 @@ export class ExpenseService {
       createdAt: Date;
     }> = [];
 
+    // 为每种餐饮类型找到最新的记录（按更新时间排序）
+    const mealRecords = records.filter(r => r.type === ExpenseTypeEnum.MEAL);
+
+    // 获取每种餐饮的最新记录
+    ['breakfast', 'lunch', 'dinner'].forEach(category => {
+      const categoryRecords = mealRecords
+        .filter(r => r.category === category)
+        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+
+      if (categoryRecords.length > 0) {
+        mealExpenses[category as keyof typeof mealExpenses] = categoryRecords[0].amount;
+      }
+    });
+
+    // 其他消费记录保持不变
     records.forEach(record => {
-      if (record.type === ExpenseTypeEnum.MEAL) {
-        switch (record.category) {
-          case 'breakfast':
-            mealExpenses.breakfast += record.amount;
-            break;
-          case 'lunch':
-            mealExpenses.lunch += record.amount;
-            break;
-          case 'dinner':
-            mealExpenses.dinner += record.amount;
-            break;
-        }
-      } else if (record.type === ExpenseTypeEnum.OTHER) {
+      if (record.type === ExpenseTypeEnum.OTHER) {
         otherExpenses.push({
           id: record.id,
           description: record.description || '其他消费',
@@ -78,36 +81,47 @@ export class ExpenseService {
   }) {
     const today = getTodayStart();
 
-    // 获取今日该餐的现有记录
-    const existingRecords = await this.prisma.expenseRecord.findMany({
+    // 查找今日该餐的现有记录（只查找第一条主记录）
+    const existingRecord = await this.prisma.expenseRecord.findFirst({
       where: {
         userId,
         date: today,
         type: ExpenseTypeEnum.MEAL,
         category: data.category,
       },
+      orderBy: { createdAt: 'asc' }, // 获取最早的记录作为主记录
     });
 
-    const currentTotal = existingRecords.reduce((sum, record) => sum + record.amount, 0);
-    const difference = data.amount - currentTotal;
+    if (existingRecord) {
+      // 如果金额没有变化，不需要更新
+      if (existingRecord.amount === data.amount) {
+        return null;
+      }
 
-    if (difference !== 0) {
-      // 添加差值记录
+      // 直接更新现有记录
+      return this.prisma.expenseRecord.update({
+        where: { id: existingRecord.id },
+        data: {
+          amount: data.amount,
+          time: getCurrentTimeString(), // 更新时间
+          updatedAt: getCurrentBeijingTime(), // 使用北京时间
+        },
+      });
+    } else {
+      // 创建新记录
       return this.prisma.expenseRecord.create({
         data: {
           userId,
           date: today,
           type: ExpenseTypeEnum.MEAL,
           category: data.category,
-          amount: difference,
+          amount: data.amount,
           time: getCurrentTimeString(), // 添加当前时间
           createdAt: getCurrentBeijingTime(), // 使用北京时间
           updatedAt: getCurrentBeijingTime(), // 使用北京时间
         },
       });
     }
-
-    return null; // 没有变化
   }
 
   // 添加其他消费记录
@@ -132,6 +146,55 @@ export class ExpenseService {
         updatedAt: getCurrentBeijingTime(), // 使用北京时间
       },
     });
+  }
+
+  // 清理重复的餐饮记录（保留最新的记录，删除旧的）
+  async cleanupDuplicateMealRecords(userId: string) {
+    const today = getTodayStart();
+
+    // 获取今日所有餐饮记录
+    const mealRecords = await this.prisma.expenseRecord.findMany({
+      where: {
+        userId,
+        date: today,
+        type: ExpenseTypeEnum.MEAL,
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    // 按类别分组
+    const recordsByCategory = new Map();
+    mealRecords.forEach(record => {
+      if (!recordsByCategory.has(record.category)) {
+        recordsByCategory.set(record.category, []);
+      }
+      recordsByCategory.get(record.category).push(record);
+    });
+
+    // 对每个类别，保留最新的记录，删除其他的
+    const deletePromises = [];
+    for (const [category, records] of recordsByCategory) {
+      if (records.length > 1) {
+        // 保留第一个（最新的），删除其他的
+        const [latest, ...toDelete] = records;
+        console.log(`清理${category}类别的${toDelete.length}条重复记录，保留最新记录(amount: ${latest.amount})`);
+
+        for (const record of toDelete) {
+          deletePromises.push(
+            this.prisma.expenseRecord.delete({
+              where: { id: record.id }
+            })
+          );
+        }
+      }
+    }
+
+    if (deletePromises.length > 0) {
+      await Promise.all(deletePromises);
+      console.log(`已清理${deletePromises.length}条重复的餐饮记录`);
+    }
+
+    return { deletedCount: deletePromises.length };
   }
 
   // 删除其他消费记录

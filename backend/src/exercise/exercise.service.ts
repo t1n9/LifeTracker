@@ -98,7 +98,7 @@ export class ExerciseService {
       },
     });
 
-    // 按运动类型分组
+    // 按运动类型分组 - 只取每种运动的最新记录
     const recordMap = new Map();
     records.forEach(record => {
       const key = record.exerciseId;
@@ -108,16 +108,29 @@ export class ExerciseService {
           exerciseName: record.exercise.name,
           exerciseType: record.exercise.type,
           unit: record.exercise.unit,
-          totalValue: 0,
-          records: [],
+          totalValue: record.value, // 直接使用记录值，不累加
+          records: [record],
+          latestRecord: record,
         });
+      } else {
+        const group = recordMap.get(key);
+        // 如果当前记录更新时间更晚，则替换
+        if (record.updatedAt > group.latestRecord.updatedAt) {
+          group.totalValue = record.value; // 使用最新记录的值
+          group.latestRecord = record;
+        }
+        group.records.push(record);
       }
-      const group = recordMap.get(key);
-      group.totalValue += record.value;
-      group.records.push(record);
     });
 
-    return Array.from(recordMap.values());
+    return Array.from(recordMap.values()).map(group => ({
+      exerciseId: group.exerciseId,
+      exerciseName: group.exerciseName,
+      exerciseType: group.exerciseType,
+      unit: group.unit,
+      totalValue: group.totalValue,
+      records: group.records,
+    }));
   }
 
   // 添加运动记录
@@ -169,26 +182,45 @@ export class ExerciseService {
       throw new Error('运动类型不存在');
     }
 
-    // 获取今日现有记录的总值
-    const existingRecords = await this.prisma.exerciseRecord.findMany({
+    // 查找今日现有记录（只查找第一条主记录）
+    const existingRecord = await this.prisma.exerciseRecord.findFirst({
       where: {
         userId,
         exerciseId: data.exerciseId,
         date: today,
       },
+      orderBy: { createdAt: 'asc' }, // 获取最早的记录作为主记录
+      include: {
+        exercise: true,
+      },
     });
 
-    const currentTotal = existingRecords.reduce((sum, record) => sum + record.value, 0);
-    const difference = data.totalValue - currentTotal;
+    if (existingRecord) {
+      // 如果值没有变化，不需要更新
+      if (existingRecord.value === data.totalValue) {
+        return null;
+      }
 
-    if (difference !== 0) {
-      // 添加差值记录
+      // 直接更新现有记录
+      return this.prisma.exerciseRecord.update({
+        where: { id: existingRecord.id },
+        data: {
+          value: data.totalValue,
+          notes: data.notes,
+          updatedAt: getCurrentBeijingTime(), // 使用北京时间
+        },
+        include: {
+          exercise: true,
+        },
+      });
+    } else {
+      // 创建新记录
       return this.prisma.exerciseRecord.create({
         data: {
           userId,
           exerciseId: data.exerciseId,
           date: today,
-          value: difference,
+          value: data.totalValue,
           unit: exerciseType.unit,
           notes: data.notes,
           createdAt: getCurrentBeijingTime(), // 使用北京时间

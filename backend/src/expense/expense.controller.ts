@@ -87,4 +87,15 @@ export class ExpenseController {
     const stats = await this.expenseService.getExpenseStats(userId, dayCount);
     return { data: stats };
   }
+
+  // 清理重复记录
+  @Post('cleanup-duplicates')
+  async cleanupDuplicates(@Req() req: any) {
+    const userId = req.user.id;
+    const result = await this.expenseService.cleanupDuplicateMealRecords(userId);
+    return {
+      data: result,
+      message: `已清理${result.deletedCount}条重复记录`
+    };
+  }
 }
