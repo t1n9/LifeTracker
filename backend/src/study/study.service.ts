@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { getTodayStart, getTodayEnd } from '../common/utils/date.util';
+import { getTodayStart, getTodayEnd, formatDateString, parseDateString } from '../common/utils/date.util';
 import { CreateStudyRecordDto, CreatePomodoroSessionDto } from './dto/create-study.dto';
 
 @Injectable()
@@ -82,7 +82,8 @@ export class StudyService {
     const startedAt = createStudyRecordDto.startedAt ? new Date(createStudyRecordDto.startedAt) : now;
     const completedAt = createStudyRecordDto.completedAt ? new Date(createStudyRecordDto.completedAt) : now;
 
-    return this.prisma.studyRecord.create({
+    // 创建学习记录
+    const studyRecord = await this.prisma.studyRecord.create({
       data: {
         userId,
         duration: createStudyRecordDto.duration,
@@ -91,6 +92,39 @@ export class StudyService {
         startedAt,
         completedAt,
         createdAt: completedAt, // 使用完成时间作为创建时间
+      },
+    });
+
+    // 更新每日数据汇总
+    await this.updateDailyData(userId, completedAt, createStudyRecordDto.duration);
+
+    return studyRecord;
+  }
+
+  // 更新每日数据汇总
+  private async updateDailyData(userId: string, completedAt: Date, duration: number) {
+    // 获取完成时间对应的日期
+    const dateStr = formatDateString(completedAt);
+    const date = parseDateString(dateStr);
+
+    // 更新或创建每日数据
+    await this.prisma.dailyData.upsert({
+      where: {
+        userId_date: {
+          userId,
+          date,
+        },
+      },
+      update: {
+        totalMinutes: {
+          increment: duration,
+        },
+      },
+      create: {
+        userId,
+        date,
+        totalMinutes: duration,
+        pomodoroCount: 0,
       },
     });
   }
@@ -117,12 +151,32 @@ export class StudyService {
 
   // 删除学习记录
   async deleteStudyRecord(userId: string, recordId: string) {
-    return this.prisma.studyRecord.deleteMany({
+    // 先获取要删除的记录信息
+    const record = await this.prisma.studyRecord.findFirst({
       where: {
         id: recordId,
         userId,
       },
     });
+
+    if (!record) {
+      throw new Error('学习记录不存在');
+    }
+
+    // 删除记录
+    const result = await this.prisma.studyRecord.deleteMany({
+      where: {
+        id: recordId,
+        userId,
+      },
+    });
+
+    // 如果删除成功，更新每日数据（减去删除的时长）
+    if (result.count > 0) {
+      await this.updateDailyData(userId, record.completedAt || record.createdAt, -record.duration);
+    }
+
+    return result;
   }
 
   // 获取最近的学习记录（用于撤销）
@@ -134,44 +188,66 @@ export class StudyService {
   }
 
   // 获取今日学习统计
-  async getTodayStats(userId: string) {
-    // 使用北京时间计算今天的开始和结束时间
-    const today = getTodayStart();
-    const tomorrow = getTodayEnd();
+  async getTodayStats(userId: string, timezone: string = 'Asia/Shanghai') {
+    // 获取用户时区的今天日期
+    const todayDateStr = formatDateString(getTodayStart(timezone));
+    const todayDate = parseDateString(todayDateStr);
+
+    // 获取今日的DailyData记录
+    const dailyData = await this.prisma.dailyData.findUnique({
+      where: {
+        userId_date: {
+          userId,
+          date: todayDate,
+        },
+      },
+    });
+
+    // 如果没有今日数据，返回默认值
+    if (!dailyData) {
+      return {
+        totalMinutes: 0,
+        pomodoroCount: 0,
+        studyRecords: [],
+        pomodoroSessions: [],
+      };
+    }
+
+    // 获取今日的学习记录和番茄钟会话（用于详细显示）
+    const today = getTodayStart(timezone);
+    const tomorrow = getTodayEnd(timezone);
 
     const [studyRecords, pomodoroSessions] = await Promise.all([
       this.prisma.studyRecord.findMany({
         where: {
           userId,
-          createdAt: {
+          startedAt: {
             gte: today,
             lt: tomorrow,
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { startedAt: 'desc' },
       }),
       this.prisma.pomodoroSession.findMany({
         where: {
           userId,
-          createdAt: {
+          startedAt: {
             gte: today,
             lt: tomorrow,
           },
           status: 'COMPLETED',
           type: 'WORK',
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { startedAt: 'desc' },
       }),
     ]);
 
-    const totalMinutes = studyRecords.reduce((sum, record) => sum + record.duration, 0);
-    const pomodoroCount = pomodoroSessions.length;
-
     return {
-      totalMinutes,
-      pomodoroCount,
-      studyRecords: studyRecords.length,
-      totalHours: Math.round(totalMinutes / 60 * 100) / 100,
+      totalMinutes: dailyData.totalMinutes,
+      pomodoroCount: dailyData.pomodoroCount,
+      studyRecords,
+      pomodoroSessions,
+      totalHours: Math.round(dailyData.totalMinutes / 60 * 100) / 100,
     };
   }
 

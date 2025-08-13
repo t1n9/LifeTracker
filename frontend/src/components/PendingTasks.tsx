@@ -32,6 +32,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   const [newTaskText, setNewTaskText] = useState('');
   const [showInput, setShowInput] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [updatingTasks, setUpdatingTasks] = useState<Record<string, boolean>>({});
 
   // 加载今日任务列表
   const loadTasks = async () => {
@@ -74,13 +75,31 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   // 切换任务完成状态
   const handleToggleTask = async (taskId: string, currentStatus: boolean) => {
     try {
+      // 设置更新状态
+      setUpdatingTasks(prev => ({ ...prev, [taskId]: true }));
+
+      // 乐观更新：立即更新本地状态
+      setTasks(prev => prev.map(task =>
+        task.id === taskId
+          ? { ...task, isCompleted: !currentStatus }
+          : task
+      ));
+
+      // 调用API更新
       await taskAPI.updateTask(taskId, {
         isCompleted: !currentStatus
       });
-      await loadTasks(); // 重新加载任务列表
+
+      // 成功后重新加载任务列表以确保数据一致性
+      await loadTasks();
     } catch (error) {
       console.error('更新任务状态失败:', error);
       alert('更新任务失败，请重试');
+      // 失败时重新加载任务列表
+      await loadTasks();
+    } finally {
+      // 清除更新状态
+      setUpdatingTasks(prev => ({ ...prev, [taskId]: false }));
     }
   };
 
@@ -213,8 +232,13 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
                 }}
                 className="task-checkbox"
                 title="点击完成任务"
+                disabled={updatingTasks[task.id]}
               >
-                <Check size={12} className="text-white opacity-0" />
+                {updatingTasks[task.id] ? (
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Check size={12} className="text-white opacity-0" />
+                )}
               </button>
 
               {/* 任务内容 - 点击切换绑定状态 */}
@@ -292,8 +316,13 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
                 <button
                   onClick={() => handleToggleTask(task.id, task.isCompleted)}
                   className="task-checkbox checked"
+                  disabled={updatingTasks[task.id]}
                 >
-                  <Check size={12} className="text-white" />
+                  {updatingTasks[task.id] ? (
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Check size={12} className="text-white" />
+                  )}
                 </button>
                 <span className="task-title completed">{task.title}</span>
                 <button

@@ -23,7 +23,25 @@ const ImportantInfo: React.FC<ImportantInfoProps> = ({ theme = 'light' }) => {
       const data = response.data.data;
 
       setContent(data?.content || '');
-      setLastUpdated(data?.lastUpdated ? new Date(data.lastUpdated) : null);
+
+      // 安全地解析时间
+      if (data?.lastUpdated) {
+        try {
+          const parsedDate = new Date(data.lastUpdated);
+          // 检查日期是否有效
+          if (!isNaN(parsedDate.getTime())) {
+            setLastUpdated(parsedDate);
+          } else {
+            console.warn('Invalid date format:', data.lastUpdated);
+            setLastUpdated(null);
+          }
+        } catch (error) {
+          console.warn('Failed to parse date:', data.lastUpdated, error);
+          setLastUpdated(null);
+        }
+      } else {
+        setLastUpdated(null);
+      }
     } catch (error) {
       console.error('❌ 加载重要信息失败:', error);
     } finally {
@@ -41,7 +59,23 @@ const ImportantInfo: React.FC<ImportantInfoProps> = ({ theme = 'light' }) => {
 
       if (data?.updated) {
         setContent(data.content);
-        setLastUpdated(new Date());
+
+        // 使用后端返回的更新时间，如果没有则使用当前时间
+        if (data.lastUpdated) {
+          try {
+            const parsedDate = new Date(data.lastUpdated);
+            if (!isNaN(parsedDate.getTime())) {
+              setLastUpdated(parsedDate);
+            } else {
+              setLastUpdated(new Date());
+            }
+          } catch (error) {
+            console.warn('Failed to parse lastUpdated from save response:', error);
+            setLastUpdated(new Date());
+          }
+        } else {
+          setLastUpdated(new Date());
+        }
       }
 
       setIsEditing(false);
@@ -74,17 +108,29 @@ const ImportantInfo: React.FC<ImportantInfoProps> = ({ theme = 'light' }) => {
   // 格式化最后更新时间
   const formatLastUpdated = (date: Date | null) => {
     if (!date) return '';
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-    if (minutes < 1) return '刚刚更新';
-    if (minutes < 60) return `${minutes}分钟前更新`;
-    if (hours < 24) return `${hours}小时前更新`;
-    if (days < 7) return `${days}天前更新`;
-    return date.toLocaleDateString();
+    // 检查日期是否有效
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date in formatLastUpdated:', date);
+      return '';
+    }
+
+    try {
+      const now = new Date();
+      const diff = now.getTime() - date.getTime();
+      const minutes = Math.floor(diff / (1000 * 60));
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+      if (minutes < 1) return '刚刚更新';
+      if (minutes < 60) return `${minutes}分钟前更新`;
+      if (hours < 24) return `${hours}小时前更新`;
+      if (days < 7) return `${days}天前更新`;
+      return date.toLocaleDateString();
+    } catch (error) {
+      console.warn('Error formatting date:', error);
+      return '';
+    }
   };
 
   return (

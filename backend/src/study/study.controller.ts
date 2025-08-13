@@ -61,6 +61,7 @@ export class StudyController {
   @Get('today')
   @ApiOperation({ summary: '获取今日学习统计' })
   async getTodayStats(@Request() req) {
-    return this.studyService.getTodayStats(req.user.id);
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    return this.studyService.getTodayStats(req.user.id, timezone);
   }
 }

@@ -160,7 +160,8 @@ export class ExerciseController {
   @Get('today')
   async getTodayRecords(@Req() req: any) {
     const userId = req.user.id;
-    const records = await this.exerciseService.getTodayRecords(userId);
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    const records = await this.exerciseService.getTodayRecords(userId, timezone);
     return { data: records };
   }
 
@@ -168,7 +169,8 @@ export class ExerciseController {
   @Post('records')
   async addExerciseRecord(@Body() addDto: AddExerciseRecordDto, @Req() req: any) {
     const userId = req.user.id;
-    const record = await this.exerciseService.addExerciseRecord(userId, addDto);
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    const record = await this.exerciseService.addExerciseRecord(userId, addDto, timezone);
     return {
       data: record,
       message: '运动记录添加成功'
@@ -179,7 +181,8 @@ export class ExerciseController {
   @Put('records/today')
   async setTodayExerciseValue(@Body() setDto: SetExerciseValueDto, @Req() req: any) {
     const userId = req.user.id;
-    const record = await this.exerciseService.setTodayExerciseValue(userId, setDto);
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    const record = await this.exerciseService.setTodayExerciseValue(userId, setDto, timezone);
     return {
       data: record,
       message: record ? '运动记录更新成功' : '无变化'
@@ -190,7 +193,8 @@ export class ExerciseController {
   @Put('feeling')
   async setTodayExerciseFeeling(@Body() feelingDto: SetExerciseFeelingDto, @Req() req: any) {
     const userId = req.user.id;
-    const dailyData = await this.exerciseService.setTodayExerciseFeeling(userId, feelingDto.feeling);
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    const dailyData = await this.exerciseService.setTodayExerciseFeeling(userId, feelingDto.feeling, timezone);
     return {
       data: dailyData,
       message: '运动感受设置成功'
@@ -201,7 +205,8 @@ export class ExerciseController {
   @Get('feeling')
   async getTodayExerciseFeeling(@Req() req: any) {
     const userId = req.user.id;
-    const feeling = await this.exerciseService.getTodayExerciseFeeling(userId);
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    const feeling = await this.exerciseService.getTodayExerciseFeeling(userId, timezone);
     return { data: { feeling } };
   }
 

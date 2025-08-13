@@ -94,10 +94,13 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
         }
       });
 
-      // 后台提交
-      await exerciseAPI.addExerciseRecord({
+      // 后台提交 - 使用setTodayExerciseValue来更新今日总值
+      const currentRecord = todayRecords.find(r => r.exerciseId === exerciseId);
+      const newTotalValue = (currentRecord?.totalValue || 0) + increment;
+
+      await exerciseAPI.setTodayExerciseValue({
         exerciseId,
-        value: increment,
+        totalValue: newTotalValue,
       });
     } catch (error) {
       console.error('添加运动记录失败:', error);

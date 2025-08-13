@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { getTodayStart, getDaysAgoStart, getTodayEnd, getCurrentTimeString, getCurrentBeijingTime } from '../common/utils/date.util';
+import { getTodayStart, getDaysAgoStart, getTodayEnd, getCurrentTimeString, formatDateString, parseDateString } from '../common/utils/date.util';
 
 // 定义枚举常量，避免运行时undefined问题
 const ExpenseTypeEnum = {
@@ -15,10 +15,9 @@ export class ExpenseService {
   constructor(private prisma: PrismaService) {}
 
   // 获取今日消费记录
-  async getTodayExpenses(userId: string) {
-    // 获取北京时间的今天日期（YYYY-MM-DD格式）
-    const beijingTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
-    const todayDate = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), beijingTime.getDate());
+  async getTodayExpenses(userId: string, timezone: string = 'Asia/Shanghai') {
+    // 获取用户时区的今天日期
+    const todayDate = parseDateString(formatDateString(getTodayStart(timezone)));
 
     const records = await this.prisma.expenseRecord.findMany({
       where: {
@@ -80,10 +79,10 @@ export class ExpenseService {
   async setTodayMealExpense(userId: string, data: {
     category: 'breakfast' | 'lunch' | 'dinner';
     amount: number;
-  }) {
-    // 获取北京时间的今天日期（YYYY-MM-DD格式）
-    const beijingTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
-    const todayDate = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), beijingTime.getDate());
+  }, timezone: string = 'Asia/Shanghai') {
+    // 获取用户时区的今天日期
+    const todayDateStr = formatDateString(getTodayStart(timezone));
+    const todayDate = parseDateString(todayDateStr);
 
     // 查找今日该餐的现有记录（只查找第一条主记录）
     const existingRecord = await this.prisma.expenseRecord.findFirst({
@@ -108,7 +107,6 @@ export class ExpenseService {
         data: {
           amount: data.amount,
           time: getCurrentTimeString(), // 更新时间
-          updatedAt: getCurrentBeijingTime(), // 使用北京时间
         },
       });
     } else {
@@ -121,8 +119,6 @@ export class ExpenseService {
           category: data.category,
           amount: data.amount,
           time: getCurrentTimeString(), // 添加当前时间
-          createdAt: getCurrentBeijingTime(), // 使用北京时间
-          updatedAt: getCurrentBeijingTime(), // 使用北京时间
         },
       });
     }
@@ -146,8 +142,6 @@ export class ExpenseService {
         amount: data.amount,
         notes: data.notes,
         time: getCurrentTimeString(), // 添加当前时间
-        createdAt: getCurrentBeijingTime(), // 使用北京时间
-        updatedAt: getCurrentBeijingTime(), // 使用北京时间
       },
     });
   }

@@ -16,14 +16,14 @@ model User {
   passwordHash  String   @map("password_hash")
   name          String?
   targetName    String?  @map("target_name") // 雅思
-  targetDate    DateTime? @map("target_date") // 考试日期
-  examDate      DateTime? @map("exam_date") // 考研日期
+  targetDate    DateTime? @map("target_date") @db.Timestamptz // 考试日期
+  examDate      DateTime? @map("exam_date") @db.Timestamptz // 考研日期
   timezone      String   @default("Asia/Shanghai")
   theme         String   @default("dark")
   isActive      Boolean  @default(true) @map("is_active")
   emailVerified Boolean  @default(false) @map("email_verified")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
   tasks                 Task[]
@@ -74,12 +74,12 @@ model Task {
   subject     String?
   priority    Int       @default(0)
   isCompleted Boolean   @default(false) @map("is_completed")
-  dueDate     DateTime? @map("due_date")
+  dueDate     DateTime? @map("due_date") @db.Timestamptz
   estimatedHours Float? @map("estimated_hours")
   actualHours    Float? @map("actual_hours")
 
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -96,9 +96,9 @@ model StudyRecord {
   duration    Int       // minutes
   subject     String?
   notes       String?   @db.Text
-  startedAt   DateTime  @map("started_at")
-  completedAt DateTime? @map("completed_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  startedAt   DateTime  @map("started_at") @db.Timestamptz
+  completedAt DateTime? @map("completed_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   // Relations
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -115,11 +115,13 @@ model PomodoroSession {
   actualDuration Int?              @map("actual_duration") // minutes (actual duration for count-up mode)
   status         PomodoroStatus
   type           PomodoroType      @default(WORK)
-  startedAt      DateTime          @map("started_at")
-  completedAt    DateTime?         @map("completed_at")
-  pausedAt       DateTime?         @map("paused_at")
-  resumedAt      DateTime?         @map("resumed_at")
-  createdAt      DateTime          @default(now()) @map("created_at")
+  isCountUpMode  Boolean           @default(false) @map("is_count_up_mode") // 是否为正计时模式
+  countUpTime    Int?              @default(0) @map("count_up_time") // 正计时已用时间（秒）
+  startedAt      DateTime          @map("started_at") @db.Timestamptz
+  completedAt    DateTime?         @map("completed_at") @db.Timestamptz
+  pausedAt       DateTime?         @map("paused_at") @db.Timestamptz
+  resumedAt      DateTime?         @map("resumed_at") @db.Timestamptz
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
 
   // Relations
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -133,11 +135,11 @@ model Countdown {
   userId      String    @map("user_id")
   title       String
   description String?   @db.Text
-  targetDate  DateTime  @map("target_date")
+  targetDate  DateTime  @map("target_date") @db.Timestamptz
   isActive    Boolean   @default(true) @map("is_active")
   color       String    @default("#3182CE")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -158,8 +160,8 @@ model DailyData {
   focusMode        Boolean   @default(false) @map("focus_mode")
   focusQuoteIndex  Int       @default(0) @map("focus_quote_index")
   exerciseFeeling  String?   @map("exercise_feeling")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -172,7 +174,7 @@ model ImportantInfo {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
   content   String   @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -188,8 +190,8 @@ model ExerciseRecord {
   value       Float       // 数量或距离
   unit        String      // 单位：次、公里等
   notes       String?     @db.Text
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
   user        User        @relation("UserExerciseRecords", fields: [userId], references: [id], onDelete: Cascade)
   exercise    ExerciseType @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
@@ -212,8 +214,8 @@ model ExerciseType {
   color       String?  // 颜色
   isActive    Boolean  @default(true) @map("is_active")
   sortOrder   Int      @default(0) @map("sort_order")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   user        User     @relation("UserExerciseTypes", fields: [userId], references: [id], onDelete: Cascade)
   records     ExerciseRecord[]
@@ -233,7 +235,7 @@ model MigrationLog {
   migrationName String   @map("migration_name")
   status        String   // started, completed, failed
   details       String?  @db.Text
-  createdAt     DateTime @map("created_at")
+  createdAt     DateTime @map("created_at") @db.Timestamptz
 
   @@map("migration_logs")
 }
@@ -249,8 +251,8 @@ model ExpenseRecord {
   description String?     @db.Text // 描述（其他消费的项目名称）
   time        String?     // 消费时间 HH:mm
   notes       String?     @db.Text
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
   user        User        @relation("UserExpenseRecords", fields: [userId], references: [id], onDelete: Cascade)
 
@@ -277,8 +279,8 @@ model HealthRecord {
   sleepHours   Float?   @map("sleep_hours")
   sleepQuality Int?     @map("sleep_quality") // 1-5
   phoneUsage   Float?   @map("phone_usage") // hours
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

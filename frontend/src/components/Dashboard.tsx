@@ -1172,6 +1172,16 @@ const cssVariables = `
   border-color: var(--success-color);
 }
 
+.pending-task-item .task-checkbox:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pending-task-item .task-checkbox:disabled:hover {
+  border-color: var(--border-color);
+  background: var(--bg-primary);
+}
+
 .pending-task-item .task-content {
   flex: 1;
   min-width: 0;
@@ -1285,6 +1295,11 @@ const cssVariables = `
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.completed-task-item .task-checkbox:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .add-task-form {

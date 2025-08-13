@@ -58,6 +58,8 @@ export class PomodoroService {
       where: { id: sessionId },
       data: {
         status,
+        isCountUpMode: session.isCountUpMode || false,
+        countUpTime: session.countUpTime || 0,
         ...(session.isCompleted && { completedAt: new Date() }),
         ...(session.isPaused && session.pausedAt && { pausedAt: session.pausedAt }),
         ...(session.resumedAt && { resumedAt: session.resumedAt }),
@@ -85,6 +87,8 @@ export class PomodoroService {
         duration: startPomodoroDto.duration,
         type: 'WORK',
         status: 'RUNNING',
+        isCountUpMode: startPomodoroDto.isCountUpMode || false,
+        countUpTime: startPomodoroDto.isCountUpMode ? 0 : null,
         startedAt: new Date(),
       },
     });
@@ -293,22 +297,26 @@ export class PomodoroService {
         // 恢复会话到内存
         const timeElapsed = Math.floor((new Date().getTime() - dbSession.startedAt.getTime()) / 1000);
         const totalTime = dbSession.duration * 60;
-        const timeLeft = Math.max(0, totalTime - timeElapsed);
 
-        if (timeLeft > 0) {
+        if (dbSession.isCountUpMode) {
+          // 正计时模式：计算实际已用时间
+          const actualCountUpTime = (dbSession.countUpTime || 0) + (dbSession.status === 'RUNNING' ? timeElapsed : 0);
+
+          console.log(`🔄 恢复正计时会话: 数据库countUpTime=${dbSession.countUpTime}, 新增时间=${timeElapsed}秒, 总计=${actualCountUpTime}秒`);
+
           const restoredSession: ActiveSession = {
             id: dbSession.id,
             userId: dbSession.userId,
             taskId: dbSession.taskId,
             duration: dbSession.duration,
-            timeLeft: timeLeft,
+            timeLeft: totalTime, // 正计时模式保持原始时长
             isRunning: dbSession.status === 'RUNNING',
             isPaused: dbSession.status === 'PAUSED',
             isCompleted: false,
             startedAt: dbSession.startedAt,
             boundTaskId: dbSession.taskId,
-            isCountUpMode: false, // 从数据库恢复的会话默认为倒计时模式
-            countUpTime: 0,
+            isCountUpMode: true,
+            countUpTime: actualCountUpTime,
           };
 
           this.activeSessions.set(dbSession.id, restoredSession);
@@ -318,24 +326,63 @@ export class PomodoroService {
           }
 
           return {
-            id: restoredSession.id,
-            timeLeft: restoredSession.timeLeft,
-            isRunning: restoredSession.isRunning,
-            isPaused: restoredSession.isPaused,
-            duration: restoredSession.duration,
-            boundTaskId: restoredSession.boundTaskId,
-            isCountUpMode: restoredSession.isCountUpMode,
-            countUpTime: restoredSession.countUpTime,
+            sessionId: dbSession.id,
+            timeLeft: totalTime,
+            isRunning: dbSession.status === 'RUNNING',
+            isPaused: dbSession.status === 'PAUSED',
+            isCompleted: false,
+            duration: dbSession.duration,
+            boundTaskId: dbSession.taskId,
+            isCountUpMode: true,
+            countUpTime: actualCountUpTime,
           };
         } else {
-          // 时间已过，标记为完成
-          await this.prisma.pomodoroSession.update({
-            where: { id: dbSession.id },
-            data: {
-              status: 'COMPLETED',
-              completedAt: new Date(),
-            },
-          });
+          // 倒计时模式：原有逻辑
+          const timeLeft = Math.max(0, totalTime - timeElapsed);
+
+          if (timeLeft > 0) {
+            const restoredSession: ActiveSession = {
+              id: dbSession.id,
+              userId: dbSession.userId,
+              taskId: dbSession.taskId,
+              duration: dbSession.duration,
+              timeLeft: timeLeft,
+              isRunning: dbSession.status === 'RUNNING',
+              isPaused: dbSession.status === 'PAUSED',
+              isCompleted: false,
+              startedAt: dbSession.startedAt,
+              boundTaskId: dbSession.taskId,
+              isCountUpMode: false,
+              countUpTime: 0,
+            };
+
+            this.activeSessions.set(dbSession.id, restoredSession);
+
+            if (dbSession.status === 'RUNNING') {
+              this.startTimer(dbSession.id);
+            }
+
+            return {
+              sessionId: dbSession.id,
+              timeLeft: restoredSession.timeLeft,
+              isRunning: restoredSession.isRunning,
+              isPaused: restoredSession.isPaused,
+              isCompleted: false,
+              duration: restoredSession.duration,
+              boundTaskId: restoredSession.boundTaskId,
+              isCountUpMode: false,
+              countUpTime: 0,
+            };
+          } else {
+            // 倒计时时间已过，标记为完成
+            await this.prisma.pomodoroSession.update({
+              where: { id: dbSession.id },
+              data: {
+                status: 'COMPLETED',
+                completedAt: new Date(),
+              },
+            });
+          }
         }
       }
 

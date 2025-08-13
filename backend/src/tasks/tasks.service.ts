@@ -99,20 +99,22 @@ export class TasksService {
   }
 
   // 获取今日任务（只显示今天创建的任务）
-  async getTodayTasks(userId: string) {
-    const today = getTodayStart();
-    const tomorrow = getTodayEnd();
+  async getTodayTasks(userId: string, timezone: string = 'Asia/Shanghai') {
+    // 获取用户时区的今天开始和结束时间
+    const todayStart = getTodayStart(timezone);
+    const todayEnd = getTodayEnd(timezone);
 
+    // 获取今天创建的任务
     const tasks = await this.prisma.task.findMany({
       where: {
         userId,
         createdAt: {
-          gte: today,
-          lt: tomorrow,
+          gte: todayStart,
+          lt: todayEnd,
         },
       },
       orderBy: [
-        { isCompleted: 'asc' },
+        { isCompleted: 'asc' }, // 未完成的任务排在前面
         { priority: 'desc' },
         { createdAt: 'desc' },
       ],

@@ -45,7 +45,8 @@ export class ExpenseController {
   @Get('today')
   async getTodayExpenses(@Req() req: any) {
     const userId = req.user.id;
-    const expenses = await this.expenseService.getTodayExpenses(userId);
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    const expenses = await this.expenseService.getTodayExpenses(userId, timezone);
     return { data: expenses };
   }
 
@@ -53,8 +54,9 @@ export class ExpenseController {
   @Put('meals')
   async setTodayMealExpense(@Body() setDto: SetMealExpenseDto, @Req() req: any) {
     const userId = req.user.id;
-    const record = await this.expenseService.setTodayMealExpense(userId, setDto);
-    return { 
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    const record = await this.expenseService.setTodayMealExpense(userId, setDto, timezone);
+    return {
       data: record,
       message: record ? '餐饮消费更新成功' : '无变化'
     };

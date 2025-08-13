@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { getTodayStart, getDaysAgoStart, getTodayEnd, getCurrentBeijingTime } from '../common/utils/date.util';
+import { getTodayStart, getDaysAgoStart, getTodayEnd, formatDateString, parseDateString } from '../common/utils/date.util';
 
 // 定义枚举常量，避免运行时undefined问题
 const ExerciseTypeEnum = {
@@ -85,10 +85,10 @@ export class ExerciseService {
   }
 
   // 获取今日运动记录
-  async getTodayRecords(userId: string) {
-    // 获取北京时间的今天日期（YYYY-MM-DD格式）
-    const beijingTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
-    const todayDate = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), beijingTime.getDate());
+  async getTodayRecords(userId: string, timezone: string = 'Asia/Shanghai') {
+    // 获取用户时区的今天日期
+    const todayDateStr = formatDateString(getTodayStart(timezone));
+    const todayDate = parseDateString(todayDateStr);
 
     const records = await this.prisma.exerciseRecord.findMany({
       where: {
@@ -140,8 +140,10 @@ export class ExerciseService {
     exerciseId: string;
     value: number;
     notes?: string;
-  }) {
-    const today = getTodayStart();
+  }, timezone: string = 'Asia/Shanghai') {
+    // 获取用户时区的今天日期
+    const todayDateStr = formatDateString(getTodayStart(timezone));
+    const todayDate = parseDateString(todayDateStr);
 
     // 获取运动类型信息
     const exerciseType = await this.prisma.exerciseType.findUnique({
@@ -153,12 +155,10 @@ export class ExerciseService {
       data: {
         userId,
         exerciseId: data.exerciseId,
-        date: today,
+        date: todayDate,
         value: data.value,
         unit: exerciseType?.unit || '',
         notes: data.notes,
-        createdAt: getCurrentBeijingTime(), // 使用北京时间
-        updatedAt: getCurrentBeijingTime(), // 使用北京时间
       },
       include: {
         exercise: true,
@@ -171,10 +171,10 @@ export class ExerciseService {
     exerciseId: string;
     totalValue: number;
     notes?: string;
-  }) {
-    // 获取北京时间的今天日期（YYYY-MM-DD格式）
-    const beijingTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
-    const todayDate = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), beijingTime.getDate());
+  }, timezone: string = 'Asia/Shanghai') {
+    // 获取用户时区的今天日期
+    const todayDateStr = formatDateString(getTodayStart(timezone));
+    const todayDate = parseDateString(todayDateStr);
 
     // 获取运动类型信息
     const exerciseType = await this.prisma.exerciseType.findUnique({
@@ -211,7 +211,7 @@ export class ExerciseService {
         data: {
           value: data.totalValue,
           notes: data.notes,
-          updatedAt: getCurrentBeijingTime(), // 使用北京时间
+
         },
         include: {
           exercise: true,
@@ -227,8 +227,7 @@ export class ExerciseService {
           value: data.totalValue,
           unit: exerciseType.unit,
           notes: data.notes,
-          createdAt: getCurrentBeijingTime(), // 使用北京时间
-          updatedAt: getCurrentBeijingTime(), // 使用北京时间
+
         },
         include: {
           exercise: true,
@@ -380,14 +379,15 @@ export class ExerciseService {
   }
 
   // 设置今日运动感受
-  async setTodayExerciseFeeling(userId: string, feeling: string) {
-    const today = getTodayStart();
+  async setTodayExerciseFeeling(userId: string, feeling: string, timezone: string = 'Asia/Shanghai') {
+    const todayDateStr = formatDateString(getTodayStart(timezone));
+    const todayDate = parseDateString(todayDateStr);
 
     return this.prisma.dailyData.upsert({
       where: {
         userId_date: {
           userId,
-          date: today,
+          date: todayDate,
         },
       },
       update: {
@@ -395,21 +395,22 @@ export class ExerciseService {
       },
       create: {
         userId,
-        date: today,
+        date: todayDate,
         exerciseFeeling: feeling,
       },
     });
   }
 
   // 获取今日运动感受
-  async getTodayExerciseFeeling(userId: string) {
-    const today = getTodayStart();
+  async getTodayExerciseFeeling(userId: string, timezone: string = 'Asia/Shanghai') {
+    const todayDateStr = formatDateString(getTodayStart(timezone));
+    const todayDate = parseDateString(todayDateStr);
 
     const dailyData = await this.prisma.dailyData.findUnique({
       where: {
         userId_date: {
           userId,
-          date: today,
+          date: todayDate,
         },
       },
       select: {

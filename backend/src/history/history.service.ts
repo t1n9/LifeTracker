@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { toBeijingTime, getTodayStart, getTodayEnd } from '../common/utils/date.util';
+import { toBeijingTime, getTodayStart, getTodayEnd, getDateStart, getDateEnd } from '../common/utils/date.util';
 
 @Injectable()
 export class HistoryService {
@@ -23,20 +23,20 @@ export class HistoryService {
       // 从学习记录表获取日期
       const studyRecords = await this.prisma.studyRecord.findMany({
         where: { userId },
-        select: { createdAt: true },
+        select: { startedAt: true },
       });
       studyRecords.forEach(record => {
-        const date = record.createdAt.toISOString().split('T')[0];
+        const date = record.startedAt.toISOString().split('T')[0];
         uniqueDates.add(date);
       });
 
       // 从番茄钟表获取日期
       const pomodoroSessions = await this.prisma.pomodoroSession.findMany({
         where: { userId },
-        select: { createdAt: true },
+        select: { startedAt: true },
       });
       pomodoroSessions.forEach(session => {
-        const date = session.createdAt.toISOString().split('T')[0];
+        const date = session.startedAt.toISOString().split('T')[0];
         uniqueDates.add(date);
       });
 
@@ -83,17 +83,23 @@ export class HistoryService {
 
   async getDayData(userId: string, date: string) {
     try {
-      // 如果是今天，使用北京时间计算
+      // 获取用户时区信息
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { timezone: true },
+      });
+      const timezone = user?.timezone || 'Asia/Shanghai';
+
+      // 计算时间范围
       const today = new Date().toISOString().split('T')[0];
       let startDate: Date, endDate: Date;
 
       if (date === today) {
-        startDate = getTodayStart();
-        endDate = getTodayEnd();
+        startDate = getTodayStart(timezone);
+        endDate = getTodayEnd(timezone);
       } else {
-        startDate = new Date(date);
-        endDate = new Date(date);
-        endDate.setDate(endDate.getDate() + 1);
+        startDate = getDateStart(date, timezone);
+        endDate = getDateEnd(date, timezone);
       }
 
       // 获取任务数据
@@ -116,7 +122,7 @@ export class HistoryService {
       const studyRecords = await this.prisma.studyRecord.findMany({
         where: {
           userId,
-          createdAt: {
+          startedAt: {
             gte: startDate,
             lt: endDate,
           },
@@ -131,7 +137,7 @@ export class HistoryService {
       const pomodoroSessions = await this.prisma.pomodoroSession.findMany({
         where: {
           userId,
-          createdAt: {
+          startedAt: {
             gte: startDate,
             lt: endDate,
           },
@@ -169,6 +175,19 @@ export class HistoryService {
         },
       });
 
+      // 调试信息
+      console.log('🔍 运动记录查询结果:', {
+        userId,
+        date: date,
+        targetDate: targetDate.toISOString(),
+        recordCount: exerciseRecords.length,
+        records: exerciseRecords.map(r => ({
+          exerciseName: r.exercise.name,
+          value: r.value,
+          date: r.date.toISOString()
+        }))
+      });
+
       // 将运动记录按类型分组，并转换为前端期望的格式
       const exerciseData = {
         running: 0,
@@ -187,7 +206,7 @@ export class HistoryService {
           exerciseData.running += record.value;
         } else if (exerciseName.includes('俯卧撑') || exerciseName.includes('pushup')) {
           exerciseData.pushUps += record.value;
-        } else if (exerciseName.includes('单杠') || exerciseName.includes('pullup')) {
+        } else if (exerciseName.includes('单杠') || exerciseName.includes('pullup') || exerciseName.includes('引体向上')) {
           exerciseData.pullUps += record.value;
         } else if (exerciseName.includes('深蹲') || exerciseName.includes('squat')) {
           exerciseData.squats += record.value;
@@ -233,6 +252,20 @@ export class HistoryService {
           amount: true,
           description: true,
         },
+      });
+
+      // 调试信息
+      console.log('🔍 消费记录查询结果:', {
+        userId,
+        date: date,
+        targetDate: targetDate.toISOString(),
+        recordCount: expenseRecords.length,
+        records: expenseRecords.map(r => ({
+          type: r.type,
+          category: r.category,
+          amount: r.amount,
+          description: r.description
+        }))
       });
 
       // 将消费记录按类型分组

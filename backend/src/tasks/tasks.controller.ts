@@ -33,7 +33,8 @@ export class TasksController {
   @Get('today')
   @ApiOperation({ summary: '获取今日任务' })
   getTodayTasks(@Request() req) {
-    return this.tasksService.getTodayTasks(req.user.id);
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    return this.tasksService.getTodayTasks(req.user.id, timezone);
   }
 
   @Get(':id')

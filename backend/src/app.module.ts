@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -15,6 +16,7 @@ import { ExpenseModule } from './expense/expense.module';
 import { MigrationModule } from './migration/migration.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { TimeFormatInterceptor, TimeValidationInterceptor } from './common/interceptors/time-format.interceptor';
 
 @Module({
   imports: [
@@ -46,6 +48,17 @@ import { AppService } from './app.service';
     MigrationModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // 全局时间格式化拦截器
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TimeValidationInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TimeFormatInterceptor,
+    },
+  ],
 })
 export class AppModule {}

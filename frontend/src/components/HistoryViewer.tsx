@@ -508,7 +508,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                       <div style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'var(--accent-primary)', marginBottom: '0.25rem' }}>
                         {dayData.exercise.pullUps}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>单杠</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>引体向上</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'var(--success-color)', marginBottom: '0.25rem' }}>

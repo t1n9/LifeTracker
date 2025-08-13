@@ -372,6 +372,12 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       const status = response.data;
 
       if (status) {
+        // 同步计时模式状态
+        if (status.isCountUpMode !== isCountUpMode) {
+          setIsCountUpMode(status.isCountUpMode);
+          console.log(`🔄 计时模式同步: ${isCountUpMode ? '正计时' : '倒计时'} -> ${status.isCountUpMode ? '正计时' : '倒计时'}`);
+        }
+
         // 同步正计时或倒计时状态
         if (status.isCountUpMode) {
           // 正计时模式：同步countUpTime
@@ -1018,6 +1024,18 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   // 获取当前绑定的任务信息
   const displayTaskId = isRunning ? startBoundTask : currentBoundTask;
   const boundTask = displayTaskId ? tasks.find(task => task.id === displayTaskId) : null;
+
+  // 调试信息
+  if (isRunning && !boundTask && displayTaskId) {
+    console.log('🐛 番茄钟运行中但找不到绑定任务:', {
+      isRunning,
+      displayTaskId,
+      startBoundTask,
+      currentBoundTask,
+      tasksCount: tasks.length,
+      taskIds: tasks.map(t => t.id)
+    });
+  }
 
   return (
     <div className="card">

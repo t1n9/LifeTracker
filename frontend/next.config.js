@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
-  trailingSlash: true,
+  // 开发环境不使用export，生产环境才使用
+  ...(process.env.NODE_ENV === 'production' && {
+    output: 'export',
+    trailingSlash: true,
+  }),
   images: {
     unoptimized: true
   },
@@ -13,10 +16,7 @@ const nextConfig = {
     // 在生产构建时忽略TypeScript错误
     ignoreBuildErrors: true,
   },
-  // experimental: {
-  //   outputFileTracingRoot: undefined, // 移除不支持的配置
-  // },
-  // 开发环境使用rewrites，生产环境静态导出时不需要
+  // 开发环境使用rewrites进行API代理
   async rewrites() {
     if (process.env.NODE_ENV === 'development') {
       return [

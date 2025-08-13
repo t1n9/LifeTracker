@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { processApiTimeFields, toUTCForSubmit } from './time';
 
 // 开发环境和生产环境的API配置
 const API_URL = process.env.NODE_ENV === 'development'
-  ? '/api'  // 开发环境使用Next.js代理
+  ? 'http://localhost:3002/api'  // 开发环境直接连接后端
   : process.env.NEXT_PUBLIC_API_URL ||
     (typeof window !== 'undefined'
       ? `${window.location.protocol}//${window.location.host}/api`
@@ -17,7 +18,7 @@ export const api = axios.create({
   },
 });
 
-// 请求拦截器 - 添加认证token
+// 请求拦截器 - 添加认证token和处理时间字段
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
@@ -26,6 +27,12 @@ api.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
+
+    // 处理请求体中的时间字段，转换为UTC格式
+    if (config.data && typeof config.data === 'object') {
+      config.data = processRequestTimeFields(config.data);
+    }
+
     return config;
   },
   (error) => {
@@ -33,9 +40,13 @@ api.interceptors.request.use(
   }
 );
 
-// 响应拦截器 - 处理错误
+// 响应拦截器 - 处理错误和时间字段
 api.interceptors.response.use(
   (response) => {
+    // 处理响应中的时间字段
+    if (response.data) {
+      response.data = processApiTimeFields(response.data);
+    }
     return response;
   },
   (error) => {
@@ -49,6 +60,32 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// 处理请求中的时间字段
+function processRequestTimeFields(data: any): any {
+  if (!data || typeof data !== 'object') {
+    return data;
+  }
+
+  if (Array.isArray(data)) {
+    return data.map(item => processRequestTimeFields(item));
+  }
+
+  const result = { ...data };
+  const timeFields = ['startedAt', 'completedAt', 'targetDate', 'examDate', 'dueDate'];
+
+  for (const field of timeFields) {
+    if (result[field]) {
+      try {
+        result[field] = toUTCForSubmit(result[field]);
+      } catch (error) {
+        console.warn(`Failed to process time field ${field}:`, error);
+      }
+    }
+  }
+
+  return result;
+}
 
 // API接口定义
 export const authAPI = {

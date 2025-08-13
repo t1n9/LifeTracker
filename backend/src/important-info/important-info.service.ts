@@ -24,9 +24,16 @@ export class ImportantInfoService {
       });
 
       if (currentInfo) {
+        console.log('🔍 返回重要信息数据:', {
+          content: currentInfo.content,
+          createdAt: currentInfo.createdAt,
+          createdAtType: typeof currentInfo.createdAt,
+          createdAtString: currentInfo.createdAt.toISOString(),
+        });
+
         return {
           content: currentInfo.content,
-          lastUpdated: currentInfo.createdAt,
+          lastUpdated: currentInfo.createdAt.toISOString(),
         };
       }
     }
@@ -53,7 +60,7 @@ export class ImportantInfoService {
 
       return {
         content: latestInfo.content,
-        lastUpdated: latestInfo.createdAt,
+        lastUpdated: latestInfo.createdAt.toISOString(),
       };
     }
 
@@ -92,6 +99,7 @@ export class ImportantInfoService {
       return {
         content,
         updated: true,
+        lastUpdated: newInfo.createdAt.toISOString(),
       };
     }
 
