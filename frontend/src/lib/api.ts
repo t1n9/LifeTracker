@@ -229,3 +229,12 @@ export const dailyAPI = {
   clearDayStart: (date?: string) => api.delete('/daily/start', { params: { date } }),
   clearDayReflection: (date?: string) => api.delete('/daily/reflection', { params: { date } }),
 };
+
+// 学习概况API
+export const overviewAPI = {
+  getFullOverview: () => api.get('/overview'),
+  getHeatmapData: (days?: number) => api.get('/overview/heatmap', { params: { days } }),
+  getRecentActivities: (limit?: number) => api.get('/overview/activities', { params: { limit } }),
+  getChartData: (days?: number) => api.get('/overview/chart', { params: { days } }),
+  getStats: () => api.get('/overview/stats'),
+};

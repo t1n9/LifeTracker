@@ -2019,6 +2019,7 @@ export default function Dashboard() {
               { name: '🌅 开启', action: 'start' },
               { name: '🌙 复盘', action: 'review' },
               { name: '📊 历史', action: 'history' },
+              { name: '📈 概况', action: 'overview' },
               { name: '⚙️ 配置', action: 'settings' }
             ].map((item) => (
               <button
@@ -2029,6 +2030,8 @@ export default function Dashboard() {
                     setIsHistoryOpen(true);
                   } else if (item.action === 'settings') {
                     router.push('/profile');
+                  } else if (item.action === 'overview') {
+                    router.push('/overview');
                   } else if (item.action === 'start') {
                     setDayReflectionMode('start');
                     setIsDayReflectionOpen(true);
