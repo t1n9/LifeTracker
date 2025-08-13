@@ -122,17 +122,78 @@ EOF
 
     sudo rm -f /etc/nginx/sites-enabled/*
     sudo ln -sf /etc/nginx/sites-available/lifetracker-temp /etc/nginx/sites-enabled/
-    sudo systemctl reload nginx
+
+    # 确保nginx正在运行
+    sudo systemctl start nginx || true
+    sudo systemctl enable nginx || true
+
+    # 测试nginx配置
+    if sudo nginx -t; then
+        sudo systemctl reload nginx
+        echo "✅ Nginx配置正确，已重新加载"
+    else
+        echo "❌ Nginx配置错误，跳过证书获取"
+        SSL_CERT=""
+        SSL_KEY=""
+        return
+    fi
+
+    # 等待nginx完全启动
+    sleep 5
+
+    # 检查域名解析
+    echo "🔍 检查域名解析..."
+    if nslookup ${DOMAIN_NAME} | grep -q "$(curl -s ifconfig.me)"; then
+        echo "✅ 域名解析正确"
+    else
+        echo "⚠️ 域名解析可能有问题，但继续尝试获取证书"
+        echo "当前服务器IP: $(curl -s ifconfig.me)"
+        echo "域名解析结果:"
+        nslookup ${DOMAIN_NAME} || true
+    fi
 
     # 获取Let's Encrypt证书
-    sudo certbot --nginx -d ${DOMAIN_NAME} -d www.${DOMAIN_NAME} --non-interactive --agree-tos --email admin@${DOMAIN_NAME}
+    echo "🔒 尝试获取Let's Encrypt证书..."
+    if sudo certbot --nginx -d ${DOMAIN_NAME} -d www.${DOMAIN_NAME} --non-interactive --agree-tos --email admin@${DOMAIN_NAME} --redirect; then
+        echo "✅ certbot执行成功"
+    else
+        echo "⚠️ certbot执行失败，可能是域名解析问题或证书已存在"
 
+        # 尝试使用webroot方式
+        echo "🔄 尝试使用webroot方式获取证书..."
+        sudo mkdir -p /var/www/html/.well-known/acme-challenge
+        sudo chown -R www-data:www-data /var/www/html/.well-known
+
+        if sudo certbot certonly --webroot -w /var/www/html -d ${DOMAIN_NAME} -d www.${DOMAIN_NAME} --non-interactive --agree-tos --email admin@${DOMAIN_NAME}; then
+            echo "✅ webroot方式获取证书成功"
+        else
+            echo "❌ webroot方式也失败了"
+        fi
+    fi
+
+    # 再次检查证书是否存在
     if [ -f "$CERT_PATH" ] && [ -f "$KEY_PATH" ]; then
         echo "✅ Let's Encrypt证书获取成功"
         SSL_CERT="$CERT_PATH"
         SSL_KEY="$KEY_PATH"
+
+        # 验证证书有效性
+        if sudo openssl x509 -in "$CERT_PATH" -text -noout | grep -q "${DOMAIN_NAME}"; then
+            echo "✅ 证书验证成功，包含正确的域名"
+        else
+            echo "⚠️ 证书验证失败，可能不包含正确的域名"
+        fi
     else
         echo "❌ Let's Encrypt证书获取失败，使用HTTP模式"
+        echo "证书路径: $CERT_PATH"
+        echo "私钥路径: $KEY_PATH"
+
+        # 检查certbot日志
+        if [ -f "/var/log/letsencrypt/letsencrypt.log" ]; then
+            echo "📋 Certbot日志（最后10行）:"
+            sudo tail -10 /var/log/letsencrypt/letsencrypt.log || true
+        fi
+
         SSL_CERT=""
         SSL_KEY=""
     fi

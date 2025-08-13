@@ -82,14 +82,35 @@ if [ -f "nginx/nginx.ultra-simple.conf" ]; then
     sudo rm -f /etc/nginx/sites-enabled/*
 else
     echo "创建简单的sites配置..."
-    sudo tee /etc/nginx/sites-available/lifetracker > /dev/null <<EOF
+
+    # 检查Let's Encrypt证书是否存在
+    CERT_PATH="/etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem"
+    KEY_PATH="/etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem"
+
+    if [ -f "$CERT_PATH" ] && [ -f "$KEY_PATH" ]; then
+        echo "✅ 找到Let's Encrypt证书，创建HTTPS配置"
+        sudo tee /etc/nginx/sites-available/lifetracker > /dev/null <<EOF
 server {
     listen 80;
+    return 301 https://\$host\$request_uri;
+}
+
+server {
     listen 443 ssl;
     server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
-    
-    ssl_certificate /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;
+
+    ssl_certificate $CERT_PATH;
+    ssl_certificate_key $KEY_PATH;
+    ssl_protocols TLSv1.2 TLSv1.3;
+EOF
+    else
+        echo "⚠️ 未找到Let's Encrypt证书，创建HTTP配置"
+        sudo tee /etc/nginx/sites-available/lifetracker > /dev/null <<EOF
+server {
+    listen 80;
+    server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
+EOF
+    fi
     
     # API代理
     location /api/ {
