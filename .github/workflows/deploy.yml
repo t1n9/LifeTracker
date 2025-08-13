@@ -50,8 +50,10 @@ jobs:
 
         # 复制配置文件
         cp docker-compose.prod.yml deploy-package/ || cp docker-compose.yml deploy-package/docker-compose.prod.yml
+        cp docker-compose.simple.yml deploy-package/
         cp -r nginx deploy-package/
         cp deploy-prod.sh deploy-package/ || echo "#!/bin/bash" > deploy-package/deploy-prod.sh
+        cp deploy-native.sh deploy-package/
 
         # 创建压缩包
         tar -czf deploy-package.tar.gz deploy-package/
@@ -103,10 +105,16 @@ jobs:
           echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
           echo "NODE_ENV=production" >> .env
 
-          # 执行生产部署脚本
-          echo "🚀 执行生产部署..."
-          chmod +x deploy-prod.sh
-          ./deploy-prod.sh
+          # 尝试原生部署（避免Docker网络问题）
+          echo "🚀 尝试原生部署..."
+          chmod +x deploy-native.sh
+          if ./deploy-native.sh; then
+            echo "✅ 原生部署成功"
+          else
+            echo "⚠️ 原生部署失败，尝试Docker部署..."
+            chmod +x deploy-prod.sh
+            ./deploy-prod.sh
+          fi
         EOF
 
     - name: Verify deployment

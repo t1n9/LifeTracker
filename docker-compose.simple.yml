@@ -1,0 +1,50 @@
+version: '3.3'
+
+services:
+  # 简化的Nginx服务 - 直接运行静态文件
+  nginx:
+    image: nginx:alpine
+    container_name: lifetracker-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.simple.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./frontend-dist:/usr/share/nginx/html:ro
+    networks:
+      - lifetracker-network
+
+  # 后端服务 - 直接运行Node.js
+  backend:
+    image: node:18-alpine
+    container_name: lifetracker-backend
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "
+      echo 'Installing production dependencies...' &&
+      npm ci --only=production &&
+      echo 'Starting backend server...' &&
+      node backend-dist/main.js"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${DB_USER:-lifetracker}:${DB_PASSWORD:-your-secure-password}@postgres:5432/${DB_NAME:-lifetracker}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: https://${DOMAIN_NAME:-localhost}
+      PORT: 3002
+    volumes:
+      - ./backend-dist:/app/backend-dist:ro
+      - ./backend-package.json:/app/package.json:ro
+      - ./backend-package-lock.json:/app/package-lock.json:ro
+      - /app/node_modules
+    networks:
+      - lifetracker-network
+    ports:
+      - "3002:3002"
+
+networks:
+  lifetracker-network:
+    driver: bridge
