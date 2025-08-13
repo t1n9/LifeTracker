@@ -1,0 +1,162 @@
+{
+  "date": "2025-07-11",
+  "study": {
+    "totalMinutes": 35,
+    "sessions": [
+      {
+        "duration": 20,
+        "method": "pomodoro",
+        "time": "19:38",
+        "timestamp": "2025-07-11T11:38:41.688Z"
+      },
+      {
+        "duration": 15,
+        "method": "pomodoro",
+        "time": "19:54",
+        "timestamp": "2025-07-11T11:54:06.086Z"
+      }
+    ],
+    "pomodoroCount": 2
+  },
+  "exercise": {
+    "pullUps": 0,
+    "squats": 0,
+    "pushUps": 0,
+    "running": 0,
+    "swimming": 0,
+    "cycling": 0,
+    "feeling": ""
+  },
+  "expenses": {
+    "breakfast": 0,
+    "lunch": 15,
+    "dinner": 22.2,
+    "customCategories": {},
+    "customCategoryNames": {},
+    "other": [],
+    "total": 37.2
+  },
+  "tasks": [
+    {
+      "id": "subject-math",
+      "text": "数学 (目标120分钟)",
+      "completed": false,
+      "pomodoroCount": 0,
+      "studyMinutes": 0,
+      "isPermanent": true,
+      "subjectKey": "math",
+      "targetMinutes": 120,
+      "color": "#ff6b6b",
+      "createdAt": "2025-07-11T00:40:22.052Z"
+    },
+    {
+      "id": "subject-english",
+      "text": "英语 (目标45分钟, 已完成35分钟 78%)",
+      "completed": false,
+      "pomodoroCount": 2,
+      "studyMinutes": 35,
+      "isPermanent": true,
+      "subjectKey": "english",
+      "targetMinutes": 45,
+      "color": "#4ecdc4",
+      "createdAt": "2025-07-11T00:40:22.052Z"
+    }
+  ],
+  "subjectGoals": {
+    "english": 45,
+    "math": 120
+  },
+  "health": {
+    "weight": 70,
+    "sleepHours": 5.9,
+    "sleepQuality": 3,
+    "phoneUsage": 500
+  },
+  "theme": "dark",
+  "importantInfo": "考研的具体安排。",
+  "examDate": "2025-12-20",
+  "dayStart": "英语继续背诵，数学开始。今天开始公司的事应该告一段落了，要及时调整",
+  "dayReflection": "今天在公司满负荷，其实测试忙起来是真的忙。回来之后又捣鼓了一会儿网站，没有实现，先告一段落",
+  "reflectionTime": "22:43",
+  "metadata": {
+    "created": "2025-07-10T16:00:09.801Z",
+    "lastModified": "2025-07-11T14:43:35.437Z"
+  },
+  "currentBoundTask": null,
+  "pomodoroRunning": false,
+  "focusMode": false,
+  "focusQuoteIndex": 0,
+  "breakMode": false,
+  "breakTimeLeft": 300,
+  "isServerOnline": true,
+  "isLoading": false,
+  "config": {
+    "target": {
+      "name": "考研",
+      "date": "2025-12-20"
+    },
+    "studySubjects": {
+      "math": {
+        "enabled": true,
+        "name": "数学",
+        "color": "#ff6b6b"
+      },
+      "english": {
+        "enabled": true,
+        "name": "英语",
+        "color": "#4ecdc4"
+      },
+      "politics": {
+        "enabled": true,
+        "name": "政治",
+        "color": "#45b7d1"
+      },
+      "computer": {
+        "enabled": true,
+        "name": "计算机",
+        "color": "#96ceb4"
+      }
+    },
+    "exerciseTypes": {
+      "pushUps": {
+        "enabled": true,
+        "name": "俯卧撑"
+      },
+      "pullUps": {
+        "enabled": true,
+        "name": "引体向上"
+      },
+      "squats": {
+        "enabled": true,
+        "name": "深蹲"
+      },
+      "swimming": {
+        "enabled": false,
+        "name": "游泳"
+      },
+      "cycling": {
+        "enabled": false,
+        "name": "骑行"
+      }
+    },
+    "expenseCategories": {
+      "breakfast": {
+        "enabled": false,
+        "name": "早餐"
+      },
+      "lunch": {
+        "enabled": true,
+        "name": "午餐"
+      },
+      "dinner": {
+        "enabled": true,
+        "name": "晚餐"
+      },
+      "custom": []
+    },
+    "theme": {
+      "mode": "dark",
+      "color": "blue"
+    }
+  }
+}

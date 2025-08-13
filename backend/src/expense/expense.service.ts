@@ -16,12 +16,14 @@ export class ExpenseService {
 
   // 获取今日消费记录
   async getTodayExpenses(userId: string) {
-    const today = getTodayStart();
+    // 获取北京时间的今天日期（YYYY-MM-DD格式）
+    const beijingTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
+    const todayDate = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), beijingTime.getDate());
 
     const records = await this.prisma.expenseRecord.findMany({
       where: {
         userId,
-        date: today,
+        date: todayDate,
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -79,13 +81,15 @@ export class ExpenseService {
     category: 'breakfast' | 'lunch' | 'dinner';
     amount: number;
   }) {
-    const today = getTodayStart();
+    // 获取北京时间的今天日期（YYYY-MM-DD格式）
+    const beijingTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
+    const todayDate = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), beijingTime.getDate());
 
     // 查找今日该餐的现有记录（只查找第一条主记录）
     const existingRecord = await this.prisma.expenseRecord.findFirst({
       where: {
         userId,
-        date: today,
+        date: todayDate,
         type: ExpenseTypeEnum.MEAL,
         category: data.category,
       },
@@ -112,7 +116,7 @@ export class ExpenseService {
       return this.prisma.expenseRecord.create({
         data: {
           userId,
-          date: today,
+          date: todayDate,
           type: ExpenseTypeEnum.MEAL,
           category: data.category,
           amount: data.amount,

@@ -86,12 +86,14 @@ export class ExerciseService {
 
   // 获取今日运动记录
   async getTodayRecords(userId: string) {
-    const today = getTodayStart();
+    // 获取北京时间的今天日期（YYYY-MM-DD格式）
+    const beijingTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
+    const todayDate = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), beijingTime.getDate());
 
     const records = await this.prisma.exerciseRecord.findMany({
       where: {
         userId,
-        date: today,
+        date: todayDate,
       },
       include: {
         exercise: true,
@@ -170,7 +172,9 @@ export class ExerciseService {
     totalValue: number;
     notes?: string;
   }) {
-    const today = getTodayStart();
+    // 获取北京时间的今天日期（YYYY-MM-DD格式）
+    const beijingTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
+    const todayDate = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), beijingTime.getDate());
 
     // 获取运动类型信息
     const exerciseType = await this.prisma.exerciseType.findUnique({
@@ -187,7 +191,7 @@ export class ExerciseService {
       where: {
         userId,
         exerciseId: data.exerciseId,
-        date: today,
+        date: todayDate,
       },
       orderBy: { createdAt: 'asc' }, // 获取最早的记录作为主记录
       include: {
@@ -219,7 +223,7 @@ export class ExerciseService {
         data: {
           userId,
           exerciseId: data.exerciseId,
-          date: today,
+          date: todayDate,
           value: data.totalValue,
           unit: exerciseType.unit,
           notes: data.notes,

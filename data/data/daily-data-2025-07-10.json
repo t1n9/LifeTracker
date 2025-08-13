@@ -1,0 +1,162 @@
+{
+  "date": "2025-07-10",
+  "study": {
+    "totalMinutes": 30,
+    "sessions": [
+      {
+        "duration": 30,
+        "method": "pomodoro",
+        "time": "21:23",
+        "timestamp": "2025-07-10T13:23:59.189Z"
+      }
+    ],
+    "pomodoroCount": 1
+  },
+  "exercise": {
+    "pullUps": 0,
+    "squats": 0,
+    "pushUps": 0,
+    "running": 0,
+    "swimming": 0,
+    "cycling": 0,
+    "feeling": ""
+  },
+  "expenses": {
+    "breakfast": 0,
+    "lunch": 15,
+    "dinner": 0,
+    "customCategories": {},
+    "customCategoryNames": {},
+    "other": [
+      {
+        "id": 1752110310775,
+        "description": "早餐玉米",
+        "amount": 5,
+        "time": "09:18"
+      },
+      {
+        "id": 1752149913939,
+        "description": "公交充值",
+        "amount": 30,
+        "time": "20:18"
+      },
+      {
+        "id": 1752149929492,
+        "description": "kfc钱包",
+        "amount": 0.01,
+        "time": "20:18"
+      }
+    ],
+    "total": 50.01
+  },
+  "tasks": [
+    {
+      "id": "subject-english",
+      "text": "英语 (目标30分钟)",
+      "completed": true,
+      "pomodoroCount": 1,
+      "studyMinutes": 30,
+      "isPermanent": true,
+      "subjectKey": "english",
+      "targetMinutes": 30,
+      "color": "#4ecdc4",
+      "createdAt": "2025-07-10T15:32:14.328Z"
+    }
+  ],
+  "subjectGoals": {
+    "english": 30
+  },
+  "health": {
+    "weight": 69.8,
+    "sleepHours": 5.5,
+    "sleepQuality": 2,
+    "phoneUsage": 0
+  },
+  "theme": "dark",
+  "importantInfo": "开始",
+  "examDate": "2025-12-20",
+  "dayStart": "今天回来之后数学和英语",
+  "dayReflection": "",
+  "reflectionTime": "00:06",
+  "isServerOnline": true,
+  "isLoading": false,
+  "currentBoundTask": null,
+  "pomodoroRunning": false,
+  "focusMode": false,
+  "focusQuoteIndex": 0,
+  "breakMode": false,
+  "breakTimeLeft": 300,
+  "config": {
+    "target": {
+      "name": "考研",
+      "date": "2025-12-20"
+    },
+    "studySubjects": {
+      "math": {
+        "enabled": true,
+        "name": "数学",
+        "color": "#ff6b6b"
+      },
+      "english": {
+        "enabled": true,
+        "name": "英语",
+        "color": "#4ecdc4"
+      },
+      "politics": {
+        "enabled": true,
+        "name": "政治",
+        "color": "#45b7d1"
+      },
+      "computer": {
+        "enabled": true,
+        "name": "计算机",
+        "color": "#96ceb4"
+      }
+    },
+    "exerciseTypes": {
+      "pushUps": {
+        "enabled": true,
+        "name": "俯卧撑"
+      },
+      "pullUps": {
+        "enabled": true,
+        "name": "引体向上"
+      },
+      "squats": {
+        "enabled": true,
+        "name": "深蹲"
+      },
+      "swimming": {
+        "enabled": false,
+        "name": "游泳"
+      },
+      "cycling": {
+        "enabled": false,
+        "name": "骑行"
+      }
+    },
+    "expenseCategories": {
+      "breakfast": {
+        "enabled": false,
+        "name": "早餐"
+      },
+      "lunch": {
+        "enabled": true,
+        "name": "午餐"
+      },
+      "dinner": {
+        "enabled": true,
+        "name": "晚餐"
+      },
+      "custom": []
+    },
+    "theme": {
+      "mode": "dark",
+      "color": "blue"
+    }
+  },
+  "metadata": {
+    "created": "2025-07-09T16:04:04.399Z",
+    "lastModified": "2025-07-10T15:32:14.454Z"
+  }
+}

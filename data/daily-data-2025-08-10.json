@@ -1,0 +1,193 @@
+{
+  "date": "2025-08-10",
+  "study": {
+    "totalMinutes": 275,
+    "sessions": [
+      {
+        "duration": 60,
+        "time": "10:15",
+        "timestamp": "2025-08-10T02:15:36.914Z",
+        "taskId": 1754788097514
+      },
+      {
+        "duration": 30,
+        "time": "11:01",
+        "timestamp": "2025-08-10T03:01:44.299Z",
+        "taskId": 1754788097514
+      },
+      {
+        "duration": 30,
+        "time": "12:46",
+        "timestamp": "2025-08-10T04:46:50.481Z",
+        "taskId": 1754788097514
+      },
+      {
+        "duration": 30,
+        "time": "14:28",
+        "timestamp": "2025-08-10T06:28:45.022Z",
+        "taskId": 1754788097514
+      },
+      {
+        "duration": 30,
+        "time": "15:01",
+        "timestamp": "2025-08-10T07:01:01.508Z",
+        "taskId": 1754788097514
+      },
+      {
+        "duration": 35,
+        "time": "15:36",
+        "timestamp": "2025-08-10T07:36:31.370Z",
+        "taskId": 1754788125655
+      },
+      {
+        "duration": 60,
+        "time": "16:44",
+        "timestamp": "2025-08-10T08:44:09.480Z",
+        "taskId": 1754788125655
+      }
+    ],
+    "pomodoroCount": 7
+  },
+  "exercise": {
+    "pullUps": 10,
+    "squats": 0,
+    "pushUps": 0,
+    "running": 5,
+    "swimming": 0,
+    "cycling": 0,
+    "feeling": "moderate"
+  },
+  "expenses": {
+    "breakfast": 0,
+    "lunch": 0,
+    "dinner": 0,
+    "customCategories": {},
+    "customCategoryNames": {},
+    "other": [],
+    "total": 0
+  },
+  "tasks": [
+    {
+      "id": 1754788097514,
+      "text": "单词",
+      "completed": true,
+      "pomodoroCount": 5,
+      "createdAt": "2025-08-10T01:08:17.514Z"
+    },
+    {
+      "id": 1754788107340,
+      "text": "作文",
+      "completed": false,
+      "pomodoroCount": 0,
+      "createdAt": "2025-08-10T01:08:27.340Z"
+    },
+    {
+      "id": 1754788116980,
+      "text": "聊天1小时",
+      "completed": false,
+      "pomodoroCount": 0,
+      "createdAt": "2025-08-10T01:08:36.980Z"
+    },
+    {
+      "id": 1754788125655,
+      "text": "剑桥两套",
+      "completed": false,
+      "pomodoroCount": 2,
+      "createdAt": "2025-08-10T01:08:45.655Z"
+    }
+  ],
+  "subjectGoals": {},
+  "health": {
+    "weight": 69,
+    "sleepHours": 8,
+    "sleepQuality": 5,
+    "phoneUsage": 0
+  },
+  "theme": "dark",
+  "importantInfo": "番茄时钟加一个提前结束\n",
+  "examDate": "2025-12-20",
+  "dayStart": "今天要好好利用时间，已经九点了，没更多时间了，一天很快就会过去",
+  "dayReflection": "",
+  "reflectionTime": "",
+  "isServerOnline": true,
+  "isLoading": false,
+  "currentBoundTask": null,
+  "pomodoroRunning": false,
+  "focusMode": false,
+  "focusQuoteIndex": 0,
+  "breakMode": false,
+  "breakTimeLeft": 300,
+  "config": {
+    "target": {
+      "name": "雅思",
+      "date": "2025-08-27"
+    },
+    "studySubjects": {
+      "math": {
+        "enabled": false,
+        "name": "数学",
+        "color": "#ff6b6b"
+      },
+      "english": {
+        "enabled": true,
+        "name": "英语",
+        "color": "#4ecdc4"
+      },
+      "politics": {
+        "enabled": false,
+        "name": "政治",
+        "color": "#45b7d1"
+      },
+      "computer": {
+        "enabled": false,
+        "name": "计算机",
+        "color": "#96ceb4"
+      }
+    },
+    "exerciseTypes": {
+      "pushUps": {
+        "enabled": true,
+        "name": "俯卧撑"
+      },
+      "pullUps": {
+        "enabled": true,
+        "name": "引体向上"
+      },
+      "squats": {
+        "enabled": true,
+        "name": "深蹲"
+      },
+      "swimming": {
+        "enabled": false,
+        "name": "游泳"
+      },
+      "cycling": {
+        "enabled": false,
+        "name": "骑行"
+      }
+    },
+    "expenseCategories": {
+      "breakfast": {
+        "enabled": true,
+        "name": "早餐"
+      },
+      "lunch": {
+        "enabled": true,
+        "name": "午餐"
+      },
+      "dinner": {
+        "enabled": true,
+        "name": "晚餐"
+      },
+      "custom": []
+    },
+    "theme": {
+      "mode": "dark",
+      "color": "blue"
+    }
+  },
+  "metadata": {
+    "created": "2025-08-10T01:00:38.900Z",
+    "lastModified": "2025-08-10T14:20:42.776Z"
+  }
+}

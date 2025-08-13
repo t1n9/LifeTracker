@@ -1,0 +1,134 @@
+{
+  "date": "2025-07-09",
+  "study": {
+    "totalMinutes": 0,
+    "sessions": [],
+    "pomodoroCount": 0
+  },
+  "exercise": {
+    "pullUps": 0,
+    "squats": 0,
+    "pushUps": 0,
+    "running": 0,
+    "swimming": 0,
+    "cycling": 0,
+    "feeling": ""
+  },
+  "expenses": {
+    "breakfast": 0,
+    "lunch": 12,
+    "dinner": 0,
+    "customCategories": {},
+    "customCategoryNames": {},
+    "other": [
+      {
+        "id": 1752022217240,
+        "description": "玉米",
+        "amount": 5,
+        "time": "08:50"
+      },
+      {
+        "id": 1752034547258,
+        "description": "剪头发",
+        "amount": 35,
+        "time": "12:15"
+      }
+    ],
+    "total": 52
+  },
+  "tasks": [],
+  "subjectGoals": {},
+  "health": {
+    "weight": 70.1,
+    "sleepHours": 6.5,
+    "sleepQuality": 4,
+    "phoneUsage": 0
+  },
+  "theme": "dark",
+  "importantInfo": "考研的具体安排。",
+  "examDate": "2025-12-20",
+  "dayStart": "今天把电脑清理一下",
+  "dayReflection": "今天还是实习的一天，说是明天要测试完毕，我感觉还行，就是提了几个缺陷不知道开发能不能修复完成。明天正式开始，从英语阅读开始。",
+  "reflectionTime": "",
+  "isServerOnline": true,
+  "isLoading": false,
+  "currentBoundTask": null,
+  "pomodoroRunning": false,
+  "focusMode": false,
+  "focusQuoteIndex": 0,
+  "breakMode": false,
+  "breakTimeLeft": 300,
+  "config": {
+    "target": {
+      "name": "考研",
+      "date": "2025-12-20"
+    },
+    "studySubjects": {
+      "math": {
+        "enabled": true,
+        "name": "数学",
+        "color": "#ff6b6b"
+      },
+      "english": {
+        "enabled": true,
+        "name": "英语",
+        "color": "#4ecdc4"
+      },
+      "politics": {
+        "enabled": true,
+        "name": "政治",
+        "color": "#45b7d1"
+      },
+      "computer": {
+        "enabled": true,
+        "name": "计算机",
+        "color": "#96ceb4"
+      }
+    },
+    "exerciseTypes": {
+      "pushUps": {
+        "enabled": true,
+        "name": "俯卧撑"
+      },
+      "pullUps": {
+        "enabled": true,
+        "name": "引体向上"
+      },
+      "squats": {
+        "enabled": true,
+        "name": "深蹲"
+      },
+      "swimming": {
+        "enabled": false,
+        "name": "游泳"
+      },
+      "cycling": {
+        "enabled": false,
+        "name": "骑行"
+      }
+    },
+    "expenseCategories": {
+      "breakfast": {
+        "enabled": false,
+        "name": "早餐"
+      },
+      "lunch": {
+        "enabled": true,
+        "name": "午餐"
+      },
+      "dinner": {
+        "enabled": true,
+        "name": "晚餐"
+      },
+      "custom": []
+    },
+    "theme": {
+      "mode": "dark",
+      "color": "blue"
+    }
+  },
+  "metadata": {
+    "created": "2025-07-08T23:44:05.928Z",
+    "lastModified": "2025-07-09T14:21:17.645Z"
+  }
+}

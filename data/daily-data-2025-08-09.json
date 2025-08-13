@@ -1,0 +1,182 @@
+{
+  "date": "2025-08-09",
+  "study": {
+    "totalMinutes": 120,
+    "sessions": [
+      {
+        "duration": 30,
+        "time": "09:54",
+        "timestamp": "2025-08-09T01:54:43.742Z",
+        "taskId": 1754702463156
+      },
+      {
+        "duration": 30,
+        "time": "10:27",
+        "timestamp": "2025-08-09T02:27:15.959Z",
+        "taskId": 1754702463156
+      },
+      {
+        "duration": 30,
+        "time": "11:08",
+        "timestamp": "2025-08-09T03:08:59.065Z",
+        "taskId": 1754702463156
+      },
+      {
+        "duration": 30,
+        "time": "15:58",
+        "timestamp": "2025-08-09T07:58:49.997Z",
+        "taskId": 1754702468111
+      }
+    ],
+    "pomodoroCount": 4
+  },
+  "exercise": {
+    "pullUps": 0,
+    "squats": 0,
+    "pushUps": 0,
+    "running": 0,
+    "swimming": 0,
+    "cycling": 0,
+    "feeling": ""
+  },
+  "expenses": {
+    "breakfast": 0,
+    "lunch": 0,
+    "dinner": 0,
+    "customCategories": {},
+    "customCategoryNames": {},
+    "other": [],
+    "total": 0
+  },
+  "tasks": [
+    {
+      "id": 1754702460242,
+      "text": "口语",
+      "completed": false,
+      "pomodoroCount": 0,
+      "createdAt": "2025-08-09T01:21:00.242Z"
+    },
+    {
+      "id": 1754702463156,
+      "text": "单词",
+      "completed": false,
+      "pomodoroCount": 3,
+      "createdAt": "2025-08-09T01:21:03.156Z"
+    },
+    {
+      "id": 1754702468111,
+      "text": "作文技巧",
+      "completed": false,
+      "pomodoroCount": 1,
+      "createdAt": "2025-08-09T01:21:08.111Z"
+    },
+    {
+      "id": 1754702470869,
+      "text": "阅读",
+      "completed": false,
+      "pomodoroCount": 0,
+      "createdAt": "2025-08-09T01:21:10.869Z"
+    },
+    {
+      "id": 1754702473941,
+      "text": "听力",
+      "completed": false,
+      "pomodoroCount": 0,
+      "createdAt": "2025-08-09T01:21:13.941Z"
+    }
+  ],
+  "subjectGoals": {},
+  "health": {
+    "weight": 68,
+    "sleepHours": 6,
+    "sleepQuality": 5,
+    "phoneUsage": 0
+  },
+  "theme": "dark",
+  "importantInfo": "",
+  "examDate": "2025-12-20",
+  "dayStart": "今天要和ai聊1小时口语，背单词预计2小时，看一下作文应该怎么写，然后继续做一套阅读和听力",
+  "dayReflection": "",
+  "reflectionTime": "",
+  "isServerOnline": true,
+  "isLoading": false,
+  "currentBoundTask": 1754702468111,
+  "pomodoroRunning": true,
+  "focusMode": true,
+  "focusQuoteIndex": 4,
+  "breakMode": false,
+  "breakTimeLeft": 300,
+  "config": {
+    "target": {
+      "name": "雅思",
+      "date": "2025-08-27"
+    },
+    "studySubjects": {
+      "math": {
+        "enabled": false,
+        "name": "数学",
+        "color": "#ff6b6b"
+      },
+      "english": {
+        "enabled": true,
+        "name": "英语",
+        "color": "#4ecdc4"
+      },
+      "politics": {
+        "enabled": false,
+        "name": "政治",
+        "color": "#45b7d1"
+      },
+      "computer": {
+        "enabled": false,
+        "name": "计算机",
+        "color": "#96ceb4"
+      }
+    },
+    "exerciseTypes": {
+      "pushUps": {
+        "enabled": true,
+        "name": "俯卧撑"
+      },
+      "pullUps": {
+        "enabled": true,
+        "name": "引体向上"
+      },
+      "squats": {
+        "enabled": true,
+        "name": "深蹲"
+      },
+      "swimming": {
+        "enabled": false,
+        "name": "游泳"
+      },
+      "cycling": {
+        "enabled": false,
+        "name": "骑行"
+      }
+    },
+    "expenseCategories": {
+      "breakfast": {
+        "enabled": true,
+        "name": "早餐"
+      },
+      "lunch": {
+        "enabled": true,
+        "name": "午餐"
+      },
+      "dinner": {
+        "enabled": true,
+        "name": "晚餐"
+      },
+      "custom": []
+    },
+    "theme": {
+      "mode": "dark",
+      "color": "blue"
+    }
+  },
+  "metadata": {
+    "created": "2025-08-09T01:21:13.941Z",
+    "lastModified": "2025-08-09T08:15:42.608Z"
+  }
+}

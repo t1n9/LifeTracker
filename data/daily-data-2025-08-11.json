@@ -1,0 +1,160 @@
+{
+  "date": "2025-08-11",
+  "study": {
+    "totalMinutes": 125,
+    "sessions": [
+      {
+        "duration": 25,
+        "time": "09:44",
+        "timestamp": "2025-08-11T01:44:38.036Z",
+        "taskId": 1754875053997
+      },
+      {
+        "duration": 25,
+        "time": "10:46",
+        "timestamp": "2025-08-11T02:46:55.470Z",
+        "taskId": 1754875053997
+      },
+      {
+        "duration": 25,
+        "time": "17:43",
+        "timestamp": "2025-08-11T09:43:13.215Z",
+        "taskId": 1754875053997
+      },
+      {
+        "duration": 30,
+        "time": "21:02",
+        "timestamp": "2025-08-11T13:02:21.328Z",
+        "taskId": 1754875053997
+      },
+      {
+        "duration": 20,
+        "time": "21:44",
+        "timestamp": "2025-08-11T13:44:28.898Z",
+        "taskId": 1754875053997
+      }
+    ],
+    "pomodoroCount": 5
+  },
+  "exercise": {
+    "pullUps": 0,
+    "squats": 0,
+    "pushUps": 0,
+    "running": 0,
+    "swimming": 0,
+    "cycling": 0,
+    "feeling": ""
+  },
+  "expenses": {
+    "breakfast": 0,
+    "lunch": 0,
+    "dinner": 0,
+    "customCategories": {},
+    "customCategoryNames": {},
+    "other": [],
+    "total": 0
+  },
+  "tasks": [
+    {
+      "id": 1754875053997,
+      "text": "单词",
+      "completed": false,
+      "pomodoroCount": 5,
+      "createdAt": "2025-08-11T01:17:33.997Z"
+    }
+  ],
+  "subjectGoals": {},
+  "health": {
+    "weight": 70,
+    "sleepHours": 5.8,
+    "sleepQuality": 2,
+    "phoneUsage": 0
+  },
+  "theme": "dark",
+  "importantInfo": "1. 番茄时钟加一个提前结束\n2. 正计时\n3. 输入一段话，直接生成数据\n4. 任务点击本体是绑定番茄，点击勾选框才是完成",
+  "examDate": "2025-12-20",
+  "dayStart": "今天下午要回学校，处理各种事情，早上现在9点，争取利用好时间",
+  "dayReflection": "",
+  "reflectionTime": "",
+  "isServerOnline": true,
+  "isLoading": false,
+  "currentBoundTask": null,
+  "pomodoroRunning": false,
+  "focusMode": false,
+  "focusQuoteIndex": 6,
+  "breakMode": false,
+  "breakTimeLeft": 300,
+  "config": {
+    "target": {
+      "name": "雅思",
+      "date": "2025-08-27"
+    },
+    "studySubjects": {
+      "math": {
+        "enabled": false,
+        "name": "数学",
+        "color": "#ff6b6b"
+      },
+      "english": {
+        "enabled": true,
+        "name": "英语",
+        "color": "#4ecdc4"
+      },
+      "politics": {
+        "enabled": false,
+        "name": "政治",
+        "color": "#45b7d1"
+      },
+      "computer": {
+        "enabled": false,
+        "name": "计算机",
+        "color": "#96ceb4"
+      }
+    },
+    "exerciseTypes": {
+      "pushUps": {
+        "enabled": true,
+        "name": "俯卧撑"
+      },
+      "pullUps": {
+        "enabled": true,
+        "name": "引体向上"
+      },
+      "squats": {
+        "enabled": true,
+        "name": "深蹲"
+      },
+      "swimming": {
+        "enabled": false,
+        "name": "游泳"
+      },
+      "cycling": {
+        "enabled": false,
+        "name": "骑行"
+      }
+    },
+    "expenseCategories": {
+      "breakfast": {
+        "enabled": true,
+        "name": "早餐"
+      },
+      "lunch": {
+        "enabled": true,
+        "name": "午餐"
+      },
+      "dinner": {
+        "enabled": true,
+        "name": "晚餐"
+      },
+      "custom": []
+    },
+    "theme": {
+      "mode": "dark",
+      "color": "blue"
+    }
+  },
+  "metadata": {
+    "created": "2025-08-10T16:00:03.328Z",
+    "lastModified": "2025-08-11T13:45:11.649Z"
+  }
+}

@@ -1,0 +1,183 @@
+{
+  "date": "2025-07-13",
+  "study": {
+    "totalMinutes": 65,
+    "sessions": [
+      {
+        "duration": 15,
+        "method": "pomodoro",
+        "time": "09:14",
+        "timestamp": "2025-07-13T01:14:19.186Z"
+      },
+      {
+        "duration": 50,
+        "method": "pomodoro",
+        "time": "22:46",
+        "timestamp": "2025-07-13T14:46:19.128Z"
+      }
+    ],
+    "pomodoroCount": 2
+  },
+  "exercise": {
+    "pullUps": 0,
+    "squats": 0,
+    "pushUps": 0,
+    "running": 0,
+    "swimming": 0,
+    "cycling": 0,
+    "feeling": ""
+  },
+  "expenses": {
+    "breakfast": 0,
+    "lunch": 13.6,
+    "dinner": 10,
+    "customCategories": {},
+    "customCategoryNames": {},
+    "other": [
+      {
+        "id": 1752411461412,
+        "description": "洗衣液",
+        "amount": 15.9,
+        "time": "20:57"
+      }
+    ],
+    "total": 39.5
+  },
+  "tasks": [
+    {
+      "id": "subject-math",
+      "text": "数学 (目标60分钟)",
+      "completed": false,
+      "pomodoroCount": 0,
+      "studyMinutes": 0,
+      "isPermanent": true,
+      "subjectKey": "math",
+      "targetMinutes": 60,
+      "color": "#ff6b6b",
+      "createdAt": "2025-07-13T00:43:45.012Z"
+    },
+    {
+      "id": "subject-english",
+      "text": "英语 (目标60分钟)",
+      "completed": false,
+      "pomodoroCount": 0,
+      "studyMinutes": 0,
+      "isPermanent": true,
+      "subjectKey": "english",
+      "targetMinutes": 60,
+      "color": "#4ecdc4",
+      "createdAt": "2025-07-13T00:43:45.012Z"
+    },
+    {
+      "id": 1752367435143,
+      "text": "实习报告",
+      "completed": false,
+      "pomodoroCount": 1,
+      "createdAt": "2025-07-13T00:43:55.143Z"
+    },
+    {
+      "id": 1752369973899,
+      "text": "志愿书",
+      "completed": true,
+      "pomodoroCount": 1,
+      "createdAt": "2025-07-13T01:26:13.899Z"
+    }
+  ],
+  "subjectGoals": {
+    "english": 60,
+    "math": 60
+  },
+  "health": {
+    "weight": 69.5,
+    "sleepHours": 6.5,
+    "sleepQuality": 3,
+    "phoneUsage": 0
+  },
+  "theme": "dark",
+  "importantInfo": "",
+  "examDate": "2025-12-20",
+  "dayStart": "今天把实习报告打印完成、志愿书写完，英语要背诵，两天的量；数学看着来，不要再看手机了，时间紧任务重。当然一些事情得晚上再回来做，白天要回学校",
+  "dayReflection": "",
+  "reflectionTime": "",
+  "metadata": {
+    "created": "2025-07-12T16:00:40.184Z",
+    "lastModified": "2025-07-13T15:35:39.664Z"
+  },
+  "currentBoundTask": null,
+  "pomodoroRunning": false,
+  "focusMode": false,
+  "focusQuoteIndex": 3,
+  "breakMode": false,
+  "breakTimeLeft": 300,
+  "isServerOnline": true,
+  "isLoading": false,
+  "config": {
+    "target": {
+      "name": "考研",
+      "date": "2025-12-20"
+    },
+    "studySubjects": {
+      "math": {
+        "enabled": true,
+        "name": "数学",
+        "color": "#ff6b6b"
+      },
+      "english": {
+        "enabled": true,
+        "name": "英语",
+        "color": "#4ecdc4"
+      },
+      "politics": {
+        "enabled": true,
+        "name": "政治",
+        "color": "#45b7d1"
+      },
+      "computer": {
+        "enabled": true,
+        "name": "计算机",
+        "color": "#96ceb4"
+      }
+    },
+    "exerciseTypes": {
+      "pushUps": {
+        "enabled": true,
+        "name": "俯卧撑"
+      },
+      "pullUps": {
+        "enabled": true,
+        "name": "引体向上"
+      },
+      "squats": {
+        "enabled": true,
+        "name": "深蹲"
+      },
+      "swimming": {
+        "enabled": false,
+        "name": "游泳"
+      },
+      "cycling": {
+        "enabled": false,
+        "name": "骑行"
+      }
+    },
+    "expenseCategories": {
+      "breakfast": {
+        "enabled": true,
+        "name": "早餐"
+      },
+      "lunch": {
+        "enabled": true,
+        "name": "午餐"
+      },
+      "dinner": {
+        "enabled": true,
+        "name": "晚餐"
+      },
+      "custom": []
+    },
+    "theme": {
+      "mode": "dark",
+      "color": "blue"
+    }
+  }
+}

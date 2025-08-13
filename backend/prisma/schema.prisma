@@ -227,6 +227,17 @@ enum ExerciseTypeEnum {
   DISTANCE // 里程型：跑步、骑行、游泳
 }
 
+// 迁移日志表
+model MigrationLog {
+  id            String   @id @default(uuid())
+  migrationName String   @map("migration_name")
+  status        String   // started, completed, failed
+  details       String?  @db.Text
+  createdAt     DateTime @map("created_at")
+
+  @@map("migration_logs")
+}
+
 // 消费记录表 - 统一的消费数据存储
 model ExpenseRecord {
   id          String      @id @default(uuid())

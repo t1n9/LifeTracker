@@ -12,6 +12,7 @@ import { HistoryModule } from './history/history.module';
 import { ImportantInfoModule } from './important-info/important-info.module';
 import { ExerciseModule } from './exercise/exercise.module';
 import { ExpenseModule } from './expense/expense.module';
+import { MigrationModule } from './migration/migration.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -42,6 +43,7 @@ import { AppService } from './app.service';
     ImportantInfoModule,
     ExerciseModule,
     ExpenseModule,
+    MigrationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

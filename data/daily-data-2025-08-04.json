@@ -1,0 +1,44 @@
+{
+  "date": "2025-08-04",
+  "study": {
+    "totalMinutes": 0,
+    "sessions": [],
+    "pomodoroCount": 0
+  },
+  "exercise": {
+    "pullUps": 0,
+    "squats": 0,
+    "pushUps": 0,
+    "running": 0,
+    "swimming": 0,
+    "cycling": 0,
+    "feeling": ""
+  },
+  "expenses": {
+    "breakfast": 0,
+    "lunch": 0,
+    "dinner": 0,
+    "customCategories": {},
+    "customCategoryNames": {},
+    "other": [],
+    "total": 0
+  },
+  "tasks": [],
+  "subjectGoals": {},
+  "health": {
+    "weight": 0,
+    "sleepHours": 0,
+    "sleepQuality": 0,
+    "phoneUsage": 0
+  },
+  "theme": "light",
+  "importantInfo": "",
+  "examDate": "2025-12-20",
+  "dayStart": "",
+  "dayReflection": "",
+  "reflectionTime": "",
+  "metadata": {
+    "created": "2025-08-03T16:14:18.246Z",
+    "lastModified": "2025-08-07T13:02:48.285Z"
+  }
+}

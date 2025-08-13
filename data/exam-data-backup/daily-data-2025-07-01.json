@@ -1,0 +1,108 @@
+{
+  "date": "2025-07-01",
+  "study": {
+    "totalMinutes": 60,
+    "sessions": [
+      {
+        "duration": 25,
+        "time": "10:20",
+        "timestamp": "2025-07-01T02:20:54.193Z"
+      },
+      {
+        "duration": 35,
+        "time": "10:35",
+        "timestamp": "2025-07-01T02:35:37.256Z"
+      }
+    ],
+    "pomodoroCount": 0
+  },
+  "exercise": {
+    "pullUps": 0,
+    "squats": 0,
+    "pushUps": 0,
+    "running": 0,
+    "swimming": 0,
+    "cycling": 0,
+    "feeling": ""
+  },
+  "expenses": {
+    "breakfast": 0,
+    "lunch": 0,
+    "dinner": 0,
+    "customCategories": {},
+    "customCategoryNames": {},
+    "other": [],
+    "total": 0
+  },
+  "tasks": [],
+  "health": {
+    "weight": 0,
+    "sleepHours": 0,
+    "sleepQuality": 0,
+    "phoneUsage": 0
+  },
+  "theme": "dark",
+  "importantInfo": "计时的时候无法退出网页、\n待办任务与番茄时钟结合、\n重要信息字体",
+  "examDate": "2025-12-20",
+  "dayStart": "",
+  "dayReflection": "",
+  "reflectionTime": "",
+  "metadata": {
+    "created": "2025-06-30T17:49:25.549Z",
+    "lastModified": "2025-07-01T02:36:04.253Z"
+  },
+  "currentBoundTask": null,
+  "pomodoroRunning": false,
+  "focusMode": false,
+  "focusQuoteIndex": 0,
+  "breakMode": false,
+  "breakTimeLeft": 300,
+  "config": {
+    "target": {
+      "name": "考研",
+      "date": "2025-12-20",
+      "dailyGoal": 360
+    },
+    "exerciseTypes": {
+      "pushUps": {
+        "enabled": true,
+        "name": "俯卧撑"
+      },
+      "pullUps": {
+        "enabled": true,
+        "name": "引体向上"
+      },
+      "squats": {
+        "enabled": true,
+        "name": "深蹲"
+      },
+      "swimming": {
+        "enabled": false,
+        "name": "游泳"
+      },
+      "cycling": {
+        "enabled": false,
+        "name": "骑行"
+      }
+    },
+    "expenseCategories": {
+      "breakfast": {
+        "enabled": false,
+        "name": "早餐"
+      },
+      "lunch": {
+        "enabled": true,
+        "name": "午餐"
+      },
+      "dinner": {
+        "enabled": true,
+        "name": "晚餐"
+      },
+      "custom": []
+    },
+    "theme": {
+      "mode": "light",
+      "color": "blue"
+    }
+  }
+}

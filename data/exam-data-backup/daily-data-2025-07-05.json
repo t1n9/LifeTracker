@@ -1,0 +1,118 @@
+{
+  "date": "2025-07-05",
+  "study": {
+    "totalMinutes": 60,
+    "sessions": [
+      {
+        "duration": 60,
+        "time": "16:33",
+        "timestamp": "2025-07-05T08:33:54.927Z"
+      }
+    ],
+    "pomodoroCount": 0
+  },
+  "exercise": {
+    "pullUps": 0,
+    "squats": 0,
+    "pushUps": 10,
+    "running": 0,
+    "swimming": 0,
+    "cycling": 0,
+    "feeling": "very_easy"
+  },
+  "expenses": {
+    "breakfast": 0,
+    "lunch": 0,
+    "dinner": 0,
+    "customCategories": {},
+    "customCategoryNames": {},
+    "other": [],
+    "total": 0
+  },
+  "tasks": [
+    {
+      "id": 1751722784354,
+      "text": "配置页完成",
+      "completed": true,
+      "pomodoroCount": 0,
+      "createdAt": "2025-07-05T13:39:44.354Z"
+    },
+    {
+      "id": 1751722788941,
+      "text": "样式完善",
+      "completed": true,
+      "pomodoroCount": 0,
+      "createdAt": "2025-07-05T13:39:48.941Z"
+    }
+  ],
+  "health": {
+    "weight": 64,
+    "sleepHours": 7,
+    "sleepQuality": 3,
+    "phoneUsage": 240
+  },
+  "theme": "dark",
+  "importantInfo": "要准备考研的事情了",
+  "examDate": "2025-12-20",
+  "dayStart": "今天要把网站维护好，然后把考研的计划制定好",
+  "dayReflection": "很好，今天给网页加了好多东西，基本成型，而且支持局域网数据同步和开启服务。大概可以开源了！！",
+  "reflectionTime": "23:32",
+  "metadata": {
+    "created": "2025-07-05T07:36:05.331Z",
+    "lastModified": "2025-07-05T15:32:16.430Z"
+  },
+  "currentBoundTask": null,
+  "pomodoroRunning": false,
+  "focusMode": false,
+  "focusQuoteIndex": 0,
+  "breakMode": false,
+  "breakTimeLeft": 300,
+  "config": {
+    "target": {
+      "name": "考研",
+      "date": "2025-12-20",
+      "dailyGoal": 360
+    },
+    "exerciseTypes": {
+      "pushUps": {
+        "enabled": true,
+        "name": "俯卧撑"
+      },
+      "pullUps": {
+        "enabled": true,
+        "name": "引体向上"
+      },
+      "squats": {
+        "enabled": true,
+        "name": "深蹲"
+      },
+      "swimming": {
+        "enabled": false,
+        "name": "游泳"
+      },
+      "cycling": {
+        "enabled": false,
+        "name": "骑行"
+      }
+    },
+    "expenseCategories": {
+      "breakfast": {
+        "enabled": false,
+        "name": "早餐"
+      },
+      "lunch": {
+        "enabled": true,
+        "name": "午餐"
+      },
+      "dinner": {
+        "enabled": true,
+        "name": "晚餐"
+      },
+      "custom": []
+    },
+    "theme": {
+      "mode": "dark",
+      "color": "blue"
+    }
+  }
+}
