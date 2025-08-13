@@ -92,111 +92,46 @@ fi
 # 配置Nginx（使用Let's Encrypt证书）
 echo "🌐 配置Nginx..."
 
-# 检查Let's Encrypt证书是否存在
-CERT_PATH="/etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem"
-KEY_PATH="/etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem"
+# 检查Let's Encrypt证书是否存在（支持多种命名格式）
+CERT_DIRS=(
+    "/etc/letsencrypt/live/${DOMAIN_NAME}"
+    "/etc/letsencrypt/live/${DOMAIN_NAME}-0001"
+    "/etc/letsencrypt/live/${DOMAIN_NAME}-0002"
+)
 
-if [ -f "$CERT_PATH" ] && [ -f "$KEY_PATH" ]; then
-    echo "✅ 找到Let's Encrypt证书，使用正式SSL证书"
-    SSL_CERT="$CERT_PATH"
-    SSL_KEY="$KEY_PATH"
-else
-    echo "⚠️ 未找到Let's Encrypt证书，尝试获取..."
-    # 安装certbot
-    sudo apt-get update
-    sudo apt-get install -y certbot python3-certbot-nginx
+SSL_CERT=""
+SSL_KEY=""
 
-    # 先启动基本的HTTP服务
-    sudo tee /etc/nginx/sites-available/lifetracker-temp > /dev/null <<EOF
-server {
-    listen 80 default_server;
-    server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
+for cert_dir in "${CERT_DIRS[@]}"; do
+    CERT_PATH="${cert_dir}/fullchain.pem"
+    KEY_PATH="${cert_dir}/privkey.pem"
 
-    location / {
-        root /var/www/html;
-        index index.html;
-        try_files \$uri \$uri/ /index.html;
-    }
-}
-EOF
-
-    sudo rm -f /etc/nginx/sites-enabled/*
-    sudo ln -sf /etc/nginx/sites-available/lifetracker-temp /etc/nginx/sites-enabled/
-
-    # 确保nginx正在运行
-    sudo systemctl start nginx || true
-    sudo systemctl enable nginx || true
-
-    # 测试nginx配置
-    if sudo nginx -t; then
-        sudo systemctl reload nginx
-        echo "✅ Nginx配置正确，已重新加载"
-    else
-        echo "❌ Nginx配置错误，跳过证书获取"
-        SSL_CERT=""
-        SSL_KEY=""
-        return
-    fi
-
-    # 等待nginx完全启动
-    sleep 5
-
-    # 检查域名解析
-    echo "🔍 检查域名解析..."
-    if nslookup ${DOMAIN_NAME} | grep -q "$(curl -s ifconfig.me)"; then
-        echo "✅ 域名解析正确"
-    else
-        echo "⚠️ 域名解析可能有问题，但继续尝试获取证书"
-        echo "当前服务器IP: $(curl -s ifconfig.me)"
-        echo "域名解析结果:"
-        nslookup ${DOMAIN_NAME} || true
-    fi
-
-    # 获取Let's Encrypt证书
-    echo "🔒 尝试获取Let's Encrypt证书..."
-    if sudo certbot --nginx -d ${DOMAIN_NAME} -d www.${DOMAIN_NAME} --non-interactive --agree-tos --email admin@${DOMAIN_NAME} --redirect; then
-        echo "✅ certbot执行成功"
-    else
-        echo "⚠️ certbot执行失败，可能是域名解析问题或证书已存在"
-
-        # 尝试使用webroot方式
-        echo "🔄 尝试使用webroot方式获取证书..."
-        sudo mkdir -p /var/www/html/.well-known/acme-challenge
-        sudo chown -R www-data:www-data /var/www/html/.well-known
-
-        if sudo certbot certonly --webroot -w /var/www/html -d ${DOMAIN_NAME} -d www.${DOMAIN_NAME} --non-interactive --agree-tos --email admin@${DOMAIN_NAME}; then
-            echo "✅ webroot方式获取证书成功"
-        else
-            echo "❌ webroot方式也失败了"
-        fi
-    fi
-
-    # 再次检查证书是否存在
     if [ -f "$CERT_PATH" ] && [ -f "$KEY_PATH" ]; then
-        echo "✅ Let's Encrypt证书获取成功"
+        echo "✅ 找到Let's Encrypt证书: $cert_dir"
         SSL_CERT="$CERT_PATH"
         SSL_KEY="$KEY_PATH"
-
-        # 验证证书有效性
-        if sudo openssl x509 -in "$CERT_PATH" -text -noout | grep -q "${DOMAIN_NAME}"; then
-            echo "✅ 证书验证成功，包含正确的域名"
-        else
-            echo "⚠️ 证书验证失败，可能不包含正确的域名"
-        fi
-    else
-        echo "❌ Let's Encrypt证书获取失败，使用HTTP模式"
-        echo "证书路径: $CERT_PATH"
-        echo "私钥路径: $KEY_PATH"
-
-        # 检查certbot日志
-        if [ -f "/var/log/letsencrypt/letsencrypt.log" ]; then
-            echo "📋 Certbot日志（最后10行）:"
-            sudo tail -10 /var/log/letsencrypt/letsencrypt.log || true
-        fi
-
-        SSL_CERT=""
-        SSL_KEY=""
+        break
     fi
+done
+
+if [ -n "$SSL_CERT" ] && [ -n "$SSL_KEY" ]; then
+    echo "✅ 使用现有SSL证书: $SSL_CERT"
+else
+    echo "⚠️ 未找到Let's Encrypt证书"
+    echo "检查的路径:"
+    for cert_dir in "${CERT_DIRS[@]}"; do
+        echo "  - $cert_dir"
+    done
+
+    # 列出实际存在的证书目录
+    if [ -d "/etc/letsencrypt/live" ]; then
+        echo "实际存在的证书目录:"
+        ls -la /etc/letsencrypt/live/ || true
+    fi
+
+    echo "使用HTTP模式部署"
+    SSL_CERT=""
+    SSL_KEY=""
 fi
 
 # 创建最终的Nginx配置

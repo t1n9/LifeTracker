@@ -83,11 +83,29 @@ if [ -f "nginx/nginx.ultra-simple.conf" ]; then
 else
     echo "创建简单的sites配置..."
 
-    # 检查Let's Encrypt证书是否存在
-    CERT_PATH="/etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem"
-    KEY_PATH="/etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem"
+    # 检查Let's Encrypt证书是否存在（支持多种命名格式）
+    CERT_DIRS=(
+        "/etc/letsencrypt/live/${DOMAIN_NAME}"
+        "/etc/letsencrypt/live/${DOMAIN_NAME}-0001"
+        "/etc/letsencrypt/live/${DOMAIN_NAME}-0002"
+    )
 
-    if [ -f "$CERT_PATH" ] && [ -f "$KEY_PATH" ]; then
+    CERT_PATH=""
+    KEY_PATH=""
+
+    for cert_dir in "${CERT_DIRS[@]}"; do
+        test_cert="${cert_dir}/fullchain.pem"
+        test_key="${cert_dir}/privkey.pem"
+
+        if [ -f "$test_cert" ] && [ -f "$test_key" ]; then
+            CERT_PATH="$test_cert"
+            KEY_PATH="$test_key"
+            echo "✅ 找到证书: $cert_dir"
+            break
+        fi
+    done
+
+    if [ -n "$CERT_PATH" ] && [ -n "$KEY_PATH" ]; then
         echo "✅ 找到Let's Encrypt证书，创建HTTPS配置"
         sudo tee /etc/nginx/sites-available/lifetracker > /dev/null <<EOF
 server {
