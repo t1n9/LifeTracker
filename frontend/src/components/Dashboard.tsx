@@ -11,6 +11,7 @@ import ImportantInfo from './ImportantInfo';
 import ExerciseStats from './ExerciseStats';
 import ExpenseStats from './ExpenseStats';
 import ChangePasswordForm from './auth/ChangePasswordForm';
+import DayReflection from './daily/DayReflection';
 
 
 // CSS变量样式
@@ -1404,6 +1405,9 @@ export default function Dashboard() {
   const [theme, setTheme] = useState<'dark' | 'light'>('light'); // 默认浅色，等用户数据加载后再设置
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isDayReflectionOpen, setIsDayReflectionOpen] = useState(false);
+  const [dayReflectionMode, setDayReflectionMode] = useState<'start' | 'reflection'>('start');
+  const [dayStartRefreshTrigger, setDayStartRefreshTrigger] = useState(0);
 
   const [tasks, setTasks] = useState<Array<{
     id: string,
@@ -1955,7 +1959,10 @@ export default function Dashboard() {
               onStartCountUp={handleStartCountUp}
               currentBoundTask={currentBoundTask}
               isRunning={isPomodoroRunning}
+              dayStartRefreshTrigger={dayStartRefreshTrigger}
             />
+
+
           </div>
 
           {/* 右列：重要信息和统计信息 */}
@@ -2022,6 +2029,12 @@ export default function Dashboard() {
                     setIsHistoryOpen(true);
                   } else if (item.action === 'settings') {
                     router.push('/profile');
+                  } else if (item.action === 'start') {
+                    setDayReflectionMode('start');
+                    setIsDayReflectionOpen(true);
+                  } else if (item.action === 'review') {
+                    setDayReflectionMode('reflection');
+                    setIsDayReflectionOpen(true);
                   } else {
                     // 其他功能按钮的处理逻辑
                     console.log(`点击了${item.action}`);
@@ -2078,6 +2091,18 @@ export default function Dashboard() {
           onSuccess={() => {
             // 密码修改成功后的处理
             console.log('密码修改成功');
+          }}
+        />
+      )}
+
+      {/* 开启和复盘组件 */}
+      {isDayReflectionOpen && (
+        <DayReflection
+          mode={dayReflectionMode}
+          onClose={() => setIsDayReflectionOpen(false)}
+          onSave={() => {
+            // 触发开启内容刷新
+            setDayStartRefreshTrigger(prev => prev + 1);
           }}
         />
       )}

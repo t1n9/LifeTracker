@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CheckSquare, Plus, X, Check, Clock, Play } from 'lucide-react';
-import { taskAPI } from '@/lib/api';
+import { CheckSquare, Plus, X, Check, Clock, Play, Sunrise } from 'lucide-react';
+import { taskAPI, dailyAPI } from '@/lib/api';
 
 interface Task {
   id: string;
@@ -20,19 +20,22 @@ interface PendingTasksProps {
   onStartCountUp: (taskId: string, taskTitle: string) => void; // 开始正计时番茄钟
   currentBoundTask?: string | null; // 当前绑定的任务ID
   isRunning?: boolean; // 番茄钟是否正在运行
+  dayStartRefreshTrigger?: number; // 开启内容刷新触发器
 }
 
 const PendingTasks: React.FC<PendingTasksProps> = ({
   onTaskClick,
   onStartCountUp,
   currentBoundTask,
-  isRunning = false
+  isRunning = false,
+  dayStartRefreshTrigger
 }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskText, setNewTaskText] = useState('');
   const [showInput, setShowInput] = useState(false);
   const [loading, setLoading] = useState(true);
   const [updatingTasks, setUpdatingTasks] = useState<Record<string, boolean>>({});
+  const [dayStart, setDayStart] = useState<string | null>(null);
 
   // 加载今日任务列表
   const loadTasks = async () => {
@@ -47,10 +50,28 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     }
   };
 
+  // 加载今日开启内容
+  const loadDayStart = async () => {
+    try {
+      const response = await dailyAPI.getTodayStatus();
+      setDayStart(response.data.dayStart);
+    } catch (error) {
+      console.error('加载开启内容失败:', error);
+    }
+  };
+
   // 初始加载
   useEffect(() => {
     loadTasks();
+    loadDayStart();
   }, []);
+
+  // 当开启内容刷新触发器变化时，重新加载开启内容
+  useEffect(() => {
+    if (dayStartRefreshTrigger !== undefined) {
+      loadDayStart();
+    }
+  }, [dayStartRefreshTrigger]);
 
   // 添加新任务
   const handleAddTask = async () => {
@@ -336,6 +357,46 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
             ))}
           </div>
         </details>
+      )}
+
+      {/* 今日开启内容显示 */}
+      {dayStart && (
+        <div style={{
+          marginTop: '1rem',
+          marginBottom: '1rem',
+          padding: '0.75rem',
+          backgroundColor: 'rgba(66, 153, 225, 0.1)',
+          border: '1px solid rgba(66, 153, 225, 0.2)',
+          borderRadius: '8px',
+          borderLeft: '4px solid #4299e1',
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginBottom: '0.5rem',
+          }}>
+            <Sunrise size={16} style={{ color: '#4299e1' }} />
+            <span style={{
+              fontSize: '0.75rem',
+              fontWeight: '600',
+              color: '#4299e1',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}>
+              今日开启
+            </span>
+          </div>
+          <div style={{
+            fontSize: '0.875rem',
+            lineHeight: '1.4',
+            color: 'var(--text-primary)',
+            fontStyle: 'italic',
+            whiteSpace: 'pre-wrap',
+          }}>
+            {dayStart}
+          </div>
+        </div>
       )}
 
       {/* 添加新任务 */}

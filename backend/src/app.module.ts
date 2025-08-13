@@ -15,6 +15,7 @@ import { ExerciseModule } from './exercise/exercise.module';
 import { ExpenseModule } from './expense/expense.module';
 import { MigrationModule } from './migration/migration.module';
 import { SystemConfigModule } from './system-config/system-config.module';
+import { DailyModule } from './daily/daily.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TimeFormatInterceptor, TimeValidationInterceptor } from './common/interceptors/time-format.interceptor';
@@ -48,6 +49,7 @@ import { TimeFormatInterceptor, TimeValidationInterceptor } from './common/inter
     ExpenseModule,
     MigrationModule,
     SystemConfigModule,
+    DailyModule,
   ],
   controllers: [AppController],
   providers: [
