@@ -123,10 +123,10 @@ server {
     
     # 静态文件
     location / {
-        root $(pwd)/frontend-dist;
+        root /var/www/html;
         index index.html;
         try_files \$uri \$uri/ /index.html;
-        
+
         # 基本缓存
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
             expires 1d;
@@ -134,6 +134,18 @@ server {
     }
 }
 EOF
+
+# 复制前端文件
+echo "📁 复制前端文件..."
+if [ -d "frontend-dist" ]; then
+    sudo rm -rf /var/www/html/*
+    sudo cp -r frontend-dist/* /var/www/html/
+    sudo chown -R www-data:www-data /var/www/html
+    sudo chmod -R 755 /var/www/html
+    echo "✅ 前端文件复制完成"
+else
+    echo "⚠️ 未找到frontend-dist目录"
+fi
 
 # 启用站点并移除默认站点
 sudo rm -f /etc/nginx/sites-enabled/default

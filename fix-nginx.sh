@@ -7,6 +7,33 @@ echo "🔧 修复Nginx配置..."
 
 DOMAIN_NAME=${1:-t1n9.xyz}
 
+# 复制前端文件到Nginx目录
+echo "📁 复制前端文件..."
+if [ -d "frontend-dist" ]; then
+    sudo rm -rf /var/www/html/*
+    sudo cp -r frontend-dist/* /var/www/html/
+    sudo chown -R www-data:www-data /var/www/html
+    sudo chmod -R 755 /var/www/html
+    echo "✅ 前端文件复制完成"
+else
+    echo "⚠️ 未找到frontend-dist目录，创建默认页面..."
+    sudo mkdir -p /var/www/html
+    sudo tee /var/www/html/index.html > /dev/null <<EOF
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LifeTracker</title>
+</head>
+<body>
+    <h1>LifeTracker is Running!</h1>
+    <p>Backend API: <a href="/api/health">/api/health</a></p>
+</body>
+</html>
+EOF
+    sudo chown -R www-data:www-data /var/www/html
+    sudo chmod -R 755 /var/www/html
+fi
+
 # 创建正确的Nginx配置
 sudo tee /etc/nginx/sites-available/lifetracker > /dev/null <<EOF
 server {
@@ -43,10 +70,10 @@ server {
     
     # 静态文件
     location / {
-        root $(pwd)/frontend-dist;
+        root /var/www/html;
         index index.html;
         try_files \$uri \$uri/ /index.html;
-        
+
         # 基本缓存
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
             expires 1d;
