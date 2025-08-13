@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-// 在客户端使用相对路径，利用Next.js代理
-// 在服务端使用完整URL
-const API_URL = typeof window !== 'undefined'
-  ? '/api'  // 客户端使用代理路径
-  : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api'; // 服务端使用完整URL
+// 静态导出模式，直接使用API URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.host}/api`
+    : 'http://localhost:3002/api');
 
 // 创建axios实例
 export const api = axios.create({

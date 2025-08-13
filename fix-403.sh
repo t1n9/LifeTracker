@@ -42,6 +42,7 @@ else
 <head>
     <title>LifeTracker</title>
     <meta charset="utf-8">
+    <link rel="icon" href="/favicon.ico" />
 </head>
 <body>
     <h1>🎉 LifeTracker is Running!</h1>

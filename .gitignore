@@ -134,3 +134,5 @@ deploy.config.sh
 *.pem
 *.key
 id_rsa*
+lifetracker_github.pub
+lifetracker_github

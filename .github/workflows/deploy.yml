@@ -28,6 +28,8 @@ jobs:
         npm run build
 
     - name: Build Frontend
+      env:
+        NEXT_PUBLIC_API_URL: https://${{ secrets.DOMAIN_NAME }}/api
       run: |
         cd frontend
         npm ci
@@ -51,8 +53,8 @@ jobs:
         # 复制Prisma schema文件
         cp -r backend/prisma deploy-package/prisma
 
-        # 复制前端文件
-        cp -r frontend/.next deploy-package/frontend-dist
+        # 复制前端文件（静态导出）
+        cp -r frontend/out deploy-package/frontend-dist
         cp frontend/package.json deploy-package/frontend-package.json
 
         # 复制配置文件
