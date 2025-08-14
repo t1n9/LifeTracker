@@ -118,9 +118,9 @@ jobs:
           mkdir -p nginx/ssl
           
           # 备份现有的.env文件（如果存在）
-          if [ -f "current/.env" ]; then
+          if [ -f "../backup/.env" ]; then
             echo "📋 备份现有的.env文件..."
-            cp current/.env .env.backup
+            cp ../backup/.env .env.backup
             echo "✅ 现有配置已备份"
           fi
 
@@ -138,18 +138,18 @@ jobs:
           if [ -f ".env.backup" ]; then
             echo "保留现有的自定义配置..."
             # 先使用基础配置
-            cp .env.base current/.env
+            cp .env.base .env
             # 添加备份中的自定义配置（排除基础配置项）
-            echo "" >> current/.env
-            echo "# 以下是从备份恢复的自定义配置" >> current/.env
-            grep -v "^DOMAIN_NAME\|^DB_NAME\|^DB_USER\|^DB_PASSWORD\|^JWT_SECRET\|^NODE_ENV\|^#\|^$" .env.backup >> current/.env 2>/dev/null || true
-            echo "✅ 自定义配置已恢复到 current/.env"
+            echo "" >> .env
+            echo "# 以下是从备份恢复的自定义配置" >> .env
+            grep -v "^DOMAIN_NAME\|^DB_NAME\|^DB_USER\|^DB_PASSWORD\|^JWT_SECRET\|^NODE_ENV\|^#\|^$" .env.backup >> .env 2>/dev/null || true
+            echo "✅ 自定义配置已恢复"
 
             # 显示恢复的配置
             echo "📋 恢复的自定义配置："
             grep -v "^DOMAIN_NAME\|^DB_NAME\|^DB_USER\|^DB_PASSWORD\|^JWT_SECRET\|^NODE_ENV\|^#\|^$" .env.backup 2>/dev/null || echo "  无自定义配置"
           else
-            cp .env.base current/.env
+            cp .env.base .env
             echo "ℹ️ 使用默认配置，未找到备份文件"
           fi
 
@@ -158,7 +158,7 @@ jobs:
 
           echo "✅ 环境变量配置完成"
           echo "📋 最终配置文件内容："
-          cat current/.env
+          cat .env
 
           # 尝试多种部署方案（从最简单到最复杂）
           echo "🚀 尝试最小化部署..."
