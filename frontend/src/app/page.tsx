@@ -4,17 +4,36 @@ import { useEffect } from 'react';
 import { useAuthStore } from '@/store/auth';
 import Dashboard from '@/components/Dashboard';
 import LoginForm from '@/components/auth/LoginForm';
+import SharePageClient from '@/app/share/[shareCode]/SharePageClient';
 
 export default function Home() {
   const { isAuthenticated, isLoading, setToken } = useAuthStore();
 
   useEffect(() => {
+    // 检查是否是分享页面路径
+    const path = window.location.pathname;
+    const shareMatch = path.match(/^\/share\/([^\/]+)\/?$/);
+
+    if (shareMatch) {
+      // 如果是分享页面，显示分享内容
+      return;
+    }
+
     // 检查本地存储的token
     const token = localStorage.getItem('token');
     if (token && !isAuthenticated) {
       setToken(token);
     }
   }, [isAuthenticated, setToken]);
+
+  // 检查是否是分享页面
+  const path = typeof window !== 'undefined' ? window.location.pathname : '';
+  const shareMatch = path.match(/^\/share\/([^\/]+)\/?$/);
+
+  if (shareMatch) {
+    const shareCode = shareMatch[1];
+    return <SharePageClient shareCode={shareCode} />;
+  }
 
   if (isLoading) {
     return (

@@ -21,7 +21,7 @@ export class ShareLinkController {
 
     const shareLink = await this.shareLinkService.createShareLink(userId);
 
-    const base = (req?.headers?.origin as string) || process.env.FRONTEND_URL || 'http://localhost:3000';
+    const base = (req?.headers?.origin as string) || process.env.FRONTEND_URL || 'https://t1n9.xyz';
     return {
       shareCode: shareLink.shareCode,
       shareUrl: `${base}/share/${shareLink.shareCode}`,
@@ -45,7 +45,7 @@ export class ShareLinkController {
       };
     }
 
-    const base = (req?.headers?.origin as string) || process.env.FRONTEND_URL || 'http://localhost:3000';
+    const base = (req?.headers?.origin as string) || process.env.FRONTEND_URL || 'https://t1n9.xyz';
     return {
       shareCode: shareLink.shareCode,
       shareUrl: `${base}/share/${shareLink.shareCode}`,

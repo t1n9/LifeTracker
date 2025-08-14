@@ -35,7 +35,7 @@ export default function SharePageClient({ shareCode }: { shareCode: string }) {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await shareAPI.getSharedOverview(shareCode);
+        const response = await shareAPI.getSharedOverviewByCode(shareCode);
         setData(response.data);
       } catch (err: any) {
         console.error('获取分享数据失败:', err);
