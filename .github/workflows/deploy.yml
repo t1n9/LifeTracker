@@ -119,28 +119,37 @@ jobs:
           
           # 备份现有的.env文件（如果存在）
           if [ -f ".env" ]; then
-            echo "备份现有的.env文件..."
+            echo "📋 备份现有的.env文件..."
             cp .env .env.backup
+            echo "✅ 现有配置已备份"
           fi
 
           # 生成基础环境变量文件
-          echo "生成环境变量文件..."
-          echo "DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}" > .env.new
-          echo "DB_NAME=lifetracker" >> .env.new
-          echo "DB_USER=lifetracker" >> .env.new
-          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env.new
-          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env.new
-          echo "NODE_ENV=production" >> .env.new
+          echo "📝 生成基础环境变量..."
+          echo "DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}" > .env.base
+          echo "DB_NAME=lifetracker" >> .env.base
+          echo "DB_USER=lifetracker" >> .env.base
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env.base
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env.base
+          echo "NODE_ENV=production" >> .env.base
 
-          # 如果有备份的.env文件，保留其中的邮件配置
+          # 合并配置文件
+          echo "🔄 合并配置文件..."
           if [ -f ".env.backup" ]; then
-            echo "保留现有的邮件配置..."
-            # 提取邮件相关配置
-            grep "^EMAIL_" .env.backup >> .env.new 2>/dev/null || true
+            echo "保留现有的自定义配置..."
+            # 先使用基础配置
+            cp .env.base .env
+            # 添加备份中的自定义配置（排除基础配置项）
+            grep -v "^DOMAIN_NAME\|^DB_NAME\|^DB_USER\|^DB_PASSWORD\|^JWT_SECRET\|^NODE_ENV" .env.backup >> .env 2>/dev/null || true
+            echo "✅ 自定义配置已恢复"
+          else
+            cp .env.base .env
+            echo "ℹ️ 使用默认配置"
           fi
 
-          # 使用新的配置文件
-          mv .env.new .env
+          # 清理临时文件
+          rm -f .env.base .env.backup
+
           echo "✅ 环境变量配置完成"
 
           # 尝试多种部署方案（从最简单到最复杂）
