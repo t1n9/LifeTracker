@@ -118,9 +118,9 @@ jobs:
           mkdir -p nginx/ssl
           
           # 备份现有的.env文件（如果存在）
-          if [ -f ".env" ]; then
+          if [ -f "/current/.env" ]; then
             echo "📋 备份现有的.env文件..."
-            cp .env .env.backup
+            cp /current/.env .env.backup
             echo "✅ 现有配置已备份"
           fi
 
