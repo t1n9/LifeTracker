@@ -55,9 +55,13 @@ jobs:
         # 复制后端脚本目录（包含邮件诊断工具）
         cp -r backend/scripts deploy-package/scripts
 
-        # 复制前端文件（静态导出）
-        cp -r frontend/out deploy-package/frontend-dist
-        cp frontend/package.json deploy-package/frontend-package.json
+        # 复制前端文件（SSR standalone）
+        mkdir -p deploy-package/frontend
+        cp -r frontend/.next/standalone deploy-package/frontend/standalone
+        cp -r frontend/.next/static deploy-package/frontend/static
+        cp -r frontend/public deploy-package/frontend/public || true
+        cp frontend/package.json deploy-package/frontend/package.json
+        cp frontend/package-lock.json deploy-package/frontend/package-lock.json || true
 
         # 复制配置文件
         cp docker-compose.prod.yml deploy-package/ || cp docker-compose.yml deploy-package/docker-compose.prod.yml
