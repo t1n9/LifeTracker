@@ -227,14 +227,15 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
             gap: '4px',
             fontSize: '1.25rem',
             fontWeight: '600',
-            color: trend >= 0 ? '#10b981' : '#ef4444',
+            color: currentMetric.color,
           }}>
-            <TrendingUp 
-              size={16} 
-              style={{ 
+            <TrendingUp
+              size={16}
+              style={{
                 transform: trend < 0 ? 'rotate(180deg)' : 'none',
                 transition: 'transform 0.2s ease',
-              }} 
+                color: currentMetric.color,
+              }}
             />
             {trend >= 0 ? '+' : ''}{currentMetric.format(Math.abs(trend))}
           </div>

@@ -8,7 +8,7 @@ export class OverviewService {
 
   // 获取任务完成热力图数据
   async getTaskHeatmapData(userId: string, days: number = 365) {
-    const endDate = getTodayStart();
+    const endDate = new Date();
     const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - days);
 
@@ -171,7 +171,7 @@ export class OverviewService {
 
   // 获取学习趋势图表数据
   async getStudyChartData(userId: string, days: number = 30) {
-    const endDate = getTodayStart();
+    const endDate = new Date();
     const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - days);
 
