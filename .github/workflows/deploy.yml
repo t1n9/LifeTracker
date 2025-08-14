@@ -138,19 +138,27 @@ jobs:
           if [ -f ".env.backup" ]; then
             echo "保留现有的自定义配置..."
             # 先使用基础配置
-            cp .env.base .env
+            cp .env.base current/.env
             # 添加备份中的自定义配置（排除基础配置项）
-            grep -v "^DOMAIN_NAME\|^DB_NAME\|^DB_USER\|^DB_PASSWORD\|^JWT_SECRET\|^NODE_ENV" .env.backup >> .env 2>/dev/null || true
-            echo "✅ 自定义配置已恢复"
+            echo "" >> current/.env
+            echo "# 以下是从备份恢复的自定义配置" >> current/.env
+            grep -v "^DOMAIN_NAME\|^DB_NAME\|^DB_USER\|^DB_PASSWORD\|^JWT_SECRET\|^NODE_ENV\|^#\|^$" .env.backup >> current/.env 2>/dev/null || true
+            echo "✅ 自定义配置已恢复到 current/.env"
+
+            # 显示恢复的配置
+            echo "📋 恢复的自定义配置："
+            grep -v "^DOMAIN_NAME\|^DB_NAME\|^DB_USER\|^DB_PASSWORD\|^JWT_SECRET\|^NODE_ENV\|^#\|^$" .env.backup 2>/dev/null || echo "  无自定义配置"
           else
-            cp .env.base .env
-            echo "ℹ️ 使用默认配置"
+            cp .env.base current/.env
+            echo "ℹ️ 使用默认配置，未找到备份文件"
           fi
 
           # 清理临时文件
           rm -f .env.base .env.backup
 
           echo "✅ 环境变量配置完成"
+          echo "📋 最终配置文件内容："
+          cat current/.env
 
           # 尝试多种部署方案（从最简单到最复杂）
           echo "🚀 尝试最小化部署..."
