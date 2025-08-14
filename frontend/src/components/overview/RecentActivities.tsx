@@ -20,15 +20,15 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
   const getIcon = (type: string) => {
     switch (type) {
       case 'task':
-        return <CheckCircle size={16} style={{ color: 'var(--success-color)' }} />;
+        return <CheckCircle size={16} style={{ color: '#10b981' }} />;
       case 'study':
-        return <BookOpen size={16} style={{ color: 'var(--accent-primary)' }} />;
+        return <BookOpen size={16} style={{ color: '#3b82f6' }} />;
       case 'pomodoro':
-        return <Clock size={16} style={{ color: 'var(--warning-color)' }} />;
+        return <Clock size={16} style={{ color: '#f59e0b' }} />;
       case 'reflection':
         return <Target size={16} style={{ color: '#8b5cf6' }} />;
       default:
-        return <CheckCircle size={16} style={{ color: 'var(--text-muted)' }} />;
+        return <CheckCircle size={16} style={{ color: '#9ca3af' }} />;
     }
   };
 
@@ -75,26 +75,16 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
 
   return (
     <div style={{
-      backgroundColor: 'var(--bg-secondary)',
+      backgroundColor: 'transparent', // 移除背景，使用父容器的背景
       borderRadius: '12px',
-      border: '1px solid var(--border-color)',
-      padding: '20px',
+      padding: '0', // 移除内边距，使用父容器的内边距
     }}>
-      <h3 style={{
-        margin: '0 0 20px 0',
-        fontSize: '1.25rem',
-        fontWeight: '600',
-        color: 'var(--text-primary)',
-      }}>
-        最近活动
-      </h3>
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {activities.length === 0 ? (
           <div style={{
             textAlign: 'center',
             padding: '40px 20px',
-            color: 'var(--text-secondary)',
+            color: '#9ca3af',
           }}>
             <Clock size={40} style={{ opacity: 0.5, marginBottom: '12px' }} />
             <p>暂无最近活动</p>
@@ -108,9 +98,9 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
                 alignItems: 'flex-start',
                 gap: '12px',
                 padding: '12px',
-                backgroundColor: 'var(--bg-primary)',
+                backgroundColor: '#374151',
                 borderRadius: '8px',
-                border: '1px solid var(--border-color)',
+                border: '1px solid #4b5563',
                 transition: 'all 0.2s ease',
               }}
             >
@@ -120,7 +110,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
                 justifyContent: 'center',
                 width: '32px',
                 height: '32px',
-                backgroundColor: 'var(--bg-secondary)',
+                backgroundColor: '#4b5563',
                 borderRadius: '50%',
                 flexShrink: 0,
               }}>
@@ -137,7 +127,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
                   <span style={{
                     fontSize: '0.75rem',
                     fontWeight: '500',
-                    color: 'var(--text-secondary)',
+                    color: '#9ca3af',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                   }}>
@@ -146,8 +136,8 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
                   {activity.duration && (
                     <span style={{
                       fontSize: '0.75rem',
-                      color: 'var(--text-secondary)',
-                      backgroundColor: 'var(--bg-secondary)',
+                      color: '#9ca3af',
+                      backgroundColor: '#4b5563',
                       padding: '2px 6px',
                       borderRadius: '4px',
                     }}>
@@ -160,7 +150,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
                   margin: '0 0 4px 0',
                   fontSize: '0.875rem',
                   fontWeight: '500',
-                  color: 'var(--text-primary)',
+                  color: '#f9fafb',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -172,7 +162,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
                   <p style={{
                     margin: '0 0 8px 0',
                     fontSize: '0.75rem',
-                    color: 'var(--text-secondary)',
+                    color: '#d1d5db',
                     lineHeight: '1.4',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -184,7 +174,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
 
                 <time style={{
                   fontSize: '0.75rem',
-                  color: 'var(--text-secondary)',
+                  color: '#9ca3af',
                 }}>
                   {formatTime(activity.timestamp)}
                 </time>

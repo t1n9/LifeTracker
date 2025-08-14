@@ -71,7 +71,7 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
           y1={y}
           x2={Math.max(chartWidth, 400 - padding.right)}
           y2={y}
-          stroke="var(--border-color)"
+          stroke="#4b5563"
           strokeWidth="1"
           opacity="0.3"
         />
@@ -95,10 +95,9 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
 
   return (
     <div style={{
-      backgroundColor: 'var(--bg-secondary)',
+      backgroundColor: 'transparent', // 移除背景，使用父容器的背景
       borderRadius: '12px',
-      border: '1px solid var(--border-color)',
-      padding: '20px',
+      padding: '0', // 移除内边距，使用父容器的内边距
     }}>
       <div style={{
         display: 'flex',
@@ -106,23 +105,14 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
         alignItems: 'center',
         marginBottom: '20px',
       }}>
-        <h3 style={{
-          margin: 0,
-          fontSize: '1.25rem',
-          fontWeight: '600',
-          color: 'var(--text-primary)',
-        }}>
-          学习趋势
-        </h3>
-
         {/* 指标切换按钮 */}
         <div style={{
           display: 'flex',
           gap: '8px',
-          backgroundColor: 'var(--bg-primary)',
+          backgroundColor: '#374151', // 深灰色背景
           padding: '4px',
           borderRadius: '8px',
-          border: '1px solid var(--border-color)',
+          border: '1px solid #4b5563',
         }}>
           {Object.entries(metrics).map(([key, metric]) => (
             <button
@@ -136,7 +126,7 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
                 borderRadius: '6px',
                 border: 'none',
                 backgroundColor: activeMetric === key ? currentMetric.color : 'transparent',
-                color: activeMetric === key ? 'white' : 'var(--text-secondary)',
+                color: activeMetric === key ? 'white' : '#d1d5db',
                 fontSize: '0.75rem',
                 fontWeight: '500',
                 cursor: 'pointer',
@@ -159,13 +149,13 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
       }}>
         <div style={{
           padding: '12px',
-          backgroundColor: 'var(--bg-primary)',
+          backgroundColor: '#374151',
           borderRadius: '8px',
-          border: '1px solid var(--border-color)',
+          border: '1px solid #4b5563',
         }}>
           <div style={{
             fontSize: '0.75rem',
-            color: 'var(--text-secondary)',
+            color: '#9ca3af',
             marginBottom: '4px',
           }}>
             总计
@@ -181,13 +171,13 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
 
         <div style={{
           padding: '12px',
-          backgroundColor: 'var(--bg-primary)',
+          backgroundColor: '#374151',
           borderRadius: '8px',
-          border: '1px solid var(--border-color)',
+          border: '1px solid #4b5563',
         }}>
           <div style={{
             fontSize: '0.75rem',
-            color: 'var(--text-secondary)',
+            color: '#9ca3af',
             marginBottom: '4px',
           }}>
             平均
@@ -210,13 +200,13 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
 
         <div style={{
           padding: '12px',
-          backgroundColor: 'var(--bg-primary)',
+          backgroundColor: '#374151',
           borderRadius: '8px',
-          border: '1px solid var(--border-color)',
+          border: '1px solid #4b5563',
         }}>
           <div style={{
             fontSize: '0.75rem',
-            color: 'var(--text-secondary)',
+            color: '#9ca3af',
             marginBottom: '4px',
           }}>
             趋势
@@ -244,9 +234,9 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
 
       {/* 图表 */}
       <div style={{
-        backgroundColor: 'var(--bg-primary)',
+        backgroundColor: '#374151',
         borderRadius: '8px',
-        border: '1px solid var(--border-color)',
+        border: '1px solid #4b5563',
         padding: '16px',
         overflow: 'hidden', // 防止内容超出容器
       }}>
@@ -257,7 +247,7 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
             alignItems: 'center',
             justifyContent: 'center',
             height: '200px',
-            color: 'var(--text-secondary)',
+            color: '#9ca3af',
           }}>
             <TrendingUp size={40} style={{ opacity: 0.5, marginBottom: '12px' }} />
             <p>暂无数据</p>
@@ -275,8 +265,8 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
               top: 0,
               width: padding.left,
               height: height,
-              backgroundColor: 'var(--bg-primary)',
-              borderRight: '1px solid var(--border-color)',
+              backgroundColor: '#374151',
+              borderRight: '1px solid #4b5563',
               zIndex: 10,
             }}>
               <svg width={padding.left} height={height}>
@@ -291,7 +281,7 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
                       y={y + 4}
                       textAnchor="end"
                       fontSize="12"
-                      fill="var(--text-secondary)"
+                      fill="#9ca3af"
                     >
                       {Math.round(value)}
                     </text>
@@ -336,7 +326,7 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
                       y={height - 10}
                       textAnchor="middle"
                       fontSize="12"
-                      fill="var(--text-secondary)"
+                      fill="#9ca3af"
                     >
                       {date.getMonth() + 1}/{date.getDate()}
                     </text>

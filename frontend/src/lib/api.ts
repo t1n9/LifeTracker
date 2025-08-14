@@ -246,3 +246,28 @@ export const emailAPI = {
   verifyCode: (email: string, code: string, purpose: string) =>
     api.post('/email/verify-code', { email, code, purpose }),
 };
+
+// 公开分享API（不需要认证）
+export const shareAPI = {
+  // 获取公开分享的概况数据
+  getSharedOverview: () => {
+    // 创建一个不带认证的axios实例
+    const publicApi = axios.create({
+      baseURL: API_URL,
+      timeout: 10000,
+    });
+
+    // 添加响应拦截器处理时间字段
+    publicApi.interceptors.response.use(
+      (response) => {
+        if (response.data) {
+          response.data = processApiTimeFields(response.data);
+        }
+        return response;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    return publicApi.get('/share/overview');
+  },
+};

@@ -250,6 +250,30 @@ export class OverviewService {
       },
     });
 
+    // 总学习时间（分钟）
+    const totalStudyTimeResult = await this.prisma.dailyData.aggregate({
+      where: {
+        userId,
+        date: { gte: parseDateString(formatDateString(oneYearAgo)) },
+      },
+      _sum: {
+        totalMinutes: true,
+      },
+    });
+    const totalStudyTime = totalStudyTimeResult._sum.totalMinutes || 0;
+
+    // 总番茄钟数量
+    const totalPomodorosResult = await this.prisma.dailyData.aggregate({
+      where: {
+        userId,
+        date: { gte: parseDateString(formatDateString(oneYearAgo)) },
+      },
+      _sum: {
+        pomodoroCount: true,
+      },
+    });
+    const totalPomodoros = totalPomodorosResult._sum.pomodoroCount || 0;
+
     // 活跃天数（有学习记录的天数）
     const activeDays = await this.prisma.dailyData.count({
       where: {
@@ -295,9 +319,15 @@ export class OverviewService {
 
     return {
       totalTasks,
+      totalStudyTime,
+      totalPomodoros,
       activeDays,
       avgTasksPerDay: activeDays > 0 ? (totalTasks / activeDays).toFixed(1) : '0',
       currentStreak,
+      // 今日数据（为了兼容前端）
+      todayStudyTime: 0,
+      todayTasks: 0,
+      todayPomodoros: 0,
     };
   }
 }

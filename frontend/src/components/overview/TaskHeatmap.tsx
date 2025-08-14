@@ -112,24 +112,7 @@ const TaskHeatmap: React.FC<TaskHeatmapProps> = ({ data }) => {
         borderRadius: '12px',
         border: '1px solid var(--border-color)',
       }}>
-        {/* 固定标题 */}
-        <div style={{ marginBottom: '20px' }}>
-          <h3 style={{
-            margin: 0,
-            fontSize: '1.25rem',
-            fontWeight: '600',
-            color: 'var(--text-primary)',
-          }}>
-            任务完成热力图
-          </h3>
-          <p style={{
-            margin: '4px 0 0 0',
-            fontSize: '0.875rem',
-            color: 'var(--text-secondary)',
-          }}>
-            显示每天完成的任务数量
-          </p>
-        </div>
+
 
         {/* 可滚动的热力图容器 */}
         <div
@@ -222,20 +205,20 @@ const TaskHeatmap: React.FC<TaskHeatmapProps> = ({ data }) => {
             position: 'fixed',
             left: mousePosition.x,
             top: mousePosition.y,
-            backgroundColor: 'var(--bg-primary)',
-            color: 'var(--text-primary)',
+            backgroundColor: '#1f2937', // 深灰色背景
+            color: '#f9fafb', // 浅色文字
             padding: '8px 12px',
             borderRadius: '8px',
-            border: '1px solid var(--border-color)',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            border: '1px solid #374151',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
             fontSize: '12px',
             pointerEvents: 'none',
             zIndex: 1000,
             whiteSpace: 'nowrap',
           }}
         >
-          <div>{formatDate(hoveredDay.date)}</div>
-          <div>{hoveredDay.count} 个任务完成</div>
+          <div style={{ fontWeight: '500' }}>{formatDate(hoveredDay.date)}</div>
+          <div style={{ color: '#d1d5db' }}>{hoveredDay.count} 个任务完成</div>
         </div>
       )}
     </div>
