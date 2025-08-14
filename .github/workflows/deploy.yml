@@ -32,7 +32,7 @@ jobs:
         NEXT_PUBLIC_API_URL: https://${{ secrets.DOMAIN_NAME }}/api
       run: |
         cd frontend
-        npm ci
+        npm install
         # 设置环境变量跳过ESLint检查
         export ESLINT_NO_DEV_ERRORS=true
         export CI=false
@@ -64,7 +64,7 @@ jobs:
         mkdir -p deploy-package/frontend/public
         cp -r frontend/public/* deploy-package/frontend/public/ 2>/dev/null || true
         cp frontend/package.json deploy-package/frontend/package.json
-        cp frontend/package-lock.json deploy-package/frontend/package-lock.json 2>/dev/null || true
+        # package-lock.json 已移除，使用根目录的锁文件
 
         # 复制配置文件
         cp docker-compose.prod.yml deploy-package/ || cp docker-compose.yml deploy-package/docker-compose.prod.yml
