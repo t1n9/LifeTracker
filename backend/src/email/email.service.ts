@@ -25,8 +25,10 @@ export class EmailService {
 
     // 验证必要的配置
     if (!emailUser || !emailPassword) {
-      this.logger.error('邮箱配置不完整: EMAIL_USER 或 EMAIL_PASSWORD 未设置');
-      throw new Error('邮箱服务配置不完整，请检查环境变量');
+      this.logger.warn('邮箱配置不完整: EMAIL_USER 或 EMAIL_PASSWORD 未设置');
+      this.logger.warn('邮件服务将不可用，但应用可以正常启动');
+      // 不抛出错误，允许应用启动
+      return;
     }
 
     let config: any;
@@ -69,11 +71,16 @@ export class EmailService {
         throw new Error(`不支持的邮件提供商: ${emailProvider}`);
     }
 
-    this.transporter = nodemailer.createTransport(config);
-    this.logger.log(`邮件服务初始化完成，使用提供商: ${emailProvider}`);
+    try {
+      this.transporter = nodemailer.createTransport(config);
+      this.logger.log(`邮件服务初始化完成，使用提供商: ${emailProvider}`);
 
-    // 验证SMTP连接
-    this.verifyConnection();
+      // 验证SMTP连接
+      this.verifyConnection();
+    } catch (error) {
+      this.logger.error(`邮件服务初始化失败: ${error.message}`);
+      this.logger.warn('邮件服务将不可用，但应用可以正常启动');
+    }
   }
 
   // 验证SMTP连接
@@ -94,6 +101,12 @@ export class EmailService {
 
   // 发送验证码邮件
   async sendVerificationCode(email: string, purpose: 'register' | 'reset_password' | 'change_email' = 'register'): Promise<string> {
+    // 检查邮件服务是否可用
+    if (!this.transporter) {
+      this.logger.error('邮件服务未配置，无法发送验证码');
+      throw new Error('邮件服务暂时不可用，请联系管理员配置邮件服务');
+    }
+
     const code = this.generateVerificationCode();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10分钟后过期
 
