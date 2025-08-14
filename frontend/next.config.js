@@ -1,8 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 恢复静态导出模式，确保部署稳定
-  output: 'export',
-  trailingSlash: true,
+  // 开发环境使用普通模式，生产环境使用静态导出
+  ...(process.env.NODE_ENV === 'production' && {
+    output: 'export',
+    trailingSlash: true,
+  }),
   images: {
     unoptimized: true
   },
