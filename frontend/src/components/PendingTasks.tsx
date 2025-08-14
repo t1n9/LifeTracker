@@ -35,6 +35,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   const [showInput, setShowInput] = useState(false);
   const [loading, setLoading] = useState(true);
   const [updatingTasks, setUpdatingTasks] = useState<Record<string, boolean>>({});
+  const [isAddingTask, setIsAddingTask] = useState(false);
   const [dayStart, setDayStart] = useState<string | null>(null);
 
   // 加载今日任务列表
@@ -75,9 +76,10 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
 
   // 添加新任务
   const handleAddTask = async () => {
-    if (!newTaskText.trim()) return;
+    if (!newTaskText.trim() || isAddingTask) return;
 
     try {
+      setIsAddingTask(true);
       await taskAPI.createTask({
         title: newTaskText.trim(),
         isCompleted: false,
@@ -90,6 +92,8 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     } catch (error) {
       console.error('添加任务失败:', error);
       alert('添加任务失败，请重试');
+    } finally {
+      setIsAddingTask(false);
     }
   };
 
@@ -407,25 +411,29 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
             value={newTaskText}
             onChange={(e) => setNewTaskText(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="输入新任务..."
+            placeholder="今天要完成什么任务？"
             className="task-input"
+            disabled={isAddingTask}
             autoFocus
           />
           <div className="form-actions">
             <button
               onClick={handleAddTask}
-              className="btn btn-primary"
-              disabled={!newTaskText.trim()}
+              className={`btn btn-primary ${isAddingTask ? 'loading' : ''}`}
+              disabled={!newTaskText.trim() || isAddingTask}
+              title="添加任务"
             >
-              <Plus size={16} />
-              添加
+              {!isAddingTask && <Plus size={16} />}
+              {isAddingTask ? '添加中...' : '添加任务'}
             </button>
             <button
               onClick={() => {
                 setShowInput(false);
                 setNewTaskText('');
               }}
-              className="btn btn-secondary"
+              className="btn btn-close"
+              disabled={isAddingTask}
+              title="取消"
             >
               <X size={16} />
             </button>
