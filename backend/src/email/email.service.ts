@@ -27,7 +27,6 @@ export class EmailService {
     if (!emailUser || !emailPassword) {
       this.logger.warn('邮箱配置不完整: EMAIL_USER 或 EMAIL_PASSWORD 未设置');
       this.logger.warn('邮件服务将不可用，但应用可以正常启动');
-      // 不抛出错误，允许应用启动
       return;
     }
 

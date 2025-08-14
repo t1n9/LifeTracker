@@ -117,18 +117,31 @@ jobs:
           # 创建SSL证书目录
           mkdir -p nginx/ssl
           
-          # 生成环境变量文件
+          # 备份现有的.env文件（如果存在）
+          if [ -f ".env" ]; then
+            echo "备份现有的.env文件..."
+            cp .env .env.backup
+          fi
+
+          # 生成基础环境变量文件
           echo "生成环境变量文件..."
-          echo "DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}" > .env
-          echo "DB_NAME=lifetracker" >> .env
-          echo "DB_USER=lifetracker" >> .env
-          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
-          echo "NODE_ENV=production" >> .env
-          # 邮件服务配置
-          echo "EMAIL_PROVIDER=${{ secrets.EMAIL_PROVIDER }}" >> .env
-          echo "EMAIL_USER=${{ secrets.EMAIL_USER }}" >> .env
-          echo "EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}" >> .env
+          echo "DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}" > .env.new
+          echo "DB_NAME=lifetracker" >> .env.new
+          echo "DB_USER=lifetracker" >> .env.new
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env.new
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env.new
+          echo "NODE_ENV=production" >> .env.new
+
+          # 如果有备份的.env文件，保留其中的邮件配置
+          if [ -f ".env.backup" ]; then
+            echo "保留现有的邮件配置..."
+            # 提取邮件相关配置
+            grep "^EMAIL_" .env.backup >> .env.new 2>/dev/null || true
+          fi
+
+          # 使用新的配置文件
+          mv .env.new .env
+          echo "✅ 环境变量配置完成"
 
           # 尝试多种部署方案（从最简单到最复杂）
           echo "🚀 尝试最小化部署..."

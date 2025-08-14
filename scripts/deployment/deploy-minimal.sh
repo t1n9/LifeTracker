@@ -71,11 +71,12 @@ else
     echo "⚠️ 未找到.env文件，使用默认配置"
 fi
 
-# 显示邮件配置状态
-echo "📧 邮件服务配置:"
-echo "  EMAIL_PROVIDER: ${EMAIL_PROVIDER:-'未设置'}"
-echo "  EMAIL_USER: ${EMAIL_USER:-'未设置'}"
-echo "  EMAIL_PASSWORD: ${EMAIL_PASSWORD:+'已设置'}"
+# 显示邮件配置状态（可选）
+if [ -n "$EMAIL_USER" ] && [ -n "$EMAIL_PASSWORD" ]; then
+    echo "📧 邮件服务配置: ✅ 已配置"
+else
+    echo "📧 邮件服务配置: ⚠️ 未配置（可选功能）"
+fi
 
 # 后台启动后端（无依赖）
 echo "🚀 启动后端进程..."
@@ -274,27 +275,25 @@ else
     exit 1
 fi
 
-# 运行邮件配置检查
-echo ""
-echo "📧 检查邮件服务配置..."
-if [ -f "scripts/check-email-simple.js" ]; then
-    node scripts/check-email-simple.js || echo "⚠️ 邮件配置检查失败，请手动检查"
-else
-    echo "⚠️ 未找到邮件检查脚本"
-fi
+# 可选：检查邮件服务配置
+if [ -n "$EMAIL_USER" ] && [ -n "$EMAIL_PASSWORD" ]; then
+    echo ""
+    echo "📧 检查邮件服务配置..."
+    if [ -f "scripts/check-email-simple.js" ]; then
+        node scripts/check-email-simple.js || echo "⚠️ 邮件配置检查失败，但不影响应用运行"
+    fi
 
-# 测试邮件服务健康状态
-echo ""
-echo "🏥 测试邮件服务..."
-for i in {1..5}; do
+    # 测试邮件服务健康状态
+    echo "🏥 测试邮件服务..."
     if curl -f http://localhost:${BACKEND_PORT}/api/email/health > /dev/null 2>&1; then
         echo "✅ 邮件服务健康检查通过"
-        break
     else
-        echo "⏳ 等待邮件服务启动... ($i/5)"
-        sleep 2
+        echo "⚠️ 邮件服务检查失败，但不影响应用运行"
     fi
-done
+else
+    echo ""
+    echo "📧 邮件服务未配置，跳过邮件功能检查"
+fi
 
 echo ""
 echo "🎉 最小化部署完成！"
