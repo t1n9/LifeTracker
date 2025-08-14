@@ -248,16 +248,15 @@ server {
         add_header Content-Type text/plain;
     }
 
-    # 静态文件
+    # 前端SSR反向代理
     location / {
-        root /var/www/html;
-        index index.html;
-        try_files \$uri \$uri/ /index.html;
-
-        # 基本缓存
-        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
-            expires 1d;
-        }
+        proxy_pass http://127.0.0.1:3000/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300;
+        proxy_connect_timeout 300;
     }
 }
 EOF
@@ -285,16 +284,15 @@ server {
         add_header Content-Type text/plain;
     }
 
-    # 静态文件
+    # 前端SSR反向代理
     location / {
-        root /var/www/html;
-        index index.html;
-        try_files \$uri \$uri/ /index.html;
-
-        # 基本缓存
-        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
-            expires 1d;
-        }
+        proxy_pass http://127.0.0.1:3000/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300;
+        proxy_connect_timeout 300;
     }
 }
 EOF
@@ -311,10 +309,20 @@ if ! sudo nginx -t; then
     return 1
 fi
 
-# 复制前端文件到Nginx目录
-sudo rm -rf /var/www/html/*
-sudo mkdir -p /var/www/html
-sudo cp -r frontend-dist/* /var/www/html/ || echo "前端文件复制失败"
+# 启动前端SSR（standalone）
+if [ -d "frontend/standalone" ]; then
+  echo "🚀 启动前端SSR服务..."
+  export PORT=${FRONTEND_PORT:-3000}
+  if [ -f "frontend/package.json" ]; then
+    (cd frontend && npm ci --omit=dev || npm ci)
+  fi
+  nohup node frontend/standalone/server.js -p $PORT > frontend.log 2>&1 &
+  FRONTEND_PID=$!
+  echo $FRONTEND_PID > frontend.pid
+  echo "✅ 前端SSR运行中 (PID: $FRONTEND_PID, 端口: $PORT)"
+else
+  echo "⚠️ 未找到SSR standalone产物(frontend/standalone)，请检查构建与打包步骤"
+fi
 
 # 启动Nginx
 sudo systemctl enable nginx
