@@ -193,7 +193,7 @@ server {
     # 分享页面路由
     location ~ ^/share/[^/]+/?$ {
         root /var/www/html;
-        try_files /share/example/index.html /index.html;
+        try_files /index.html =404;
     }
 
     # 静态文件
@@ -236,7 +236,7 @@ server {
     # 分享页面路由
     location ~ ^/share/[^/]+/?$ {
         root /var/www/html;
-        try_files /share/example/index.html /index.html;
+        try_files /index.html =404;
     }
 
     # 静态文件

@@ -37,6 +37,7 @@ jobs:
         export ESLINT_NO_DEV_ERRORS=true
         export CI=false
         export DISABLE_ESLINT_PLUGIN=true
+        export NODE_ENV=production
         npm run build
 
     - name: Create deployment package

@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 开发环境使用普通模式，生产环境使用静态导出
-  ...(process.env.NODE_ENV === 'production' && {
+  // 只在生产构建时使用静态导出
+  ...(process.env.NODE_ENV !== 'development' && {
     output: 'export',
     trailingSlash: true,
   }),
