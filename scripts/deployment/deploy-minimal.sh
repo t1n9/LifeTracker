@@ -184,18 +184,16 @@ server {
         proxy_connect_timeout 300;
     }
 
-    # Next静态资源（直接由Nginx提供，提高稳定性与缓存效果）
-    location ^~ /_next/static/ {
-        alias $APP_DIR/frontend/static/;
-        access_log off;
-        expires 1y;
-        add_header Cache-Control "public, max-age=31536000, immutable";
-    }
-
     # 健康检查
     location /health {
         return 200 "OK";
         add_header Content-Type text/plain;
+    }
+
+    # 分享页面路由
+    location ~ ^/share/[^/]+/?$ {
+        root /var/www/html;
+        try_files /share/example/index.html /index.html;
     }
 
     # 静态文件
@@ -229,11 +227,16 @@ server {
         proxy_connect_timeout 300;
     }
 
-    # Next静态资源（直接由Nginx提供，提高稳定性与缓存效果）
     # 健康检查
     location /health {
         return 200 "OK";
         add_header Content-Type text/plain;
+    }
+
+    # 分享页面路由
+    location ~ ^/share/[^/]+/?$ {
+        root /var/www/html;
+        try_files /share/example/index.html /index.html;
     }
 
     # 静态文件
