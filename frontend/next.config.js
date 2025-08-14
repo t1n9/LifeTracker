@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 开发环境不使用export，生产环境才使用
-  ...(process.env.NODE_ENV === 'production' && {
+  // 默认使用 Node 服务器渲染，避免导出模式与动态路由冲突
+  // 如需静态导出，可在明确可行时设置环境变量 STATIC_EXPORT=true
+  ...(process.env.STATIC_EXPORT === 'true' && {
     output: 'export',
     trailingSlash: true,
   }),
