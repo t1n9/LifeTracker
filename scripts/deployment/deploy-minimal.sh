@@ -263,7 +263,8 @@ if [ -d "frontend/standalone" ]; then
     fi
 
     # 以后台进程方式运行 Next standalone 服务器
-    nohup node frontend/standalone/server.js -p $PORT > frontend.log 2>&1 &
+    cd frontend/standalone
+    nohup node server.js > ../../frontend.log 2>&1 &
     FRONTEND_PID=$!
     echo $FRONTEND_PID > frontend.pid
     echo "✅ 前端SSR运行中 (PID: $FRONTEND_PID, 端口: $PORT)"
