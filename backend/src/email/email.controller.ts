@@ -1,8 +1,9 @@
-import { Controller, Post, Body, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, HttpException, HttpStatus, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBody, ApiProperty } from '@nestjs/swagger';
 import { EmailService } from './email.service';
 import { IsEmail, IsString, IsIn } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 
 class SendVerificationCodeDto {
   @ApiProperty({ description: '邮箱地址' })
@@ -36,7 +37,39 @@ export class EmailController {
   constructor(
     private readonly emailService: EmailService,
     private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
   ) {}
+
+  @Get('health')
+  @ApiOperation({ summary: '检查邮件服务健康状态' })
+  async checkHealth() {
+    try {
+      const emailUser = this.configService.get('EMAIL_USER');
+      const emailPassword = this.configService.get('EMAIL_PASSWORD');
+      const emailProvider = this.configService.get('EMAIL_PROVIDER', 'qq');
+
+      return {
+        success: true,
+        status: 'healthy',
+        config: {
+          provider: emailProvider,
+          user: emailUser ? '已配置' : '未配置',
+          password: emailPassword ? '已配置' : '未配置',
+        },
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          status: 'unhealthy',
+          error: error.message,
+          timestamp: new Date().toISOString(),
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
 
   @Post('send-code')
   @ApiOperation({ summary: '发送验证码' })
@@ -53,7 +86,7 @@ export class EmailController {
       }
 
       const code = await this.emailService.sendVerificationCode(dto.email, dto.purpose);
-      
+
       return {
         success: true,
         message: '验证码已发送，请查收邮件',
@@ -61,6 +94,15 @@ export class EmailController {
         ...(process.env.NODE_ENV === 'development' && { code }),
       };
     } catch (error) {
+      // 记录详细错误信息
+      console.error('发送验证码失败:', {
+        email: dto.email,
+        purpose: dto.purpose,
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString(),
+      });
+
       throw new HttpException(
         error.message || '发送验证码失败',
         HttpStatus.INTERNAL_SERVER_ERROR

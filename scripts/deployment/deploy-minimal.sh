@@ -60,6 +60,23 @@ export JWT_SECRET="your-super-secret-jwt-key-change-this-in-production-TINGWU...
 export CORS_ORIGIN="https://${DOMAIN_NAME}"
 export PORT=${BACKEND_PORT}
 
+# 从.env文件加载环境变量（如果存在）
+if [ -f ".env" ]; then
+    echo "📋 加载环境变量文件..."
+    set -a  # 自动导出变量
+    source .env
+    set +a
+    echo "✅ 环境变量已加载"
+else
+    echo "⚠️ 未找到.env文件，使用默认配置"
+fi
+
+# 显示邮件配置状态
+echo "📧 邮件服务配置:"
+echo "  EMAIL_PROVIDER: ${EMAIL_PROVIDER:-'未设置'}"
+echo "  EMAIL_USER: ${EMAIL_USER:-'未设置'}"
+echo "  EMAIL_PASSWORD: ${EMAIL_PASSWORD:+'已设置'}"
+
 # 后台启动后端（无依赖）
 echo "🚀 启动后端进程..."
 nohup node backend-dist/main.js > backend.log 2>&1 &
@@ -257,10 +274,33 @@ else
     exit 1
 fi
 
+# 运行邮件配置检查
+echo ""
+echo "📧 检查邮件服务配置..."
+if [ -f "scripts/check-email-simple.js" ]; then
+    node scripts/check-email-simple.js || echo "⚠️ 邮件配置检查失败，请手动检查"
+else
+    echo "⚠️ 未找到邮件检查脚本"
+fi
+
+# 测试邮件服务健康状态
+echo ""
+echo "🏥 测试邮件服务..."
+for i in {1..5}; do
+    if curl -f http://localhost:${BACKEND_PORT}/api/email/health > /dev/null 2>&1; then
+        echo "✅ 邮件服务健康检查通过"
+        break
+    else
+        echo "⏳ 等待邮件服务启动... ($i/5)"
+        sleep 2
+    fi
+done
+
 echo ""
 echo "🎉 最小化部署完成！"
 echo "🌐 网站地址: https://${DOMAIN_NAME}"
 echo "📊 后端API: http://localhost:${BACKEND_PORT}/api/health"
+echo "📧 邮件服务: http://localhost:${BACKEND_PORT}/api/email/health"
 echo "🔍 后端PID: $BACKEND_PID"
 echo ""
 echo "📋 服务状态："
@@ -268,3 +308,4 @@ echo "- 后端进程: $(kill -0 $BACKEND_PID 2>/dev/null && echo '运行中' || 
 echo "- Nginx状态: $(sudo systemctl is-active nginx)"
 echo ""
 echo "📝 日志文件: $(pwd)/backend.log"
+echo "🔧 邮件修复: chmod +x scripts/fix-production-email.sh && ./scripts/fix-production-email.sh"

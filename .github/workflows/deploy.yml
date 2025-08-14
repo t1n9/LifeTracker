@@ -52,6 +52,8 @@ jobs:
         cp backend/package-lock.json deploy-package/package-lock.json
         # 复制Prisma schema文件
         cp -r backend/prisma deploy-package/prisma
+        # 复制后端脚本目录（包含邮件诊断工具）
+        cp -r backend/scripts deploy-package/scripts
 
         # 复制前端文件（静态导出）
         cp -r frontend/out deploy-package/frontend-dist
@@ -123,6 +125,10 @@ jobs:
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
           echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
           echo "NODE_ENV=production" >> .env
+          # 邮件服务配置
+          echo "EMAIL_PROVIDER=${{ secrets.EMAIL_PROVIDER }}" >> .env
+          echo "EMAIL_USER=${{ secrets.EMAIL_USER }}" >> .env
+          echo "EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}" >> .env
 
           # 尝试多种部署方案（从最简单到最复杂）
           echo "🚀 尝试最小化部署..."

@@ -23,6 +23,12 @@ export class EmailService {
 
     this.logger.log(`邮箱配置: Provider=${emailProvider}, User=${emailUser}, Password=${emailPassword ? '已设置' : '未设置'}`);
 
+    // 验证必要的配置
+    if (!emailUser || !emailPassword) {
+      this.logger.error('邮箱配置不完整: EMAIL_USER 或 EMAIL_PASSWORD 未设置');
+      throw new Error('邮箱服务配置不完整，请检查环境变量');
+    }
+
     let config: any;
 
     switch (emailProvider) {
@@ -65,6 +71,20 @@ export class EmailService {
 
     this.transporter = nodemailer.createTransport(config);
     this.logger.log(`邮件服务初始化完成，使用提供商: ${emailProvider}`);
+
+    // 验证SMTP连接
+    this.verifyConnection();
+  }
+
+  // 验证SMTP连接
+  private async verifyConnection() {
+    try {
+      await this.transporter.verify();
+      this.logger.log('SMTP连接验证成功');
+    } catch (error) {
+      this.logger.error(`SMTP连接验证失败: ${error.message}`);
+      // 不抛出错误，允许应用启动，但记录错误
+    }
   }
 
   // 生成6位数验证码
@@ -92,6 +112,14 @@ export class EmailService {
       const subject = this.getEmailSubject(purpose);
       const html = this.getEmailTemplate(code, purpose);
 
+      // 先验证SMTP连接
+      try {
+        await this.transporter.verify();
+      } catch (verifyError) {
+        this.logger.error(`SMTP连接失败: ${verifyError.message}`);
+        throw new Error(`邮件服务连接失败: ${verifyError.message}`);
+      }
+
       await this.transporter.sendMail({
         from: `"LifeTracker" <${this.configService.get('EMAIL_USER')}>`,
         to: email,
@@ -102,8 +130,18 @@ export class EmailService {
       this.logger.log(`验证码邮件已发送到: ${email}, 用途: ${purpose}`);
       return code; // 开发环境返回验证码，生产环境不应返回
     } catch (error) {
-      this.logger.error(`发送验证码邮件失败: ${error.message}`);
-      throw new Error('发送验证码失败，请稍后重试');
+      this.logger.error(`发送验证码邮件失败: ${error.message}`, error.stack);
+
+      // 提供更详细的错误信息
+      if (error.code === 'EAUTH') {
+        throw new Error('邮箱认证失败，请检查邮箱账号和授权码');
+      } else if (error.code === 'ECONNECTION') {
+        throw new Error('无法连接到邮件服务器，请检查网络连接');
+      } else if (error.code === 'ETIMEDOUT') {
+        throw new Error('邮件发送超时，请稍后重试');
+      } else {
+        throw new Error(`发送验证码失败: ${error.message}`);
+      }
     }
   }
 
