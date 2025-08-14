@@ -198,15 +198,16 @@ server {
         add_header Content-Type text/plain;
     }
 
-    # 前端SSR反向代理
+    # 静态文件
     location / {
-        proxy_pass http://127.0.0.1:3000/;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 300;
-        proxy_connect_timeout 300;
+        root /var/www/html;
+        index index.html;
+        try_files \$uri \$uri/ /index.html;
+
+        # 基本缓存
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+            expires 1d;
+        }
     }
 }
 EOF
@@ -250,29 +251,17 @@ server {
 EOF
 fi
 
-# 启动前端（SSR standalone）
-# 将 standalone 产物放到 /opt/lifetracker/current/frontend 下运行
-if [ -d "frontend/standalone" ]; then
-    echo "🚀 启动前端SSR服务..."
-    # 端口默认 3000，可在 .env 中覆盖
-    export PORT=${FRONTEND_PORT:-3000}
-
-    # 安装前端生产依赖
-    if [ -f "frontend/package.json" ]; then
-      (cd frontend && npm install --omit=dev || npm install)
-    fi
-
-    # 以后台进程方式运行 Next standalone 服务器
-    cd frontend/standalone
-    nohup node server.js > ../../frontend.log 2>&1 &
-    FRONTEND_PID=$!
-    echo $FRONTEND_PID > frontend.pid
-    echo "✅ 前端SSR运行中 (PID: $FRONTEND_PID, 端口: $PORT)"
+# 复制前端文件
+echo "📁 复制前端文件..."
+if [ -d "frontend-dist" ]; then
+    sudo rm -rf /var/www/html/*
+    sudo cp -r frontend-dist/* /var/www/html/
+    sudo chown -R www-data:www-data /var/www/html
+    sudo chmod -R 755 /var/www/html
+    echo "✅ 前端文件复制完成"
 else
-    echo "⚠️ 未找到SSR standalone产物(frontend/standalone)，请检查构建与打包步骤"
+    echo "⚠️ 未找到frontend-dist目录"
 fi
-
-# Nginx 作为反代转发到前端SSR
 # 将 location / 由静态文件改为转发到 127.0.0.1:$PORT
 
 # 启用站点并移除默认站点

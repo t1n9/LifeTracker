@@ -55,16 +55,9 @@ jobs:
         # 复制后端脚本目录（包含邮件诊断工具）
         cp -r backend/scripts deploy-package/scripts
 
-        # 复制前端文件（SSR standalone）
-        mkdir -p deploy-package/frontend/standalone/.next
-        cp -r frontend/.next/standalone deploy-package/frontend/standalone
-        # 确保静态资源位于 standalone/.next/static（Next standalone 运行时的默认查找位置）
-        cp -r frontend/.next/static deploy-package/frontend/standalone/.next/static
-        # 可选：保留 public 目录，供 Next 直接读取
-        mkdir -p deploy-package/frontend/public
-        cp -r frontend/public/* deploy-package/frontend/public/ 2>/dev/null || true
-        cp frontend/package.json deploy-package/frontend/package.json
-        # package-lock.json 已移除，使用根目录的锁文件
+        # 复制前端文件（静态导出）
+        cp -r frontend/out deploy-package/frontend-dist
+        cp frontend/package.json deploy-package/frontend-package.json
 
         # 复制配置文件
         cp docker-compose.prod.yml deploy-package/ || cp docker-compose.yml deploy-package/docker-compose.prod.yml

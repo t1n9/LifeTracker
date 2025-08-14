@@ -1,3 +1,9 @@
+// 为静态导出生成所有可能的分享码路径
+export async function generateStaticParams() {
+  // 静态导出模式下，返回空数组，让动态路由在运行时处理
+  return [];
+}
+
 'use client';
 
 import React, { useState, useEffect } from 'react';

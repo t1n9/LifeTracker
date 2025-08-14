@@ -1,14 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 使用 Node 服务器渲染；提供 standalone 产物，便于服务器运行
-  output: 'standalone',
-  // 确保静态资源使用正确的路径前缀
-  assetPrefix: process.env.NODE_ENV === 'production' ? '' : '',
-  // 如需静态导出，可在明确可行时设置环境变量 STATIC_EXPORT=true
-  ...(process.env.STATIC_EXPORT === 'true' && {
-    output: 'export',
-    trailingSlash: true,
-  }),
+  // 恢复静态导出模式，确保部署稳定
+  output: 'export',
+  trailingSlash: true,
   images: {
     unoptimized: true
   },
