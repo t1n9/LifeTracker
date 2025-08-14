@@ -32,6 +32,12 @@ export default function SharePageClient({ shareCode }: { shareCode: string }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // 设置暗色主题的 CSS 变量
+    const root = document.documentElement;
+    root.style.setProperty('--bg-secondary', '#1f2937'); // gray-800
+    root.style.setProperty('--text-secondary', '#9ca3af'); // gray-400
+    root.style.setProperty('--border-color', '#374151'); // gray-700
+
     const fetchData = async () => {
       try {
         setLoading(true);
