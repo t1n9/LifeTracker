@@ -16,4 +16,10 @@ export class RegisterDto {
   @IsString()
   @MaxLength(50, { message: '用户名最多50位' })
   name?: string;
+
+  @ApiProperty({ description: '邮箱验证码', example: '123456' })
+  @IsString()
+  @MinLength(6, { message: '验证码必须是6位数字' })
+  @MaxLength(6, { message: '验证码必须是6位数字' })
+  verificationCode: string;
 }

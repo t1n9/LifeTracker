@@ -250,34 +250,22 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
         <>
           {/* 计数型运动 - 横向紧凑布局 */}
           {countExercises.length > 0 && (
-            <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="exercise-count-grid">
               {countExercises.map((exercise) => (
-                <div key={exercise.id} style={{
-                  padding: '0.75rem',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  textAlign: 'center'
-                }}>
-                  <div style={{
-                    fontSize: '1.25rem',
-                    fontWeight: 'bold',
-                    color: exercise.color || 'var(--accent-primary)',
-                    marginBottom: '0.25rem'
-                  }}>
+                <div key={exercise.id} className="exercise-count-item">
+                  <div
+                    className="exercise-count-value"
+                    style={{ color: exercise.color || 'var(--accent-primary)' }}
+                  >
                     {getTodayValue(exercise.id)}
                   </div>
-                  <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
+                  <div className="exercise-count-name">
                     {exercise.icon} {exercise.name}
                   </div>
                   <button
-                    className="btn exercise-btn"
+                    className="exercise-count-btn"
                     style={{
                       backgroundColor: exercise.color || 'var(--accent-primary)',
-                      color: 'white',
-                      padding: '0.25rem 0.5rem',
-                      fontSize: '0.75rem',
-                      width: '100%',
                       opacity: submitting[exercise.id] ? 0.6 : 1
                     }}
                     onClick={() => addCountRecord(exercise.id, exercise.increment || 1)}
@@ -299,24 +287,13 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
 
           {/* 里程型运动 */}
           {distanceExercises.map((exercise) => (
-            <div key={exercise.id} className="flex items-center gap-2 mb-3" style={{
-              padding: '0.5rem',
-              backgroundColor: 'var(--bg-tertiary)',
-              borderRadius: '6px',
-              border: '1px solid var(--border-color)'
-            }}>
-              <span className="text-sm font-medium" style={{
-                color: 'var(--text-primary)',
-                minWidth: '60px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
+            <div key={exercise.id} className="exercise-distance-item">
+              <span className="exercise-name">
                 <span>{exercise.icon}</span>
                 <span>{exercise.name}</span>
               </span>
 
-              <div className="flex items-center gap-2 flex-1">
+              <div className="exercise-input-group">
                 <input
                   type="number"
                   placeholder={submitting[exercise.id] ? '保存中...' : '0'}
@@ -327,22 +304,12 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
                   onBlur={() => handleDistanceInputBlur(exercise.id)}
                   onKeyPress={(e) => handleDistanceInputKeyPress(e, exercise.id)}
                   onFocus={(e) => e.target.select()}
-                  className="input"
-                  style={{
-                    flex: 1,
-                    padding: '0.5rem',
-                    fontSize: '0.875rem',
-                    opacity: submitting[exercise.id] ? 0.6 : 1,
-                    textAlign: 'center',
-                    fontWeight: 'bold'
-                  }}
+                  className="exercise-input"
+                  style={{ opacity: submitting[exercise.id] ? 0.6 : 1 }}
                   disabled={loading || submitting[exercise.id]}
                 />
 
-                <span className="text-sm" style={{
-                  color: 'var(--text-secondary)',
-                  minWidth: '30px'
-                }}>
+                <span className="exercise-unit">
                   {exercise.unit}
                 </span>
               </div>

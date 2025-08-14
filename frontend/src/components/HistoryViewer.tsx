@@ -35,7 +35,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
     setLoading(true);
     setError('');
     try {
-      console.log('🚀 初始化历史数据...');
+      // console.log('🚀 初始化历史数据...');
       const dates = await fetchAvailableDates();
       setAvailableDates(dates);
       if (dates.length > 0) {

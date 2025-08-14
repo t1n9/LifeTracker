@@ -91,7 +91,7 @@ function processRequestTimeFields(data: any): any {
 export const authAPI = {
   login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data),
-  register: (data: { email: string; password: string; name?: string }) =>
+  register: (data: { email: string; password: string; name?: string; verificationCode: string }) =>
     api.post('/auth/register', data),
   getProfile: () => api.get('/auth/me'),
 };
@@ -237,4 +237,12 @@ export const overviewAPI = {
   getRecentActivities: (limit?: number) => api.get('/overview/activities', { params: { limit } }),
   getChartData: (days?: number) => api.get('/overview/chart', { params: { days } }),
   getStats: () => api.get('/overview/stats'),
+};
+
+// 邮箱验证API
+export const emailAPI = {
+  sendVerificationCode: (email: string, purpose: 'register' | 'reset_password' | 'change_email') =>
+    api.post('/email/send-code', { email, purpose }),
+  verifyCode: (email: string, code: string, purpose: string) =>
+    api.post('/email/verify-code', { email, code, purpose }),
 };

@@ -2,12 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth';
-import { authAPI, systemConfigAPI } from '@/lib/api';
+import { authAPI, systemConfigAPI, emailAPI } from '@/lib/api';
 
 export default function LoginForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [registrationEnabled, setRegistrationEnabled] = useState(false);
+  const [showVerificationInput, setShowVerificationInput] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [sendingCode, setSendingCode] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -15,6 +21,14 @@ export default function LoginForm() {
   });
 
   const { login } = useAuthStore();
+
+  // 倒计时效果
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
 
   // 获取系统配置
   useEffect(() => {
@@ -30,9 +44,37 @@ export default function LoginForm() {
     fetchConfig();
   }, []);
 
+  // 发送验证码
+  const handleSendCode = async () => {
+    if (countdown > 0 || !formData.email) return;
+
+    try {
+      setSendingCode(true);
+      setError('');
+
+      const response = await emailAPI.sendVerificationCode(formData.email, 'register');
+
+      if (response.data.success) {
+        setSuccess('验证码已发送，请查收邮件');
+        setCountdown(60); // 60秒倒计时
+        setShowVerificationInput(true);
+
+        // 开发环境显示验证码
+        if (response.data.code) {
+          console.log('🔐 开发环境验证码:', response.data.code);
+        }
+      }
+    } catch (error: any) {
+      setError(error.response?.data?.message || '发送验证码失败');
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
     try {
       if (isLogin) {
@@ -45,10 +87,29 @@ export default function LoginForm() {
         console.log('登录成功');
       } else {
         // 注册
+        if (!formData.email || !formData.password) {
+          setError('请填写邮箱和密码');
+          return;
+        }
+        if (formData.password.length < 6) {
+          setError('密码至少6位');
+          return;
+        }
+        if (!showVerificationInput) {
+          setError('请先获取验证码');
+          return;
+        }
+        if (!verificationCode) {
+          setError('请输入验证码');
+          return;
+        }
+
+        // 注册
         const response = await authAPI.register({
           email: formData.email,
           password: formData.password,
           name: formData.name,
+          verificationCode: verificationCode,
         });
         login(response.data.accessToken);
         console.log('注册成功');
@@ -57,7 +118,7 @@ export default function LoginForm() {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
       const action = isLogin ? '登录' : '注册';
       console.error(`${action}失败`, err.response?.data?.message || err.message);
-      alert(err.response?.data?.message || `${action}失败，请检查您的信息`);
+      setError(err.response?.data?.message || `${action}失败，请检查您的信息`);
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +130,8 @@ export default function LoginForm() {
       [e.target.name]: e.target.value,
     });
   };
+
+
 
   return (
     <div style={{
@@ -205,6 +268,97 @@ export default function LoginForm() {
                 required
               />
             </div>
+
+            {/* 注册时的验证码输入 */}
+            {!isLogin && (
+              <>
+                {/* 邮箱验证码获取 */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '0.5rem',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: '#374151'
+                  }}>
+                    邮箱验证码
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input
+                      type="text"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="请输入6位验证码"
+                      disabled={!showVerificationInput}
+                      style={{
+                        flex: 1,
+                        padding: '0.875rem',
+                        border: '2px solid #e2e8f0',
+                        borderRadius: '8px',
+                        fontSize: '1rem',
+                        color: '#1f2937',
+                        backgroundColor: showVerificationInput ? '#ffffff' : '#f9fafb',
+                        transition: 'border-color 0.2s',
+                        outline: 'none',
+                        textAlign: 'center',
+                        letterSpacing: '0.1em'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                      onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                      maxLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendCode}
+                      disabled={sendingCode || countdown > 0 || !formData.email}
+                      style={{
+                        padding: '0.875rem 1rem',
+                        border: '2px solid #3b82f6',
+                        borderRadius: '8px',
+                        backgroundColor: (sendingCode || countdown > 0 || !formData.email) ? '#f3f4f6' : 'transparent',
+                        color: (sendingCode || countdown > 0 || !formData.email) ? '#9ca3af' : '#3b82f6',
+                        fontSize: '0.875rem',
+                        fontWeight: '600',
+                        cursor: (sendingCode || countdown > 0 || !formData.email) ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {sendingCode ? '发送中...' : countdown > 0 ? `${countdown}秒` : '获取验证码'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* 错误和成功消息 */}
+            {error && (
+              <div style={{
+                padding: '0.75rem',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '6px',
+                color: '#ef4444',
+                fontSize: '0.875rem',
+                marginBottom: '1rem',
+              }}>
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div style={{
+                padding: '0.75rem',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                border: '1px solid rgba(34, 197, 94, 0.3)',
+                borderRadius: '6px',
+                color: '#22c55e',
+                fontSize: '0.875rem',
+                marginBottom: '1rem',
+              }}>
+                {success}
+              </div>
+            )}
 
             <button
               type="submit"

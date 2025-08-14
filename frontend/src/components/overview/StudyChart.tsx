@@ -16,6 +16,7 @@ interface StudyChartProps {
 
 const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
   const [activeMetric, setActiveMetric] = useState<'studyTime' | 'tasksCompleted' | 'pomodoroCount'>('studyTime');
+  const chartScrollRef = React.useRef<HTMLDivElement>(null);
 
   const metrics = {
     studyTime: {
@@ -56,19 +57,6 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
-  // 生成路径
-  const generatePath = () => {
-    if (data.length === 0) return '';
-    
-    const points = data.map((d, i) => {
-      const x = padding.left + (i / (data.length - 1)) * chartWidth;
-      const y = padding.top + chartHeight - ((d[activeMetric] - minValue) / range) * chartHeight;
-      return `${x},${y}`;
-    });
-    
-    return `M ${points.join(' L ')}`;
-  };
-
   // 生成网格线
   const generateGridLines = () => {
     const lines = [];
@@ -79,9 +67,9 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
       lines.push(
         <line
           key={`grid-${i}`}
-          x1={padding.left}
+          x1={0}
           y1={y}
-          x2={padding.left + chartWidth}
+          x2={Math.max(chartWidth, 400 - padding.right)}
           y2={y}
           stroke="var(--border-color)"
           strokeWidth="1"
@@ -97,6 +85,13 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
   const totalValue = values.reduce((sum, val) => sum + val, 0);
   const avgValue = values.length > 0 ? totalValue / values.length : 0;
   const trend = values.length > 1 ? values[values.length - 1] - values[0] : 0;
+
+  // 滚动到最右边（最新数据）
+  React.useEffect(() => {
+    if (chartScrollRef.current) {
+      chartScrollRef.current.scrollLeft = chartScrollRef.current.scrollWidth;
+    }
+  }, [data, activeMetric]);
 
   return (
     <div style={{
@@ -202,7 +197,14 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
             fontWeight: '600',
             color: currentMetric.color,
           }}>
-            {currentMetric.format(avgValue)}
+            {(() => {
+              // 为平均值创建简化的格式化
+              if (activeMetric === 'studyTime') {
+                return `${Math.round(avgValue)}分钟`;
+              } else {
+                return `${Math.round(avgValue * 10) / 10}个`;
+              }
+            })()}
           </div>
         </div>
 
@@ -245,6 +247,7 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
         borderRadius: '8px',
         border: '1px solid var(--border-color)',
         padding: '16px',
+        overflow: 'hidden', // 防止内容超出容器
       }}>
         {data.length === 0 ? (
           <div style={{
@@ -259,74 +262,125 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
             <p>暂无数据</p>
           </div>
         ) : (
-          <svg width={width} height={height} style={{ overflow: 'visible' }}>
-            {/* 网格线 */}
-            {generateGridLines()}
-            
-            {/* Y轴标签 */}
-            {Array.from({ length: 6 }, (_, i) => {
-              const value = minValue + (range * i / 5);
-              const y = padding.top + chartHeight - (i / 5) * chartHeight;
-              return (
-                <text
-                  key={`y-label-${i}`}
-                  x={padding.left - 10}
-                  y={y + 4}
-                  textAnchor="end"
-                  fontSize="12"
-                  fill="var(--text-secondary)"
-                >
-                  {Math.round(value)}
-                </text>
-              );
-            })}
-            
-            {/* X轴标签 */}
-            {data.map((d, i) => {
-              if (data.length <= 1 || i % Math.ceil(data.length / 7) !== 0) return null;
-              const x = padding.left + (i / (data.length - 1)) * chartWidth;
-              const date = new Date(d.date);
-              return (
-                <text
-                  key={`x-label-${i}`}
-                  x={x}
-                  y={height - 10}
-                  textAnchor="middle"
-                  fontSize="12"
-                  fill="var(--text-secondary)"
-                >
-                  {date.getMonth() + 1}/{date.getDate()}
-                </text>
-              );
-            })}
-            
-            {/* 数据线 */}
-            <path
-              d={generatePath()}
-              fill="none"
-              stroke={currentMetric.color}
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            
-            {/* 数据点 */}
-            {data.map((d, i) => {
-              const x = data.length === 1 ? padding.left + chartWidth / 2 : padding.left + (i / (data.length - 1)) * chartWidth;
-              const y = padding.top + chartHeight - ((d[activeMetric] - minValue) / range) * chartHeight;
-              return (
-                <circle
-                  key={`point-${i}`}
-                  cx={x}
-                  cy={y}
-                  r="4"
-                  fill={currentMetric.color}
-                  stroke="var(--bg-primary)"
+          <div style={{ 
+            position: 'relative',
+            width: '100%',
+            height: height,
+          }}>
+            {/* 固定的Y轴 */}
+            <div style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: padding.left,
+              height: height,
+              backgroundColor: 'var(--bg-primary)',
+              borderRight: '1px solid var(--border-color)',
+              zIndex: 10,
+            }}>
+              <svg width={padding.left} height={height}>
+                {/* Y轴标签 */}
+                {Array.from({ length: 6 }, (_, i) => {
+                  const value = minValue + (range * i / 5);
+                  const y = padding.top + chartHeight - (i / 5) * chartHeight;
+                  return (
+                    <text
+                      key={`y-label-${i}`}
+                      x={padding.left - 10}
+                      y={y + 4}
+                      textAnchor="end"
+                      fontSize="12"
+                      fill="var(--text-secondary)"
+                    >
+                      {Math.round(value)}
+                    </text>
+                  );
+                })}
+              </svg>
+            </div>
+
+            {/* 可滚动的图表区域 */}
+            <div 
+              ref={chartScrollRef}
+              style={{ 
+                marginLeft: padding.left,
+                width: `calc(100% - ${padding.left}px)`,
+                overflowX: 'auto',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+              }}
+              className="chart-scroll-container"
+            >
+              <svg 
+                width={Math.max(width - padding.left, 400)} 
+                height={height} 
+                style={{ 
+                  minWidth: '400px',
+                  display: 'block',
+                }}
+              >
+                {/* 网格线 */}
+                {generateGridLines()}
+                
+                {/* X轴标签 */}
+                {data.map((d, i) => {
+                  if (data.length <= 1 || i % Math.ceil(data.length / 7) !== 0) return null;
+                  const chartWidthAdjusted = Math.max(width - padding.left - padding.right, 400 - padding.right);
+                  const x = (i / (data.length - 1)) * chartWidthAdjusted;
+                  const date = new Date(d.date);
+                  return (
+                    <text
+                      key={`x-label-${i}`}
+                      x={x}
+                      y={height - 10}
+                      textAnchor="middle"
+                      fontSize="12"
+                      fill="var(--text-secondary)"
+                    >
+                      {date.getMonth() + 1}/{date.getDate()}
+                    </text>
+                  );
+                })}
+                
+                {/* 数据线 */}
+                <path
+                  d={(() => {
+                    if (data.length === 0) return '';
+                    const chartWidthAdjusted = Math.max(width - padding.left - padding.right, 400 - padding.right);
+                    const points = data.map((d, i) => {
+                      const x = (i / (data.length - 1)) * chartWidthAdjusted;
+                      const y = padding.top + chartHeight - ((d[activeMetric] - minValue) / range) * chartHeight;
+                      return `${x},${y}`;
+                    });
+                    return `M ${points.join(' L ')}`;
+                  })()}
+                  fill="none"
+                  stroke={currentMetric.color}
                   strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
-              );
-            })}
-          </svg>
+                
+                {/* 数据点 */}
+                {data.map((d, i) => {
+                  const chartWidthAdjusted = Math.max(width - padding.left - padding.right, 400 - padding.right);
+                  const x = data.length === 1 ? chartWidthAdjusted / 2 : (i / (data.length - 1)) * chartWidthAdjusted;
+                  const y = padding.top + chartHeight - ((d[activeMetric] - minValue) / range) * chartHeight;
+                  return (
+                    <circle
+                      key={`point-${i}`}
+                      cx={x}
+                      cy={y}
+                      r="4"
+                      fill={currentMetric.color}
+                      stroke="var(--bg-primary)"
+                      strokeWidth="2"
+                    />
+                  );
+                })}
+              </svg>
+            </div>
+          </div>
         )}
       </div>
     </div>

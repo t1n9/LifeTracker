@@ -27,26 +27,27 @@ export class OverviewService {
       },
     });
 
-    // 获取任务完成数据
+    // 获取任务数据 - 统计每天创建的已完成任务数量
+    // 正确逻辑：按创建日期分组，统计已完成的任务
     const tasks = await this.prisma.task.findMany({
       where: {
         userId,
-        updatedAt: {
+        createdAt: {
           gte: startDate,
           lte: endDate,
         },
-        isCompleted: true,
       },
       select: {
-        updatedAt: true,
+        createdAt: true,
+        isCompleted: true,
       },
     });
 
-    // 按日期分组任务
+    // 按创建日期分组，只统计已完成的任务
     const tasksByDate = new Map<string, number>();
     tasks.forEach(task => {
-      if (task.updatedAt) {
-        const dateStr = formatDateString(task.updatedAt);
+      if (task.createdAt && task.isCompleted) {
+        const dateStr = formatDateString(task.createdAt);
         tasksByDate.set(dateStr, (tasksByDate.get(dateStr) || 0) + 1);
       }
     });
@@ -190,26 +191,26 @@ export class OverviewService {
       },
     });
 
-    // 获取每日完成的任务数
+    // 获取每日完成的任务数 - 按创建日期分组，统计已完成的任务
     const tasks = await this.prisma.task.findMany({
       where: {
         userId,
-        updatedAt: {
+        createdAt: {
           gte: startDate,
           lte: endDate,
         },
-        isCompleted: true,
       },
       select: {
-        updatedAt: true,
+        createdAt: true,
+        isCompleted: true,
       },
     });
 
-    // 按日期分组任务
+    // 按创建日期分组，只统计已完成的任务
     const tasksByDate = new Map<string, number>();
     tasks.forEach(task => {
-      if (task.updatedAt) {
-        const dateStr = formatDateString(task.updatedAt);
+      if (task.createdAt && task.isCompleted) {
+        const dateStr = formatDateString(task.createdAt);
         tasksByDate.set(dateStr, (tasksByDate.get(dateStr) || 0) + 1);
       }
     });

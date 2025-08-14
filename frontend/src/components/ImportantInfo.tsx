@@ -142,7 +142,7 @@ const ImportantInfo: React.FC<ImportantInfoProps> = ({ theme = 'light' }) => {
             重要信息
           </h3>
           {lastUpdated && (
-            <span className="text-xs opacity-60">
+            <span className="text-xs opacity-60" style={{ color: 'var(--text-muted)' }}>
               {formatLastUpdated(lastUpdated)}
             </span>
           )}
@@ -192,7 +192,7 @@ const ImportantInfo: React.FC<ImportantInfoProps> = ({ theme = 'light' }) => {
             }}
             disabled={loading}
           />
-          <div className="mt-2 text-xs opacity-60">
+          <div className="mt-2 text-xs opacity-60" style={{ color: 'var(--text-muted)' }}>
             支持换行，保存后会自动记录历史版本
           </div>
         </div>
@@ -212,7 +212,7 @@ const ImportantInfo: React.FC<ImportantInfoProps> = ({ theme = 'light' }) => {
             <div className="text-center py-8 opacity-60">
               <div className="text-2xl mb-2">📝</div>
               <p className="mb-2">还没有设置重要信息</p>
-              <p className="text-xs opacity-75">点击右上角编辑按钮开始设置</p>
+              <p className="text-xs opacity-75" style={{ color: 'var(--text-muted)' }}>点击右上角编辑按钮开始设置</p>
             </div>
           )}
         </div>

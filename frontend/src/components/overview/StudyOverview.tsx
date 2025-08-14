@@ -186,26 +186,33 @@ const StudyOverview: React.FC = () => {
     <div style={{
       maxWidth: '1200px',
       margin: '0 auto',
-      padding: '0 20px',
+      padding: '0 16px',
+      width: '100%',
     }}>
       {/* 页面标题 */}
       <div style={{
         marginBottom: '32px',
         textAlign: 'center',
       }}>
-        <h1 style={{
-          fontSize: '2.5rem',
-          fontWeight: '700',
-          color: 'var(--text-primary)',
-          margin: '0 0 8px 0',
-        }}>
+        <h1
+          className="overview-title"
+          style={{
+            fontSize: '2.5rem',
+            fontWeight: '700',
+            color: 'var(--text-primary)',
+            margin: '0 0 8px 0',
+          }}
+        >
           学习概况
         </h1>
-        <p style={{
-          fontSize: '1.125rem',
-          color: 'var(--text-secondary)',
-          margin: 0,
-        }}>
+        <p
+          className="overview-subtitle"
+          style={{
+            fontSize: '1.125rem',
+            color: 'var(--text-secondary)',
+            margin: 0,
+          }}
+        >
           追踪你的学习进度和成就
         </p>
         {error && (
@@ -224,12 +231,15 @@ const StudyOverview: React.FC = () => {
       </div>
 
       {/* 统计卡片 */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '20px',
-        marginBottom: '32px',
-      }}>
+      <div
+        className="stats-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '16px',
+          marginBottom: '32px',
+        }}
+      >
         <div style={{
           backgroundColor: 'var(--bg-secondary)',
           borderRadius: '12px',
@@ -357,14 +367,21 @@ const StudyOverview: React.FC = () => {
       </div>
 
       {/* 图表和活动 */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '2fr 1fr',
-        gap: '32px',
-        marginBottom: '32px',
-      }}>
-        <StudyChart data={chartData} />
-        <RecentActivities activities={activities} />
+      <div
+        className="chart-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gap: '24px',
+          marginBottom: '32px',
+        }}
+      >
+        <div style={{ minWidth: '0' }}> {/* 防止内容溢出 */}
+          <StudyChart data={chartData} />
+        </div>
+        <div style={{ minWidth: '0' }}> {/* 防止内容溢出 */}
+          <RecentActivities activities={activities} />
+        </div>
       </div>
     </div>
   );

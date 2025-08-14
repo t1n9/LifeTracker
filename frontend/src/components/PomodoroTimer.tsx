@@ -80,7 +80,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
       setTimeLeft(prev => {
         if (prev <= 1) {
-          console.log('⏰ 前端倒计时结束，触发完成');
+          // console.log('⏰ 前端倒计时结束，触发完成');
           stopLocalTimer();
           setIsCompleted(true);
           return 0;
@@ -141,7 +141,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   // 检查服务器连接状态和活跃会话
   useEffect(() => {
     const initializePomodoro = async () => {
-      console.log('🔄 初始化番茄钟组件...');
+      // console.log('🔄 初始化番茄钟组件...');
       const connected = await checkServerConnection();
 
       if (connected) {
@@ -149,7 +149,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         const response = await pomodoroAPI.getActiveSession();
         const activeSession = response.data;
 
-        console.log('📡 服务器活跃会话:', activeSession);
+        // console.log('📡 服务器活跃会话:', activeSession);
 
         if (activeSession) {
           setSessionId(activeSession.id);
@@ -161,7 +161,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           // 通知Dashboard更新绑定任务状态
           if (onTaskBind && activeSession.boundTaskId) {
             onTaskBind(activeSession.boundTaskId);
-            console.log('🔗 恢复任务绑定状态:', activeSession.boundTaskId);
+            // console.log('🔗 恢复任务绑定状态:', activeSession.boundTaskId);
           }
 
           // 检查是否为正计时模式
@@ -169,12 +169,12 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
             setIsCountUpMode(true);
             setCountUpTime(activeSession.countUpTime || 0);
             setTimeLeft(activeSession.duration * 60); // 正计时模式保持原始时长
-            console.log('🔄 恢复正计时会话:', activeSession.countUpTime, '秒');
+            // console.log('🔄 恢复正计时会话:', activeSession.countUpTime, '秒');
           } else {
             setIsCountUpMode(false);
             setTimeLeft(activeSession.timeLeft);
             setCountUpTime(0);
-            console.log('🔄 恢复倒计时会话:', activeSession.timeLeft, '秒');
+            // console.log('🔄 恢复倒计时会话:', activeSession.timeLeft, '秒');
           }
 
           // 不再需要localStorage广播，后端会处理多标签页同步
@@ -188,10 +188,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
             startSync();
           }
         } else {
-          console.log('📡 没有活跃会话，保持初始状态');
+          // console.log('📡 没有活跃会话，保持初始状态');
         }
       } else {
-        console.log('❌ 服务器连接失败，使用本地模式');
+        // console.log('❌ 服务器连接失败，使用本地模式');
       }
     };
 
@@ -207,7 +207,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
   // 开始正计时模式
   const startCountUpMode = useCallback(async (taskId: string) => {
-    console.log('🕐 开始正计时模式，任务:', taskId);
+    // console.log('🕐 开始正计时模式，任务:', taskId);
 
     // 设置正计时模式标志
     setIsCountUpMode(true);
@@ -316,11 +316,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
   // 处理番茄时钟完成的副作用
   useEffect(() => {
-    console.log('🔍 完成状态检查:', { isCompleted, isCountUpMode, isRunning, timeLeft });
+    // console.log('🔍 完成状态检查:', { isCompleted, isCountUpMode, isRunning, timeLeft });
 
-    // 暂时禁用自动进入休息模式，先解决立即触发的问题
-    if (false && isCompleted && !isCountUpMode) { // 临时禁用
-      console.log('🎉 触发倒计时完成逻辑，准备进入休息模式');
+    // 只有倒计时模式完成时才触发休息模式
+    if (isCompleted && !isCountUpMode && timeLeft === 0) {
+      // console.log('🎉 触发倒计时完成逻辑，准备进入休息模式');
       const timer = setTimeout(() => {
         // 完成后清理状态
         setIsCompleted(false);
@@ -357,7 +357,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
       return () => clearTimeout(timer);
     }
-  }, [isCompleted, isCountUpMode, selectedMinutes, onPomodoroComplete, isRunning, timeLeft]);
+  }, [isCompleted, isCountUpMode, timeLeft]); // 简化依赖数组，避免频繁触发
 
 
 
@@ -375,7 +375,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         // 同步计时模式状态
         if (status.isCountUpMode !== isCountUpMode) {
           setIsCountUpMode(status.isCountUpMode);
-          console.log(`🔄 计时模式同步: ${isCountUpMode ? '正计时' : '倒计时'} -> ${status.isCountUpMode ? '正计时' : '倒计时'}`);
+          // console.log(`🔄 计时模式同步: ${isCountUpMode ? '正计时' : '倒计时'} -> ${status.isCountUpMode ? '正计时' : '倒计时'}`);
         }
 
         // 同步正计时或倒计时状态
@@ -390,7 +390,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           const timeDiff = Math.abs(timeLeft - status.timeLeft);
           if (timeDiff > 3) {
             setTimeLeft(status.timeLeft);
-            console.log(`⏰ 倒计时同步: 本地 ${timeLeft}s -> 服务器 ${status.timeLeft}s`);
+            // console.log(`⏰ 倒计时同步: 本地 ${timeLeft}s -> 服务器 ${status.timeLeft}s`);
           }
         }
 
@@ -715,10 +715,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
     const handleVisibilityChange = () => {
       if (document.hidden && isRunning && !isPaused) {
-        console.log('⚠️ 页面被隐藏，番茄时钟继续运行');
+        // console.log('⚠️ 页面被隐藏，番茄时钟继续运行');
         // 可以在这里添加额外的逻辑，比如显示通知提醒用户
       } else if (!document.hidden && isRunning && !isPaused) {
-        console.log('👀 页面重新可见，番茄时钟运行中');
+        // console.log('👀 页面重新可见，番茄时钟运行中');
         // 页面重新可见时可以同步状态
         if (sessionId && serverConnected) {
           syncWithServer();
@@ -799,12 +799,12 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         // 继续
         setIsRunning(true);
         setIsPaused(false);
-        console.log('▶️ 继续', isCountUpMode ? '正计时' : '番茄钟');
+        // console.log('▶️ 继续', isCountUpMode ? '正计时' : '番茄钟');
       } else {
         // 暂停
         setIsRunning(false);
         setIsPaused(true);
-        console.log('⏸️ 暂停', isCountUpMode ? '正计时' : '番茄钟');
+        // console.log('⏸️ 暂停', isCountUpMode ? '正计时' : '番茄钟');
       }
     }
   };
@@ -835,8 +835,9 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
   // 开始休息模式
   const startBreakMode = () => {
-    // 根据完成的番茄钟数量决定休息类型
-    const isLongBreak = pomodoroCount > 0 && (pomodoroCount + 1) % 4 === 0;
+    // 根据累计专注时间决定休息类型：1小时内短休息5分钟，1小时以上长休息15分钟
+    const totalFocusMinutes = (pomodoroCount + 1) * selectedMinutes; // 包括当前完成的番茄钟
+    const isLongBreak = totalFocusMinutes >= 60; // 1小时(60分钟)以上
     const breakDuration = isLongBreak ? 15 : 5; // 长休息15分钟，短休息5分钟
 
     setBreakType(isLongBreak ? 'long' : 'short');
@@ -1044,15 +1045,23 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
             <span className="text-white text-xs">🍅</span>
           </div>
-          <h3 className="text-lg font-semibold">番茄时钟</h3>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>番茄时钟</h3>
           <div className="flex items-center gap-2">
             {!serverConnected && (
-              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+              <span className="text-xs px-2 py-1 rounded" style={{
+                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                color: 'var(--warning-color)',
+                border: '1px solid rgba(249, 115, 22, 0.2)'
+              }}>
                 本地模式
               </span>
             )}
             {serverConnected && sessionId && (
-              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+              <span className="text-xs px-2 py-1 rounded" style={{
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                color: 'var(--success-color)',
+                border: '1px solid rgba(34, 197, 94, 0.2)'
+              }}>
                 全局同步
               </span>
             )}

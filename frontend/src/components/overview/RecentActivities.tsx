@@ -20,15 +20,15 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
   const getIcon = (type: string) => {
     switch (type) {
       case 'task':
-        return <CheckCircle size={16} style={{ color: '#10b981' }} />;
+        return <CheckCircle size={16} style={{ color: 'var(--success-color)' }} />;
       case 'study':
-        return <BookOpen size={16} style={{ color: '#3b82f6' }} />;
+        return <BookOpen size={16} style={{ color: 'var(--accent-primary)' }} />;
       case 'pomodoro':
-        return <Clock size={16} style={{ color: '#f59e0b' }} />;
+        return <Clock size={16} style={{ color: 'var(--warning-color)' }} />;
       case 'reflection':
         return <Target size={16} style={{ color: '#8b5cf6' }} />;
       default:
-        return <CheckCircle size={16} style={{ color: '#6b7280' }} />;
+        return <CheckCircle size={16} style={{ color: 'var(--text-muted)' }} />;
     }
   };
 

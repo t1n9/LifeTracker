@@ -171,13 +171,13 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   const pendingTasks = tasks.filter(task => !task.isCompleted);
   const completedTasks = tasks.filter(task => task.isCompleted);
 
-  // 获取优先级颜色
+  // 获取优先级颜色 - 使用CSS变量
   const getPriorityColor = (priority: number) => {
     switch (priority) {
-      case 2: return '#ef4444'; // 高优先级
-      case 1: return '#f59e0b'; // 中优先级
-      case 0: return '#10b981'; // 低优先级
-      default: return '#6b7280';
+      case 2: return 'var(--error-color)'; // 高优先级
+      case 1: return 'var(--warning-color)'; // 中优先级
+      case 0: return 'var(--success-color)'; // 低优先级
+      default: return 'var(--text-muted)';
     }
   };
 
@@ -195,7 +195,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     return (
       <div className="card">
         <div className="flex items-center justify-center py-8">
-          <div className="text-gray-500">加载中...</div>
+          <div style={{ color: 'var(--text-muted)' }}>加载中...</div>
         </div>
       </div>
     );
@@ -205,10 +205,10 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     <div className="card">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <CheckSquare size={20} className="text-green-500" />
-          <h3 className="text-lg font-semibold">今日任务</h3>
+          <CheckSquare size={20} style={{ color: 'var(--success-color)' }} />
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>今日任务</h3>
         </div>
-        <div className="text-sm text-gray-500">
+        <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
           {pendingTasks.length} 个待完成
         </div>
       </div>
@@ -217,12 +217,12 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       {tasks.length > 0 && (
         <div className="mb-4">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-500">完成进度</span>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>完成进度</span>
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
               {Math.round((completedTasks.length / tasks.length) * 100)}%
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full rounded-full h-2" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
             <div 
               className="bg-green-500 h-2 rounded-full transition-all duration-300"
               style={{ width: `${(completedTasks.length / tasks.length) * 100}%` }}
@@ -234,7 +234,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       {/* 任务列表 */}
       <div className="space-y-2 mb-4 max-h-96 overflow-y-auto">
         {pendingTasks.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
             <CheckSquare size={40} className="mx-auto mb-2 opacity-50" />
             <p>今日暂无待完成任务</p>
             <p className="text-sm">点击下方按钮添加今日任务</p>
@@ -328,10 +328,10 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       {/* 已完成任务（折叠显示） */}
       {completedTasks.length > 0 && (
         <details className="mb-4">
-          <summary className="cursor-pointer text-sm text-gray-500 mb-2">
+          <summary className="cursor-pointer text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
             已完成任务 ({completedTasks.length})
           </summary>
-          <div className="space-y-1 pl-4 border-l-2 border-gray-200">
+          <div className="space-y-1 pl-4 border-l-2" style={{ borderColor: 'var(--border-color)' }}>
             {completedTasks.map(task => (
               <div key={task.id} className="completed-task-item">
                 <button
@@ -368,7 +368,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
           backgroundColor: 'rgba(66, 153, 225, 0.1)',
           border: '1px solid rgba(66, 153, 225, 0.2)',
           borderRadius: '8px',
-          borderLeft: '4px solid #4299e1',
+          borderLeft: '4px solid var(--accent-primary)',
         }}>
           <div style={{
             display: 'flex',
@@ -376,11 +376,11 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
             gap: '0.5rem',
             marginBottom: '0.5rem',
           }}>
-            <Sunrise size={16} style={{ color: '#4299e1' }} />
+            <Sunrise size={16} style={{ color: 'var(--accent-primary)' }} />
             <span style={{
               fontSize: '0.75rem',
               fontWeight: '600',
-              color: '#4299e1',
+              color: 'var(--accent-primary)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
             }}>

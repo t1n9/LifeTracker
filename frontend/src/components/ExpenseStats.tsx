@@ -176,12 +176,12 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
 
   return (
     <div className="card">
-      <div className="flex items-center gap-2 mb-4">
+      <div className="expense-header">
         <span style={{ fontSize: '1.25rem' }}>💰</span>
         <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
           消费统计
         </h3>
-        <div className="ml-auto text-sm" style={{ color: 'var(--accent-primary)' }}>
+        <div className="expense-total">
           今日总计: ¥{totalExpense.toFixed(2)}
         </div>
       </div>
@@ -193,23 +193,17 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
       ) : (
         <>
           {/* 餐饮消费 */}
-          <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="expense-meal-grid">
             {[
               { key: 'breakfast' as const, name: '早餐', icon: '🌅' },
               { key: 'lunch' as const, name: '午餐', icon: '🌞' },
               { key: 'dinner' as const, name: '晚餐', icon: '🌙' },
             ].map((meal) => (
-              <div key={meal.key} style={{
-                padding: '0.75rem',
-                backgroundColor: 'var(--bg-tertiary)',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                textAlign: 'center'
-              }}>
-                <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
+              <div key={meal.key} className="expense-meal-item">
+                <div className="expense-meal-name">
                   {meal.icon} {meal.name}
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="expense-meal-input-group">
                   <input
                     type="number"
                     placeholder={submitting[meal.key] ? '保存中...' : '0'}
@@ -220,19 +214,12 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
                     onBlur={() => handleMealInputBlur(meal.key)}
                     onKeyPress={(e) => handleMealInputKeyPress(e, meal.key)}
                     onFocus={(e) => e.target.select()}
-                    className="input"
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem',
-                      fontSize: '0.875rem',
-                      textAlign: 'center',
-                      fontWeight: 'bold',
-                      opacity: submitting[meal.key] ? 0.6 : 1
-                    }}
+                    className="expense-meal-input"
+                    style={{ opacity: submitting[meal.key] ? 0.6 : 1 }}
                     disabled={loading || submitting[meal.key]}
                   />
 
-                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="expense-meal-unit">
                     元
                   </span>
                 </div>
@@ -241,28 +228,18 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
           </div>
 
           {/* 其他消费添加 */}
-          <div className="mb-4" style={{
-            padding: '0.75rem',
-            backgroundColor: 'var(--bg-tertiary)',
-            borderRadius: '8px',
-            border: '1px solid var(--border-color)'
-          }}>
+          <div className="expense-other-section">
             <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               🛒 其他消费
             </div>
-            <div className="flex gap-2">
+            <div className="expense-other-form">
               <input
                 type="text"
                 placeholder="项目名称"
                 value={otherForm.description}
                 onChange={(e) => setOtherForm(prev => ({ ...prev, description: e.target.value }))}
-                onFocus={(e) => e.target.select()} // 选中所有内容
-                className="input"
-                style={{
-                  flex: 2,
-                  padding: '0.5rem',
-                  fontSize: '0.875rem'
-                }}
+                onFocus={(e) => e.target.select()}
+                className="expense-other-description"
                 disabled={loading || submitting['other']}
               />
               <input
@@ -272,28 +249,20 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
                 step="0.01"
                 value={otherForm.amount}
                 onChange={(e) => setOtherForm(prev => ({ ...prev, amount: e.target.value }))}
-                onFocus={(e) => e.target.select()} // 选中所有内容
+                onFocus={(e) => e.target.select()}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter' && otherForm.description.trim() && otherForm.amount) {
                     addOtherExpense();
                   }
                 }}
-                className="input"
-                style={{
-                  flex: 1,
-                  padding: '0.5rem',
-                  fontSize: '0.875rem'
-                }}
+                className="expense-other-amount"
                 disabled={loading || submitting['other']}
               />
               <button
-                className="btn btn-primary"
+                className="expense-other-btn"
                 onClick={addOtherExpense}
                 disabled={loading || submitting['other'] || !otherForm.description.trim() || !otherForm.amount}
-                style={{
-                  minWidth: '60px',
-                  opacity: (!otherForm.description.trim() || !otherForm.amount) ? 0.5 : 1
-                }}
+                style={{ opacity: (!otherForm.description.trim() || !otherForm.amount) ? 0.5 : 1 }}
               >
                 {submitting['other'] ? '...' : '添加'}
               </button>
@@ -308,17 +277,12 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
               </div>
               <div className="space-y-2">
                 {todayExpenses.others.map((expense) => (
-                  <div key={expense.id} className="flex items-center justify-between" style={{
-                    padding: '0.5rem',
-                    backgroundColor: 'var(--bg-secondary)',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-color)'
-                  }}>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  <div key={expense.id} className="expense-list-item">
+                    <div className="expense-list-content">
+                      <div className="expense-list-name">
                         {expense.description}
                       </div>
-                      <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <div className="expense-list-time">
                         {new Date(expense.createdAt).toLocaleTimeString('zh-CN', {
                           hour: '2-digit',
                           minute: '2-digit',
@@ -326,19 +290,13 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
                         })}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold" style={{ color: 'var(--accent-primary)' }}>
+                    <div className="expense-list-actions">
+                      <span className="expense-list-amount">
                         ¥{expense.amount.toFixed(2)}
                       </span>
                       <button
-                        className="btn btn-sm"
+                        className="expense-delete-btn"
                         onClick={() => deleteOtherExpense(expense.id, expense.amount)}
-                        style={{
-                          backgroundColor: 'var(--error-color)',
-                          color: 'white',
-                          padding: '0.25rem 0.5rem',
-                          fontSize: '0.75rem'
-                        }}
                       >
                         删除
                       </button>

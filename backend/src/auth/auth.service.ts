@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException, BadRequestExcepti
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
+import { EmailService } from '../email/email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -11,10 +12,17 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private emailService: EmailService,
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, password, name } = registerDto;
+    const { email, password, name, verificationCode } = registerDto;
+
+    // 验证邮箱验证码
+    const isCodeValid = await this.emailService.verifyCode(email, verificationCode, 'register');
+    if (!isCodeValid) {
+      throw new BadRequestException('验证码无效或已过期');
+    }
 
     // 检查用户是否已存在
     const existingUser = await this.usersService.findByEmail(email);
