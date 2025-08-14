@@ -184,6 +184,14 @@ server {
         proxy_connect_timeout 300;
     }
 
+    # Next静态资源（直接由Nginx提供，提高稳定性与缓存效果）
+    location ^~ /_next/static/ {
+        alias $APP_DIR/frontend/static/;
+        access_log off;
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
     # 健康检查
     location /health {
         return 200 "OK";
@@ -192,7 +200,7 @@ server {
 
     # 前端SSR反向代理
     location / {
-        proxy_pass http://127.0.0.1:$PORT/;
+        proxy_pass http://127.0.0.1:3000/;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -220,6 +228,7 @@ server {
         proxy_connect_timeout 300;
     }
 
+    # Next静态资源（直接由Nginx提供，提高稳定性与缓存效果）
     # 健康检查
     location /health {
         return 200 "OK";

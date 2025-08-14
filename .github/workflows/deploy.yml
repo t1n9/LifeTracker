@@ -56,12 +56,15 @@ jobs:
         cp -r backend/scripts deploy-package/scripts
 
         # 复制前端文件（SSR standalone）
-        mkdir -p deploy-package/frontend
+        mkdir -p deploy-package/frontend/standalone/.next
         cp -r frontend/.next/standalone deploy-package/frontend/standalone
-        cp -r frontend/.next/static deploy-package/frontend/static
-        cp -r frontend/public deploy-package/frontend/public || true
+        # 确保静态资源位于 standalone/.next/static（Next standalone 运行时的默认查找位置）
+        cp -r frontend/.next/static deploy-package/frontend/standalone/.next/static
+        # 可选：保留 public 目录，供 Next 直接读取
+        mkdir -p deploy-package/frontend/public
+        cp -r frontend/public/* deploy-package/frontend/public/ 2>/dev/null || true
         cp frontend/package.json deploy-package/frontend/package.json
-        cp frontend/package-lock.json deploy-package/frontend/package-lock.json || true
+        cp frontend/package-lock.json deploy-package/frontend/package-lock.json 2>/dev/null || true
 
         # 复制配置文件
         cp docker-compose.prod.yml deploy-package/ || cp docker-compose.yml deploy-package/docker-compose.prod.yml
