@@ -1,10 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { nanoid } from 'nanoid';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class ShareLinkService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private generateShareCode(length = 8): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const bytes = randomBytes(length);
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars[bytes[i] % chars.length];
+    }
+    return result;
+  }
 
   // 生成分享链接
   async createShareLink(userId: string) {
@@ -49,7 +59,7 @@ export class ShareLinkService {
     let isUnique = false;
     
     while (!isUnique) {
-      shareCode = nanoid(8);
+      shareCode = this.generateShareCode(8);
       const existing = await this.prisma.shareLink.findUnique({
         where: { shareCode },
       });
