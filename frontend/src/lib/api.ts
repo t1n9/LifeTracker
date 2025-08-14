@@ -247,11 +247,23 @@ export const emailAPI = {
     api.post('/email/verify-code', { email, code, purpose }),
 };
 
+// 分享链接管理API（需要认证）
+export const shareLinkAPI = {
+  // 创建或更新分享链接
+  createShareLink: (data: Record<string, never> = {}) =>
+    api.post('/share-links', data),
+
+  // 获取当前用户的分享链接
+  getUserShareLink: () => api.get('/share-links'),
+
+  // 禁用分享链接
+  disableShareLink: () => api.delete('/share-links'),
+};
+
 // 公开分享API（不需要认证）
 export const shareAPI = {
-  // 获取公开分享的概况数据
-  getSharedOverview: () => {
-    // 创建一个不带认证的axios实例
+  // 创建公共API实例
+  createPublicApi: () => {
     const publicApi = axios.create({
       baseURL: API_URL,
       timeout: 10000,
@@ -268,6 +280,18 @@ export const shareAPI = {
       (error) => Promise.reject(error)
     );
 
+    return publicApi;
+  },
+
+  // 获取公开分享的概况数据（默认用户）
+  getSharedOverview: () => {
+    const publicApi = shareAPI.createPublicApi();
     return publicApi.get('/share/overview');
+  },
+
+  // 通过分享码获取分享数据
+  getSharedOverviewByCode: (shareCode: string) => {
+    const publicApi = shareAPI.createPublicApi();
+    return publicApi.get(`/share/${shareCode}`);
   },
 };

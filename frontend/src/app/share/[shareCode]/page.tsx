@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { shareAPI } from '@/lib/api';
 import TaskHeatmap from '@/components/overview/TaskHeatmap';
 import StudyChart from '@/components/overview/StudyChart';
@@ -11,21 +12,25 @@ interface SharedOverviewData {
   activities: any[];
   chartData: any[];
   stats: {
-    totalStudyTime: number;
     totalTasks: number;
+    totalStudyTime: number;
     totalPomodoros: number;
-    todayStudyTime: number;
-    todayTasks: number;
-    todayPomodoros: number;
+    activeDays: number;
+    avgTasksPerDay: string;
+    currentStreak: number;
   };
   userInfo: {
     email: string;
     displayName: string;
     shareNote: string;
+    shareTitle?: string;
   };
 }
 
-export default function SharePage() {
+export default function ShareCodePage() {
+  const params = useParams();
+  const shareCode = params.shareCode as string;
+  
   const [data, setData] = useState<SharedOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,22 +39,29 @@ export default function SharePage() {
     // 设置页面标题和深色主题
     document.title = '学习概况分享 - LifeTracker';
     document.documentElement.classList.add('dark');
-
+    
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await shareAPI.getSharedOverview();
+        const response = await shareAPI.getSharedOverviewByCode(shareCode);
         setData(response.data);
+        
+        // 更新页面标题
+        if (response.data.userInfo.shareTitle) {
+          document.title = `${response.data.userInfo.shareTitle} - LifeTracker`;
+        }
       } catch (err) {
         console.error('获取分享数据失败:', err);
-        setError('获取数据失败，请稍后重试');
+        setError('分享链接不存在或已失效');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, []);
+    if (shareCode) {
+      fetchData();
+    }
+  }, [shareCode]);
 
   if (loading) {
     return (
@@ -81,7 +93,7 @@ export default function SharePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center">
             <h1 className="text-3xl font-bold text-gray-100 mb-2">
-              📚 学习概况分享
+              📚 {data.userInfo.shareTitle || '学习概况分享'}
             </h1>
             <p className="text-gray-300 mb-1">
               {data.userInfo.displayName} ({data.userInfo.email})

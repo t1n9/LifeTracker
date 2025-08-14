@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, TrendingUp, Award, Clock } from 'lucide-react';
+import { Calendar, TrendingUp, Award, Clock, Share2, Copy, Check } from 'lucide-react';
 import TaskHeatmap from './TaskHeatmap';
 import RecentActivities from './RecentActivities';
 import StudyChart from './StudyChart';
-import { overviewAPI } from '@/lib/api';
+import { overviewAPI, shareLinkAPI } from '@/lib/api';
+import { useAuthStore } from '@/store/auth';
 
 // 模拟数据生成函数
 const generateMockHeatmapData = () => {
@@ -98,16 +99,65 @@ const generateMockChartData = () => {
 };
 
 const StudyOverview: React.FC = () => {
+  const { user } = useAuthStore();
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [shareLoading, setShareLoading] = useState(false);
 
   useEffect(() => {
     loadOverviewData();
   }, []);
+
+  // 分享功能
+  const handleShare = async () => {
+    setShowShareModal(true);
+
+    // 检查是否已有分享链接
+    try {
+      setShareLoading(true);
+      const response = await shareLinkAPI.getUserShareLink();
+      if (response.data.shareCode) {
+        setShareLink(response.data.shareUrl);
+      } else {
+        // 创建新的分享链接（由后端根据数据库用户姓名生成标题与描述）
+        const createResponse = await shareLinkAPI.createShareLink({});
+        setShareLink(createResponse.data.shareUrl);
+      }
+    } catch (err) {
+      console.error('获取分享链接失败:', err);
+      setShareLink(null);
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!shareLink) return;
+
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('复制失败:', err);
+      // 降级方案：选择文本
+      const textArea = document.createElement('textarea');
+      textArea.value = shareLink;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const loadOverviewData = async () => {
     try {
@@ -193,6 +243,7 @@ const StudyOverview: React.FC = () => {
       <div style={{
         marginBottom: '32px',
         textAlign: 'center',
+        position: 'relative',
       }}>
         <h1
           className="overview-title"
@@ -210,11 +261,39 @@ const StudyOverview: React.FC = () => {
           style={{
             fontSize: '1.125rem',
             color: 'var(--text-secondary)',
-            margin: 0,
+            margin: '0 0 16px 0',
           }}
         >
           追踪你的学习进度和成就
         </p>
+
+        {/* 分享按钮 */}
+        <button
+          onClick={handleShare}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            backgroundColor: 'var(--primary-color)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '0.875rem',
+            fontWeight: '500',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--primary-hover)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--primary-color)';
+          }}
+        >
+          <Share2 size={16} />
+          分享我的学习概况
+        </button>
         {error && (
           <div style={{
             marginTop: '12px',
@@ -383,6 +462,156 @@ const StudyOverview: React.FC = () => {
           <RecentActivities activities={activities} />
         </div>
       </div>
+
+      {/* 分享模态框 */}
+      {showShareModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowShareModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '500px',
+              width: '90%',
+              border: '1px solid var(--border-color)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '16px',
+            }}>
+              <h3 style={{
+                margin: 0,
+                fontSize: '1.25rem',
+                fontWeight: '600',
+                color: 'var(--text-primary)',
+              }}>
+                分享我的学习概况
+              </h3>
+              <button
+                onClick={() => setShowShareModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)',
+                  padding: '4px',
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <p style={{
+              margin: '0 0 16px 0',
+              color: 'var(--text-secondary)',
+              fontSize: '0.875rem',
+            }}>
+              复制下面的链接，分享给朋友查看你的学习概况
+            </p>
+
+            {shareLoading ? (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px',
+                color: 'var(--text-secondary)',
+              }}>
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  border: '2px solid var(--border-color)',
+                  borderTop: '2px solid var(--primary-color)',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  marginRight: '8px',
+                }} />
+                生成分享链接中...
+              </div>
+            ) : shareLink ? (
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                marginBottom: '16px',
+              }}>
+                <input
+                  type="text"
+                  value={shareLink}
+                  readOnly
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+                <button
+                  onClick={handleCopyShareLink}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '8px 12px',
+                    backgroundColor: copied ? 'var(--success-color)' : 'var(--primary-color)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {copied ? <Check size={16} /> : <Copy size={16} />}
+                  {copied ? '已复制' : '复制'}
+                </button>
+              </div>
+            ) : (
+              <div style={{
+                padding: '20px',
+                textAlign: 'center',
+                color: 'var(--text-secondary)',
+                backgroundColor: 'var(--bg-secondary)',
+                borderRadius: '6px',
+                marginBottom: '16px',
+              }}>
+                生成分享链接失败，请稍后重试
+              </div>
+            )}
+
+            <div style={{
+              padding: '12px',
+              backgroundColor: 'var(--bg-secondary)',
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+              color: 'var(--text-secondary)',
+            }}>
+              💡 分享链接是公开的，任何人都可以通过此短链接查看你的学习概况。链接格式简洁易分享！
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

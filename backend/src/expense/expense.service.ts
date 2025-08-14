@@ -175,8 +175,7 @@ export class ExpenseService {
       if (records.length > 1) {
         // 保留第一个（最新的），删除其他的
         const [latest, ...toDelete] = records;
-        console.log(`清理${category}类别的${toDelete.length}条重复记录，保留最新记录(amount: ${latest.amount})`);
-
+        // 清理重复记录（仅保留最新），移除冗余日志
         for (const record of toDelete) {
           deletePromises.push(
             this.prisma.expenseRecord.delete({
@@ -189,7 +188,7 @@ export class ExpenseService {
 
     if (deletePromises.length > 0) {
       await Promise.all(deletePromises);
-      console.log(`已清理${deletePromises.length}条重复的餐饮记录`);
+      // 重复清理数量在返回值中体现
     }
 
     return { deletedCount: deletePromises.length };

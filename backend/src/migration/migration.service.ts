@@ -50,8 +50,6 @@ export class MigrationService {
 
   // 清空现有的运动和消费记录
   async clearExistingRecords(userId?: string) {
-    console.log('🗑️ 开始清空现有记录...');
-    
     const whereClause = userId ? { userId } : {};
     
     // 清空运动记录
@@ -64,8 +62,7 @@ export class MigrationService {
       where: whereClause
     });
 
-    console.log(`✅ 已清空 ${deletedExerciseRecords.count} 条运动记录`);
-    console.log(`✅ 已清空 ${deletedExpenseRecords.count} 条消费记录`);
+
 
     return {
       deletedExerciseRecords: deletedExerciseRecords.count,

@@ -361,18 +361,9 @@ export default function Dashboard() {
               >
                 欢迎，{user?.name || user?.email}
               </span>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button
-                  onClick={() => window.open('/share', '_blank')}
-                  className="btn btn-primary btn-sm"
-                  title="查看公开分享页面"
-                >
-                  📊 分享概况
-                </button>
-                <button onClick={handleLogout} className="btn btn-secondary btn-sm dashboard-logout-btn">
-                  退出
-                </button>
-              </div>
+              <button onClick={handleLogout} className="btn btn-secondary btn-sm dashboard-logout-btn">
+                退出
+              </button>
             </div>
           </div>
         </header>

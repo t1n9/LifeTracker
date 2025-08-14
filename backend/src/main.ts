@@ -77,9 +77,7 @@ async function bootstrap() {
   const port = process.env.PORT || 3002;
   await app.listen(port);
   
-  console.log(`🚀 LifeTracker API 启动成功！`);
-  console.log(`📖 API文档: http://localhost:${port}/api/docs`);
-  console.log(`🌐 服务地址: http://localhost:${port}/api`);
+  // 应用已启动，可通过 /api/docs 查看文档
 }
 
 bootstrap();
