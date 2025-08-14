@@ -314,7 +314,7 @@ if [ -d "frontend/standalone" ]; then
   echo "🚀 启动前端SSR服务..."
   export PORT=${FRONTEND_PORT:-3000}
   if [ -f "frontend/package.json" ]; then
-    (cd frontend && npm ci --omit=dev || npm ci)
+    (cd frontend && npm install --omit=dev || npm install)
   fi
   (cd frontend/standalone && nohup node server.js > ../../frontend.log 2>&1 &)
   FRONTEND_PID=$!

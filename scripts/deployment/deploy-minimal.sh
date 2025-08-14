@@ -259,7 +259,7 @@ if [ -d "frontend/standalone" ]; then
 
     # 安装前端生产依赖
     if [ -f "frontend/package.json" ]; then
-      (cd frontend && npm ci --omit=dev || npm ci)
+      (cd frontend && npm install --omit=dev || npm install)
     fi
 
     # 以后台进程方式运行 Next standalone 服务器
