@@ -1,6 +1,6 @@
 {
   "name": "lifetracker-backend",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "LifeTracker Backend API built with NestJS",
   "author": "Your Name",
   "private": true,
@@ -48,7 +48,6 @@
     "cors": "^2.8.5",
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
-
     "nodemailer": "^7.0.5",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

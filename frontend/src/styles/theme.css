@@ -2201,3 +2201,26 @@
     height: 2.5rem;
   }
 }
+
+/* 账户管理页面样式 */
+.account-section {
+  max-width: 500px;
+}
+
+.account-info {
+  transition: all 0.2s ease;
+}
+
+.account-info:hover {
+  box-shadow: var(--shadow);
+}
+
+.logout-section {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.logout-section .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}

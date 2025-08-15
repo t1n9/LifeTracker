@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/auth';
+
 import { userAPI, studyAPI, taskAPI, api } from '@/lib/api';
+import { getVersionString } from '@/lib/version';
 import HistoryViewer from './HistoryViewer';
 import PomodoroTimer from './PomodoroTimer';
 import PendingTasks from './PendingTasks';
@@ -19,7 +20,7 @@ import '../styles/theme.css';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { logout } = useAuthStore();
+
   const [user, setUser] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [theme, setTheme] = useState<'dark' | 'light'>('light'); // 默认浅色，等用户数据加载后再设置
@@ -277,10 +278,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  // 退出登录
-  const handleLogout = () => {
-    logout();
-  };
+
 
   // 时间格式化函数
   const formatCurrentTime = () => {
@@ -345,11 +343,11 @@ export default function Dashboard() {
         <header className="dashboard-header">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-              生活记录系统 <span className="text-2xl" style={{ color: 'var(--text-muted)' }}>v2.1</span>
+              生活记录系统 <span className="text-2xl" style={{ color: 'var(--text-muted)' }}>{getVersionString()}</span>
             </h1>
             <p style={{ color: 'var(--text-muted)' }}>记录每一天的努力，见证成长的足迹</p>
             
-            {/* 用户信息和退出按钮 */}
+            {/* 用户信息 */}
             <div className="dashboard-user-info">
               <span
                 className="user-welcome"
@@ -361,9 +359,6 @@ export default function Dashboard() {
               >
                 欢迎，{user?.name || user?.email}
               </span>
-              <button onClick={handleLogout} className="btn btn-secondary btn-sm dashboard-logout-btn">
-                退出
-              </button>
             </div>
           </div>
         </header>

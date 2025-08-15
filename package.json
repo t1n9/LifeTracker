@@ -1,6 +1,6 @@
 {
   "name": "life-tracker",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "A comprehensive life tracking application for students preparing for graduate school entrance exams",
   "private": true,
   "scripts": {
@@ -28,7 +28,13 @@
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f"
+    "docker:logs": "docker-compose logs -f",
+    "version:sync": "node scripts/version-manager.js sync",
+    "version:info": "node scripts/version-manager.js info",
+    "version:bump": "node scripts/version-manager.js bump",
+    "version:bump:major": "node scripts/version-manager.js bump major",
+    "version:bump:minor": "node scripts/version-manager.js bump minor",
+    "version:bump:patch": "node scripts/version-manager.js bump patch"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

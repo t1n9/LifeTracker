@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Save, Edit, Activity, Settings } from 'lucide-react';
+import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Save, Edit, Activity, Settings, LogOut, Shield } from 'lucide-react';
 import { userAPI } from '@/lib/api';
 import '@/styles/theme.css';
 import { useAuthStore } from '@/store/auth';
 import SystemConfigPanel from '@/components/admin/SystemConfigPanel';
+import { VERSION_INFO, getVersionString, getFullVersionInfo } from '@/lib/version';
 
 interface UserData {
   name: string;
@@ -33,7 +34,7 @@ interface PasswordData {
 export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, logout } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'exercise' | 'admin'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'exercise' | 'account' | 'admin'>('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [error, setError] = useState('');
@@ -221,6 +222,14 @@ export default function ProfilePage() {
     }));
   };
 
+  // 退出登录
+  const handleLogout = () => {
+    if (confirm('确定要退出登录吗？')) {
+      logout();
+      router.push('/');
+    }
+  };
+
   // 页面加载中
   if (isPageLoading) {
     return (
@@ -277,6 +286,13 @@ export default function ProfilePage() {
             >
               <Lock size={18} />
               修改密码
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'account' ? 'active' : ''}`}
+              onClick={() => setActiveTab('account')}
+            >
+              <Shield size={18} />
+              账户管理
             </button>
             {userData.isAdmin && (
               <button
@@ -674,6 +690,145 @@ export default function ProfilePage() {
                 </button>
               </div>
             </form>
+          )}
+
+          {/* 账户管理标签页 */}
+          {activeTab === 'account' && (
+            <div className="form-container">
+              <div className="account-section">
+                <h3 style={{
+                  color: 'var(--text-primary)',
+                  marginBottom: '1rem',
+                  fontSize: '1.1rem',
+                  fontWeight: '600'
+                }}>
+                  账户安全
+                </h3>
+
+                <div className="account-info" style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  marginBottom: '1.5rem',
+                  border: '1px solid var(--border-color)'
+                }}>
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    <strong style={{ color: 'var(--text-primary)' }}>当前账户：</strong>
+                    <span style={{ color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
+                      {userData.email}
+                    </span>
+                  </div>
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    <strong style={{ color: 'var(--text-primary)' }}>用户名：</strong>
+                    <span style={{ color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
+                      {userData.name}
+                    </span>
+                  </div>
+                  {userData.isAdmin && (
+                    <div>
+                      <strong style={{ color: 'var(--text-primary)' }}>权限：</strong>
+                      <span style={{
+                        color: '#10b981',
+                        marginLeft: '0.5rem',
+                        fontSize: '0.875rem',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        padding: '0.125rem 0.5rem',
+                        borderRadius: '4px'
+                      }}>
+                        管理员
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="version-section" style={{
+                  marginBottom: '1.5rem',
+                  paddingBottom: '1rem',
+                  borderBottom: '1px solid var(--border-color)'
+                }}>
+                  <h4 style={{
+                    color: 'var(--text-primary)',
+                    marginBottom: '0.75rem',
+                    fontSize: '1rem',
+                    fontWeight: '500'
+                  }}>
+                    系统信息
+                  </h4>
+                  <div style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    padding: '0.75rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '0.875rem'
+                  }}>
+                    <div style={{ marginBottom: '0.25rem' }}>
+                      <strong style={{ color: 'var(--text-primary)' }}>版本：</strong>
+                      <span style={{ color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
+                        {getVersionString()}
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: '0.25rem' }}>
+                      <strong style={{ color: 'var(--text-primary)' }}>构建日期：</strong>
+                      <span style={{ color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
+                        {VERSION_INFO.buildDate}
+                      </span>
+                    </div>
+                    <div>
+                      <strong style={{ color: 'var(--text-primary)' }}>系统名称：</strong>
+                      <span style={{ color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
+                        {VERSION_INFO.name}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="logout-section">
+                  <h4 style={{
+                    color: 'var(--text-primary)',
+                    marginBottom: '0.75rem',
+                    fontSize: '1rem',
+                    fontWeight: '500'
+                  }}>
+                    退出登录
+                  </h4>
+                  <p style={{
+                    color: 'var(--text-secondary)',
+                    fontSize: '0.875rem',
+                    marginBottom: '1rem',
+                    lineHeight: '1.5'
+                  }}>
+                    退出当前账户，返回到登录页面。请确保已保存所有重要数据。
+                  </p>
+                  <button
+                    onClick={handleLogout}
+                    className="btn"
+                    style={{
+                      backgroundColor: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.75rem 1.5rem',
+                      borderRadius: '6px',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#dc2626';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#ef4444';
+                    }}
+                  >
+                    <LogOut size={16} />
+                    退出登录
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* 系统配置标签页（仅管理员可见） */}
