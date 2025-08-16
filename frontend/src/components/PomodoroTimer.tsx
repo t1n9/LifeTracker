@@ -58,9 +58,14 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [isCountUpMode, setIsCountUpMode] = useState(false); // 是否为正计时模式
   const [countUpTime, setCountUpTime] = useState(0); // 正计时已用时间（秒）
+  const [isPageVisible, setIsPageVisible] = useState(true);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [lastSyncTime, setLastSyncTime] = useState<number>(Date.now());
+  const [syncDrift, setSyncDrift] = useState(0); // 同步偏差（毫秒）
 
   const localTimerRef = useRef<NodeJS.Timeout | null>(null);
   const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const visibilityCheckRef = useRef<NodeJS.Timeout | null>(null);
 
   // 时长选项：5分钟到120分钟，每5分钟一个刻度
   const timeOptions = [];
@@ -267,6 +272,75 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     }
   }, [startCountUpTrigger, isRunning, startCountUpMode]);
 
+  // 初始化：Page Visibility API 和通知权限
+  useEffect(() => {
+    // 请求通知权限
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+          setNotificationPermission(permission);
+        });
+      }
+    }
+
+    // 监听页面可见性变化
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      const wasHidden = !isPageVisible;
+      setIsPageVisible(isVisible);
+
+      if (isVisible && wasHidden) {
+        console.log('📱 页面重新激活...');
+
+        // 恢复原始标题
+        if (document.title.includes('🍅 番茄钟提醒！')) {
+          document.title = document.title.replace('🍅 番茄钟提醒！', '生活记录系统');
+        }
+
+        if (isRunning || sessionId) {
+          // 页面重新激活时，立即同步服务器状态
+          console.log('🔄 同步服务器状态...');
+          syncWithServer();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 初始状态
+    setIsPageVisible(!document.hidden);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (visibilityCheckRef.current) {
+        clearInterval(visibilityCheckRef.current);
+      }
+    };
+  }, []);
+
+  // 页面在后台时的定期检查
+  useEffect(() => {
+    if (!isPageVisible && isRunning && sessionId) {
+      // 页面在后台时，每30秒检查一次服务器状态
+      visibilityCheckRef.current = setInterval(() => {
+        console.log('🔍 后台检查服务器状态...');
+        syncWithServer();
+      }, 30000);
+    } else {
+      if (visibilityCheckRef.current) {
+        clearInterval(visibilityCheckRef.current);
+        visibilityCheckRef.current = null;
+      }
+    }
+
+    return () => {
+      if (visibilityCheckRef.current) {
+        clearInterval(visibilityCheckRef.current);
+      }
+    };
+  }, [isPageVisible, isRunning, sessionId]);
+
   // 正计时模式的计时器
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -349,6 +423,25 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         // 播放完成提示音
         playNotificationSound('complete');
 
+        // 如果页面不可见，启动强化提醒
+        if (!isPageVisible) {
+          console.log('📱 页面不可见，启动强化提醒...');
+          let reminderCount = 0;
+          const reminderInterval = setInterval(() => {
+            reminderCount++;
+            if (reminderCount <= 3 && !isPageVisible) {
+              sendNotification(
+                `🔔 提醒 ${reminderCount}/3`,
+                '番茄时钟已完成，请查看！',
+                '/favicon.ico'
+              );
+              playNotificationSound('complete');
+            } else {
+              clearInterval(reminderInterval);
+            }
+          }, 30000); // 每30秒提醒一次，最多3次
+        }
+
         // 自动进入休息模式
         setTimeout(() => {
           startBreakMode();
@@ -409,9 +502,37 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
         // 检查完成状态（只对倒计时模式）
         if (status.isCompleted && !isCompleted && !status.isCountUpMode) {
+          console.log('🎉 检测到番茄钟在后台完成！');
           stopLocalTimer();
           stopSync();
           setIsCompleted(true);
+
+          // 如果是在后台完成的，立即发送强化通知
+          if (!isPageVisible) {
+            console.log('📱 后台完成，发送强化通知...');
+            sendNotification(
+              '🍅 番茄时钟已完成！',
+              `${selectedMinutes}分钟专注时间在后台完成！请查看详情`,
+              '/favicon.ico'
+            );
+            playNotificationSound('complete');
+
+            // 启动重复提醒
+            let reminderCount = 0;
+            const reminderInterval = setInterval(() => {
+              reminderCount++;
+              if (reminderCount <= 5 && !isPageVisible) {
+                sendNotification(
+                  `🔔 重要提醒 ${reminderCount}/5`,
+                  '番茄时钟已完成，请尽快查看！',
+                  '/favicon.ico'
+                );
+                playNotificationSound('complete');
+              } else {
+                clearInterval(reminderInterval);
+              }
+            }, 20000); // 每20秒提醒一次，最多5次
+          }
         }
 
         setServerConnected(true);
@@ -624,25 +745,20 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     }
   }, [serverConnected, isRunning, timeLeft, selectedMinutes, isCountUpMode]);
 
-  // 请求通知权限和初始化音频
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().then(permission => {
-        console.log('🔔 通知权限:', permission);
-      });
-    }
-  }, []);
+
 
   // 发送通知
   const sendNotification = (title: string, body: string, icon?: string) => {
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if ('Notification' in window && notificationPermission === 'granted') {
       const notification = new Notification(title, {
         body,
         icon: icon || '/favicon.ico',
         badge: '/favicon.ico',
         tag: 'pomodoro-timer',
-        requireInteraction: true,
-        silent: false
+        requireInteraction: !isPageVisible, // 页面不可见时需要用户交互
+        silent: false,
+        vibrate: [200, 100, 200], // 振动模式（移动设备）
+        timestamp: Date.now()
       });
 
       // 点击通知时聚焦到窗口
@@ -651,12 +767,35 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         notification.close();
       };
 
-      // 5秒后自动关闭
+      // 页面不可见时延长显示时间，可见时正常关闭
+      const closeDelay = isPageVisible ? 5000 : 15000;
       setTimeout(() => {
         notification.close();
-      }, 5000);
+      }, closeDelay);
+
+      // 如果页面不可见，尝试让浏览器标签页闪烁
+      if (!isPageVisible) {
+        let originalTitle = document.title;
+        let flashCount = 0;
+        const flashInterval = setInterval(() => {
+          document.title = flashCount % 2 === 0 ? '🍅 番茄钟提醒！' : originalTitle;
+          flashCount++;
+          if (flashCount >= 10 || isPageVisible) {
+            clearInterval(flashInterval);
+            document.title = originalTitle;
+          }
+        }, 1000);
+      }
 
       return notification;
+    } else if (notificationPermission === 'default') {
+      // 如果权限未授予，再次请求
+      Notification.requestPermission().then(permission => {
+        setNotificationPermission(permission);
+        if (permission === 'granted') {
+          sendNotification(title, body, icon);
+        }
+      });
     }
     return null;
   };

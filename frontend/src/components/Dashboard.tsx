@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [isDayReflectionOpen, setIsDayReflectionOpen] = useState(false);
   const [dayReflectionMode, setDayReflectionMode] = useState<'start' | 'reflection'>('start');
   const [dayStartRefreshTrigger, setDayStartRefreshTrigger] = useState(0);
+  const [pomodoroCompleteRefreshTrigger, setPomodoroCompleteRefreshTrigger] = useState(0);
 
   const [tasks, setTasks] = useState<Array<{
     id: string,
@@ -556,8 +557,11 @@ export default function Dashboard() {
                 // console.log('🍅 番茄钟运行状态:', isRunning);
               }}
               onPomodoroComplete={() => {
-                // 番茄钟完成后重新加载今日数据
+                // 番茄钟完成后重新加载今日数据和任务列表
                 loadTodayStats();
+                loadTasks();
+                // 触发任务列表刷新
+                setPomodoroCompleteRefreshTrigger(prev => prev + 1);
               }}
               onEnterFocusMode={() => {
                 // 进入专注模式的处理逻辑
@@ -574,6 +578,7 @@ export default function Dashboard() {
               currentBoundTask={currentBoundTask}
               isRunning={isPomodoroRunning}
               dayStartRefreshTrigger={dayStartRefreshTrigger}
+              pomodoroCompleteRefreshTrigger={pomodoroCompleteRefreshTrigger}
             />
 
 

@@ -21,6 +21,7 @@ interface PendingTasksProps {
   currentBoundTask?: string | null; // 当前绑定的任务ID
   isRunning?: boolean; // 番茄钟是否正在运行
   dayStartRefreshTrigger?: number; // 开启内容刷新触发器
+  pomodoroCompleteRefreshTrigger?: number; // 番茄钟完成刷新触发器
 }
 
 const PendingTasks: React.FC<PendingTasksProps> = ({
@@ -28,7 +29,8 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   onStartCountUp,
   currentBoundTask,
   isRunning = false,
-  dayStartRefreshTrigger
+  dayStartRefreshTrigger,
+  pomodoroCompleteRefreshTrigger
 }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskText, setNewTaskText] = useState('');
@@ -73,6 +75,13 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       loadDayStart();
     }
   }, [dayStartRefreshTrigger]);
+
+  // 当番茄钟完成刷新触发器变化时，重新加载任务列表
+  useEffect(() => {
+    if (pomodoroCompleteRefreshTrigger !== undefined && pomodoroCompleteRefreshTrigger > 0) {
+      loadTasks();
+    }
+  }, [pomodoroCompleteRefreshTrigger]);
 
   // 添加新任务
   const handleAddTask = async () => {
