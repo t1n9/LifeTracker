@@ -131,6 +131,22 @@ export default function LoginForm() {
     });
   };
 
+  // 快速登录演示账号
+  const handleDemoLogin = async (email: string, password: string) => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await authAPI.login({ email, password });
+      login(response.data.accessToken);
+      console.log('演示账号登录成功');
+    } catch (error: any) {
+      setError(error.response?.data?.message || '演示账号登录失败');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
 
   return (
@@ -164,6 +180,23 @@ export default function LoginForm() {
           <p style={{ color: '#475569', fontSize: '1rem', fontWeight: '500' }}>
             生活记录系统 v2.0
           </p>
+
+          {/* 备案审核说明 */}
+          <div style={{
+            marginTop: '1rem',
+            padding: '0.75rem',
+            backgroundColor: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: '8px',
+            fontSize: '0.875rem'
+          }}>
+            <div style={{ color: '#92400e', fontWeight: '600', marginBottom: '0.25rem' }}>
+              🔍 网站备案审核中
+            </div>
+            <div style={{ color: '#92400e' }}>
+              为方便审核人员查看网站功能，提供演示账号快速体验
+            </div>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -387,6 +420,70 @@ export default function LoginForm() {
             </button>
           </div>
         </form>
+
+        {/* 演示账号快速登录 */}
+        {isLogin && (
+          <div style={{
+            marginTop: '1.5rem',
+            padding: '1.25rem',
+            backgroundColor: '#f8fafc',
+            border: '2px solid #e2e8f0',
+            borderRadius: '12px'
+          }}>
+            <div style={{
+              textAlign: 'center',
+              marginBottom: '1rem',
+              color: '#475569',
+              fontSize: '0.875rem',
+              fontWeight: '600'
+            }}>
+              🎯 备案审核 - 演示账号
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => handleDemoLogin('demo@lifetracker.com', 'demo123')}
+                disabled={isLoading}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  backgroundColor: isLoading ? '#94a3b8' : '#059669',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  transition: 'background-color 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
+                onMouseOver={(e) => {
+                  if (!isLoading) (e.target as HTMLButtonElement).style.backgroundColor = '#047857';
+                }}
+                onMouseOut={(e) => {
+                  if (!isLoading) (e.target as HTMLButtonElement).style.backgroundColor = '#059669';
+                }}
+              >
+                <span>📊</span>
+                <span>演示账号 (含丰富数据)</span>
+              </button>
+
+              <div style={{
+                fontSize: '0.75rem',
+                color: '#64748b',
+                textAlign: 'center',
+                lineHeight: '1.4'
+              }}>
+                * 包含学习记录、任务管理、运动数据、消费统计等完整功能演示<br/>
+                * 仅用于备案审核，正式上线后将移除
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 模式切换 */}
         {registrationEnabled && (
