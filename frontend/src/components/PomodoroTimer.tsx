@@ -62,6 +62,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [lastSyncTime, setLastSyncTime] = useState<number>(Date.now());
   const [syncDrift, setSyncDrift] = useState(0); // 同步偏差（毫秒）
+  const [countUpEndTime, setCountUpEndTime] = useState<number>(0); // 正计时结束时间
 
   const localTimerRef = useRef<NodeJS.Timeout | null>(null);
   const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -390,10 +391,12 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
   // 处理番茄时钟完成的副作用
   useEffect(() => {
-    // console.log('🔍 完成状态检查:', { isCompleted, isCountUpMode, isRunning, timeLeft });
+    const now = Date.now();
+    const timeSinceCountUpEnd = now - countUpEndTime;
 
     // 只有倒计时模式完成时才触发休息模式
-    if (isCompleted && !isCountUpMode && timeLeft === 0) {
+    // 确保不是正计时模式，且时间确实为0，且不是刚结束正计时
+    if (isCompleted && !isCountUpMode && timeLeft === 0 && selectedMinutes > 0 && timeSinceCountUpEnd > 5000) {
       // console.log('🎉 触发倒计时完成逻辑，准备进入休息模式');
       const timer = setTimeout(() => {
         // 完成后清理状态
@@ -442,9 +445,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           }, 30000); // 每30秒提醒一次，最多3次
         }
 
-        // 自动进入休息模式
+        // 自动进入休息模式（再次确认不是正计时模式）
         setTimeout(() => {
-          startBreakMode();
+          if (!isCountUpMode) {
+            startBreakMode();
+          }
         }, 2000); // 2秒后自动进入休息模式
       }, 100);
 
@@ -481,7 +486,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         } else {
           // 倒计时模式：同步timeLeft
           const timeDiff = Math.abs(timeLeft - status.timeLeft);
-          if (timeDiff > 3) {
+          if (timeDiff > 3 && sessionId) { // 只有在有活跃会话时才同步
             setTimeLeft(status.timeLeft);
             // console.log(`⏰ 倒计时同步: 本地 ${timeLeft}s -> 服务器 ${status.timeLeft}s`);
           }
@@ -603,8 +608,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
         // 不再需要localStorage广播
 
-        // 启动本地倒计时和同步机制
-        startLocalTimer();
+        // 启动计时器和同步机制
+        if (!countUpMode) {
+          // 只有倒计时模式才启动本地计时器
+          startLocalTimer();
+        }
         startSync();
 
         // 播放开始提示音
@@ -625,9 +633,12 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         }
       }
 
-      // 如果连接到现有运行中的会话，也启动倒计时和同步
+      // 如果连接到现有运行中的会话，也启动计时器和同步
       if (result.isExisting && result.session.isRunning && !result.session.isPaused) {
-        startLocalTimer();
+        if (!result.session.isCountUpMode) {
+          // 只有倒计时模式才启动本地计时器
+          startLocalTimer();
+        }
         startSync();
       }
     } catch (error) {
@@ -694,7 +705,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
       // 不再需要localStorage广播
 
-      startLocalTimer();
+      if (!isCountUpMode) {
+        // 只有倒计时模式才启动本地计时器
+        startLocalTimer();
+      }
       startSync();
     } catch (error) {
       console.error('恢复番茄钟失败:', error);
@@ -1100,15 +1114,26 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       onTaskBind(null);
     }
 
-    // 重置状态
+    // 重置状态 - 先重置模式，防止触发倒计时完成逻辑
+    // 记录正计时结束时间，防止短时间内触发倒计时完成逻辑
+    setCountUpEndTime(Date.now());
+
+    // 停止所有定时器，防止继续计时
+    stopLocalTimer();
+    stopSync();
+
     setIsCountUpMode(false);
+    setIsCompleted(false);
     setCountUpTime(0);
     setIsRunning(false);
     setIsPaused(false);
-    setIsCompleted(false);
     setStartBoundTask(null);
     setSessionId(null);
     setShowFocusMode(false);
+
+    // 确保时间重置为初始值，并且不会被同步覆盖
+    const resetTime = selectedMinutes * 60;
+    setTimeLeft(resetTime);
   };
 
   const formatTime = (seconds: number) => {

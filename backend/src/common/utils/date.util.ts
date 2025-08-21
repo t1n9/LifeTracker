@@ -3,12 +3,12 @@
  * 支持用户时区，统一API时间格式为ISO8601 UTC
  */
 
-// 时区偏移量映射（分钟）
+// 时区偏移量映射（分钟，相对于UTC的偏移）
 const TIMEZONE_OFFSETS: Record<string, number> = {
-  'Asia/Shanghai': -480,      // UTC+8
-  'Asia/Tokyo': -540,         // UTC+9
-  'America/New_York': 300,    // UTC-5 (EST) / UTC-4 (EDT)
-  'America/Los_Angeles': 480, // UTC-8 (PST) / UTC-7 (PDT)
+  'Asia/Shanghai': 480,       // UTC+8 (东八区，比UTC快8小时)
+  'Asia/Tokyo': 540,          // UTC+9 (东九区，比UTC快9小时)
+  'America/New_York': -300,   // UTC-5 (EST) / UTC-4 (EDT)
+  'America/Los_Angeles': -480, // UTC-8 (PST) / UTC-7 (PDT)
   'Europe/London': 0,         // UTC+0 (GMT) / UTC+1 (BST)
   'UTC': 0,
 };
@@ -74,16 +74,19 @@ export function getTodayStart(timezone: string = 'Asia/Shanghai'): Date {
   const now = new Date();
   const offset = TIMEZONE_OFFSETS[timezone] || TIMEZONE_OFFSETS['Asia/Shanghai'];
 
-  // 转换到用户时区
-  const userTime = new Date(now.getTime() - (offset * 60000));
+  // 转换到用户时区（加上偏移量）
+  const userTime = new Date(now.getTime() + (offset * 60000));
 
-  // 获取该时区的今日开始（00:00:00）
-  return new Date(Date.UTC(
+  // 获取该时区的今日开始（00:00:00），然后转换回UTC
+  const todayStartInUserTz = new Date(Date.UTC(
     userTime.getUTCFullYear(),
     userTime.getUTCMonth(),
     userTime.getUTCDate(),
     0, 0, 0, 0
   ));
+
+  // 转换回UTC时间
+  return new Date(todayStartInUserTz.getTime() - (offset * 60000));
 }
 
 /**
@@ -93,16 +96,19 @@ export function getTodayEnd(timezone: string = 'Asia/Shanghai'): Date {
   const now = new Date();
   const offset = TIMEZONE_OFFSETS[timezone] || TIMEZONE_OFFSETS['Asia/Shanghai'];
 
-  // 转换到用户时区
-  const userTime = new Date(now.getTime() - (offset * 60000));
+  // 转换到用户时区（加上偏移量）
+  const userTime = new Date(now.getTime() + (offset * 60000));
 
-  // 获取该时区的今日结束（23:59:59.999）
-  return new Date(Date.UTC(
+  // 获取该时区的今日结束（23:59:59.999），然后转换回UTC
+  const todayEndInUserTz = new Date(Date.UTC(
     userTime.getUTCFullYear(),
     userTime.getUTCMonth(),
     userTime.getUTCDate(),
     23, 59, 59, 999
   ));
+
+  // 转换回UTC时间
+  return new Date(todayEndInUserTz.getTime() - (offset * 60000));
 }
 
 /**
@@ -133,7 +139,7 @@ export function getDaysAgoStart(days: number, timezone: string = 'Asia/Shanghai'
  */
 export function toUserTimezone(utcDate: Date, timezone: string = 'Asia/Shanghai'): Date {
   const offset = TIMEZONE_OFFSETS[timezone] || TIMEZONE_OFFSETS['Asia/Shanghai'];
-  return new Date(utcDate.getTime() - (offset * 60000));
+  return new Date(utcDate.getTime() + (offset * 60000));
 }
 
 /**
@@ -141,7 +147,7 @@ export function toUserTimezone(utcDate: Date, timezone: string = 'Asia/Shanghai'
  */
 export function toUTC(userDate: Date, timezone: string = 'Asia/Shanghai'): Date {
   const offset = TIMEZONE_OFFSETS[timezone] || TIMEZONE_OFFSETS['Asia/Shanghai'];
-  return new Date(userDate.getTime() + (offset * 60000));
+  return new Date(userDate.getTime() - (offset * 60000));
 }
 
 /**
@@ -165,12 +171,21 @@ export function parseDateString(dateStr: string): Date {
 }
 
 /**
- * 将日期对象转换为日期字符串
- * @param date 日期对象
+ * 将日期对象转换为日期字符串（基于用户时区）
+ * @param date 日期对象（UTC时间）
+ * @param timezone 用户时区
  * @returns 日期字符串，格式：YYYY-MM-DD
  */
-export function formatDateString(date: Date): string {
-  return date.toISOString().split('T')[0];
+export function formatDateString(date: Date, timezone: string = 'Asia/Shanghai'): string {
+  // 转换到用户时区
+  const userTime = toUserTimezone(date, timezone);
+
+  // 格式化为 YYYY-MM-DD
+  const year = userTime.getUTCFullYear();
+  const month = String(userTime.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(userTime.getUTCDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -181,7 +196,11 @@ export function formatDateString(date: Date): string {
  */
 export function getDateStart(dateStr: string, timezone: string = 'Asia/Shanghai'): Date {
   const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  const offset = TIMEZONE_OFFSETS[timezone] || TIMEZONE_OFFSETS['Asia/Shanghai'];
+
+  // 创建该日期在用户时区的开始时间，然后转换为UTC
+  const dateStartInUserTz = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  return new Date(dateStartInUserTz.getTime() - (offset * 60000));
 }
 
 /**
@@ -192,7 +211,11 @@ export function getDateStart(dateStr: string, timezone: string = 'Asia/Shanghai'
  */
 export function getDateEnd(dateStr: string, timezone: string = 'Asia/Shanghai'): Date {
   const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+  const offset = TIMEZONE_OFFSETS[timezone] || TIMEZONE_OFFSETS['Asia/Shanghai'];
+
+  // 创建该日期在用户时区的结束时间，然后转换为UTC
+  const dateEndInUserTz = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+  return new Date(dateEndInUserTz.getTime() - (offset * 60000));
 }
 
 /**

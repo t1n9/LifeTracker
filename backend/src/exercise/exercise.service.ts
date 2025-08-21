@@ -87,7 +87,7 @@ export class ExerciseService {
   // 获取今日运动记录
   async getTodayRecords(userId: string, timezone: string = 'Asia/Shanghai') {
     // 获取用户时区的今天日期
-    const todayDateStr = formatDateString(getTodayStart(timezone));
+    const todayDateStr = formatDateString(getTodayStart(timezone), timezone);
     const todayDate = parseDateString(todayDateStr);
 
     const records = await this.prisma.exerciseRecord.findMany({
@@ -380,7 +380,7 @@ export class ExerciseService {
 
   // 设置今日运动感受
   async setTodayExerciseFeeling(userId: string, feeling: string, timezone: string = 'Asia/Shanghai') {
-    const todayDateStr = formatDateString(getTodayStart(timezone));
+    const todayDateStr = formatDateString(getTodayStart(timezone), timezone);
     const todayDate = parseDateString(todayDateStr);
 
     return this.prisma.dailyData.upsert({

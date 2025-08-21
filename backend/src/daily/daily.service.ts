@@ -37,10 +37,10 @@ export class DailyService {
   }
 
   // 更新开启内容
-  async updateDayStart(userId: string, updateDayStartDto: UpdateDayStartDto) {
-    const targetDate = updateDayStartDto.date 
-      ? parseDateString(updateDayStartDto.date) 
-      : parseDateString(formatDateString(getTodayStart()));
+  async updateDayStart(userId: string, updateDayStartDto: UpdateDayStartDto, timezone: string = 'Asia/Shanghai') {
+    const targetDate = updateDayStartDto.date
+      ? parseDateString(updateDayStartDto.date)
+      : parseDateString(formatDateString(getTodayStart(timezone), timezone));
 
     const dailyData = await this.prisma.dailyData.upsert({
       where: {
@@ -65,10 +65,10 @@ export class DailyService {
   }
 
   // 更新复盘内容
-  async updateDayReflection(userId: string, updateDayReflectionDto: UpdateDayReflectionDto & { phoneUsage?: number }) {
+  async updateDayReflection(userId: string, updateDayReflectionDto: UpdateDayReflectionDto & { phoneUsage?: number }, timezone: string = 'Asia/Shanghai') {
     const targetDate = updateDayReflectionDto.date
       ? parseDateString(updateDayReflectionDto.date)
-      : parseDateString(formatDateString(getTodayStart()));
+      : parseDateString(formatDateString(getTodayStart(timezone), timezone));
 
     // 如果没有提供复盘时间，使用当前时间
     const reflectionTime = updateDayReflectionDto.reflectionTime ||
@@ -124,8 +124,8 @@ export class DailyService {
   }
 
   // 获取今日开启和复盘状态
-  async getTodayStatus(userId: string) {
-    const today = parseDateString(formatDateString(getTodayStart()));
+  async getTodayStatus(userId: string, timezone: string = 'Asia/Shanghai') {
+    const today = parseDateString(formatDateString(getTodayStart(timezone), timezone));
 
     const dailyData = await this.prisma.dailyData.findUnique({
       where: {

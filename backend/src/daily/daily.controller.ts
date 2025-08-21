@@ -21,19 +21,22 @@ export class DailyController {
   @Get('status')
   @ApiOperation({ summary: '获取今日开启和复盘状态' })
   async getTodayStatus(@Request() req) {
-    return this.dailyService.getTodayStatus(req.user.id);
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    return this.dailyService.getTodayStatus(req.user.id, timezone);
   }
 
   @Put('start')
   @ApiOperation({ summary: '更新开启内容' })
   async updateDayStart(@Request() req, @Body() updateDayStartDto: UpdateDayStartDto) {
-    return this.dailyService.updateDayStart(req.user.id, updateDayStartDto);
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    return this.dailyService.updateDayStart(req.user.id, updateDayStartDto, timezone);
   }
 
   @Put('reflection')
   @ApiOperation({ summary: '更新复盘内容' })
   async updateDayReflection(@Request() req, @Body() updateDayReflectionDto: UpdateDayReflectionDto) {
-    return this.dailyService.updateDayReflection(req.user.id, updateDayReflectionDto);
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    return this.dailyService.updateDayReflection(req.user.id, updateDayReflectionDto, timezone);
   }
 
   @Delete('start')

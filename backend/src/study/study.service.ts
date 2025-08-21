@@ -190,7 +190,7 @@ export class StudyService {
   // 获取今日学习统计
   async getTodayStats(userId: string, timezone: string = 'Asia/Shanghai') {
     // 获取用户时区的今天日期
-    const todayDateStr = formatDateString(getTodayStart(timezone));
+    const todayDateStr = formatDateString(getTodayStart(timezone), timezone);
     const todayDate = parseDateString(todayDateStr);
 
     // 获取今日的DailyData记录

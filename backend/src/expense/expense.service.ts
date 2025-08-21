@@ -17,7 +17,7 @@ export class ExpenseService {
   // 获取今日消费记录
   async getTodayExpenses(userId: string, timezone: string = 'Asia/Shanghai') {
     // 获取用户时区的今天日期
-    const todayDate = parseDateString(formatDateString(getTodayStart(timezone)));
+    const todayDate = parseDateString(formatDateString(getTodayStart(timezone), timezone));
 
     const records = await this.prisma.expenseRecord.findMany({
       where: {
@@ -81,7 +81,7 @@ export class ExpenseService {
     amount: number;
   }, timezone: string = 'Asia/Shanghai') {
     // 获取用户时区的今天日期
-    const todayDateStr = formatDateString(getTodayStart(timezone));
+    const todayDateStr = formatDateString(getTodayStart(timezone), timezone);
     const todayDate = parseDateString(todayDateStr);
 
     // 查找今日该餐的现有记录（只查找第一条主记录）
