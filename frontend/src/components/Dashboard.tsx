@@ -668,34 +668,74 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* ICP备案信息 */}
+          {/* 备案信息 */}
           <div style={{
             marginTop: '2rem',
             paddingTop: '1rem',
             borderTop: '1px solid var(--border-color)',
             textAlign: 'center'
           }}>
-            <a
-              href="https://beian.miit.gov.cn"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: 'var(--text-muted)',
-                fontSize: '0.75rem',
-                textDecoration: 'none',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                transition: 'color 0.2s ease'
-              }}
-              onMouseOver={(e) => {
-                (e.target as HTMLAnchorElement).style.color = 'var(--text-secondary)';
-              }}
-              onMouseOut={(e) => {
-                (e.target as HTMLAnchorElement).style.color = 'var(--text-muted)';
-              }}
-            >
-              粤ICP备2025456526号-1
-            </a>
+            {/* ICP备案 */}
+            <div style={{ marginBottom: '0.5rem' }}>
+              <a
+                href="https://beian.miit.gov.cn"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: 'var(--text-muted)',
+                  fontSize: '0.75rem',
+                  textDecoration: 'none',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  transition: 'color 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  (e.target as HTMLAnchorElement).style.color = 'var(--text-secondary)';
+                }}
+                onMouseOut={(e) => {
+                  (e.target as HTMLAnchorElement).style.color = 'var(--text-muted)';
+                }}
+              >
+                粤ICP备2025456526号-1
+              </a>
+            </div>
+
+            {/* 公安备案 */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.25rem'
+            }}>
+              <img
+                src="/beian-icon.png"
+                alt="备案图标"
+                style={{
+                  width: '14px',
+                  height: '14px',
+                  opacity: 0.6
+                }}
+              />
+              <a
+                href="https://beian.mps.gov.cn/#/query/webSearch?code=44030002007784"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  color: 'var(--text-muted)',
+                  fontSize: '0.75rem',
+                  textDecoration: 'none',
+                  transition: 'color 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  (e.target as HTMLAnchorElement).style.color = 'var(--text-secondary)';
+                }}
+                onMouseOut={(e) => {
+                  (e.target as HTMLAnchorElement).style.color = 'var(--text-muted)';
+                }}
+              >
+                粤公网安备44030002007784号
+              </a>
+            </div>
           </div>
         </div>
       </footer>
