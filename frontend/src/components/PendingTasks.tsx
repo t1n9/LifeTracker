@@ -9,6 +9,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -267,7 +268,20 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
 
   // 拖拽传感器配置
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    // 鼠标和触摸板支持
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 需要移动8px才开始拖拽，避免误触
+      },
+    }),
+    // 移动设备触摸支持
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // 长按200ms后开始拖拽
+        tolerance: 8, // 允许8px的移动容差
+      },
+    }),
+    // 键盘支持
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })

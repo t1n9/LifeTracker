@@ -68,6 +68,12 @@
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+  /* 移动设备触摸优化 */
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none; /* 防止滚动干扰拖拽 */
+  min-width: 44px; /* iOS推荐的最小触摸目标 */
+  min-height: 44px;
 }
 
 .drag-handle:hover {
@@ -227,19 +233,38 @@
   .task-item {
     padding: 0.75rem;
     gap: 0.5rem;
+    /* 移动设备触摸优化 */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation; /* 优化触摸响应 */
   }
-  
+
   .drag-handle {
-    padding: 0.25rem;
+    padding: 0.5rem; /* 移动设备上保持足够的触摸区域 */
+    opacity: 0.8; /* 移动设备上默认更明显 */
   }
-  
+
+  .drag-handle:active {
+    opacity: 1;
+    background: var(--bg-tertiary);
+    transform: scale(1.05); /* 触摸反馈 */
+  }
+
   .action-btn {
-    width: 28px;
-    height: 28px;
+    width: 32px; /* 增加移动设备上的触摸目标 */
+    height: 32px;
+    min-width: 44px; /* iOS推荐的最小触摸目标 */
+    min-height: 44px;
   }
-  
+
   .task-actions {
-    gap: 0.125rem;
+    gap: 0.25rem; /* 增加按钮间距 */
+  }
+
+  /* 拖拽时的移动设备优化 */
+  .sortable-item.sortable-drag {
+    opacity: 0.6;
+    transform: scale(1.02); /* 轻微放大提供视觉反馈 */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 }
 
@@ -251,6 +276,9 @@ body.dragging {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+  /* 移动设备优化 */
+  -webkit-touch-callout: none; /* 禁用iOS长按菜单 */
+  -webkit-tap-highlight-color: transparent; /* 禁用点击高亮 */
 }
 
 body.dragging * {
@@ -266,9 +294,9 @@ body.dragging * {
 /* 任务列表容器 */
 .tasks-container {
   position: relative;
-  overflow-y: auto;
   overflow-x: hidden; /* 防止水平滚动 */
-  max-height: 24rem; /* 限制最大高度 */
+  /* 移除max-height限制，让任务列表自适应高度 */
+  min-height: 200px; /* 保持最小高度，即使没有任务也有一定高度 */
   /* 创建独立的滚动上下文 */
   contain: layout style paint;
 }
@@ -277,7 +305,7 @@ body.dragging * {
 .dnd-context {
   position: relative;
   overflow: hidden;
-  min-height: 100px; /* 最小高度确保有拖拽空间 */
+  min-height: 150px; /* 增加最小高度，确保有足够的拖拽空间 */
 }
 
 /* 拖拽提示 */
