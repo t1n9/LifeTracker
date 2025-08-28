@@ -246,7 +246,11 @@
 /* 拖拽时的全局样式 */
 body.dragging {
   cursor: grabbing !important;
-  overflow: hidden; /* 防止拖拽时出现滚动条 */
+  /* 禁用用户选择 */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 body.dragging * {
@@ -265,6 +269,8 @@ body.dragging * {
   overflow-y: auto;
   overflow-x: hidden; /* 防止水平滚动 */
   max-height: 24rem; /* 限制最大高度 */
+  /* 创建独立的滚动上下文 */
+  contain: layout style paint;
 }
 
 /* 拖拽时限制边界 */

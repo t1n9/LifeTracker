@@ -280,7 +280,6 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
 
   // 处理拖拽结束
   const handleDragEnd = async (event: DragEndEvent) => {
-    // 移除拖拽样式
     document.body.classList.remove('dragging');
 
     const { active, over } = event;
