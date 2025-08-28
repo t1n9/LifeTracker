@@ -53,6 +53,7 @@ interface SortableTaskItemProps {
   onStartCountUp: (taskId: string, taskTitle: string) => void;
   onDeleteTask: (taskId: string) => void;
   onEditTask: (task: Task) => void;
+  onToggleTask: (taskId: string, currentStatus: boolean) => void;
   currentBoundTask?: string | null;
   isRunning?: boolean;
   editingTaskId?: string | null;
@@ -69,6 +70,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
   onStartCountUp,
   onDeleteTask,
   onEditTask,
+  onToggleTask,
   currentBoundTask,
   isRunning,
   editingTaskId,
@@ -126,7 +128,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
     >
       {/* 拖拽手柄 */}
       <div
-        className="drag-handle"
+        className="drag-handle-simple"
         {...attributes}
         {...listeners}
         onClick={(e) => e.stopPropagation()}
@@ -136,6 +138,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
           display: 'flex',
           alignItems: 'center',
           color: 'var(--text-muted)',
+          opacity: 0.6,
         }}
       >
         <GripVertical size={16} />
@@ -146,6 +149,17 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
       {/* 任务内容 */}
       <div className="task-content" style={{ flex: 1, minWidth: 0 }}>
         <div className="flex items-center gap-2">
+          {/* 任务完成复选框 */}
+          <input
+            type="checkbox"
+            checked={task.isCompleted}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleTask(task.id, task.isCompleted);
+            }}
+            className="task-checkbox"
+          />
+
           {/* 任务标题 - 编辑状态或显示状态 */}
           {editingTaskId === task.id ? (
             <input
@@ -170,7 +184,16 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
               }}
             />
           ) : (
-            <span className="task-title" style={{ fontWeight: '500', color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+            <span
+              className="task-title"
+              style={{
+                fontWeight: '500',
+                color: task.isCompleted ? 'var(--text-muted)' : 'var(--text-primary)',
+                fontSize: '0.875rem',
+                textDecoration: task.isCompleted ? 'line-through' : 'none',
+                opacity: task.isCompleted ? 0.7 : 1,
+              }}
+            >
               {task.title}
             </span>
           )}
@@ -642,6 +665,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
                     setEditingTaskId(task.id);
                     setEditingTaskTitle(task.title);
                   }}
+                  onToggleTask={handleToggleTask}
                   currentBoundTask={currentBoundTask}
                   isRunning={isRunning}
                   editingTaskId={editingTaskId}
