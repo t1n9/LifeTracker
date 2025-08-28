@@ -1,8 +1,28 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CheckSquare, Plus, X, Check, Clock, Play, Sunrise } from 'lucide-react';
+import { CheckSquare, Plus, X, Check, Clock, Play, Sunrise, Edit3, GripVertical } from 'lucide-react';
 import { taskAPI, dailyAPI } from '@/lib/api';
+import '@/styles/draggable-tasks.css';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Task {
   id: string;
@@ -11,6 +31,7 @@ interface Task {
   description?: string;
   priority?: number; // 0=低，1=中，2=高
   pomodoroCount?: number; // 番茄数量
+  sortOrder?: number; // 排序顺序
   createdAt: string;
   updatedAt: string;
 }
@@ -23,6 +44,208 @@ interface PendingTasksProps {
   dayStartRefreshTrigger?: number; // 开启内容刷新触发器
   pomodoroCompleteRefreshTrigger?: number; // 番茄钟完成刷新触发器
 }
+
+// 可拖拽的任务项组件
+interface SortableTaskItemProps {
+  task: Task;
+  onTaskClick: (taskId: string, taskTitle: string) => void;
+  onStartCountUp: (taskId: string, taskTitle: string) => void;
+  onDeleteTask: (taskId: string) => void;
+  onEditTask: (task: Task) => void;
+  currentBoundTask?: string | null;
+  isRunning?: boolean;
+  editingTaskId?: string | null;
+  editingTaskTitle?: string;
+  onSaveEdit?: () => void;
+
+  onEditTitleChange?: (title: string) => void;
+  onEditKeyPress?: (e: React.KeyboardEvent) => void;
+}
+
+const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
+  task,
+  onTaskClick,
+  onStartCountUp,
+  onDeleteTask,
+  onEditTask,
+  currentBoundTask,
+  isRunning,
+  editingTaskId,
+  editingTaskTitle,
+  onSaveEdit,
+  onEditTitleChange,
+  onEditKeyPress,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+
+
+  const isBound = currentBoundTask === task.id;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        ...style,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        padding: '1rem',
+        background: 'var(--bg-secondary)',
+        border: '1px solid var(--border-color)',
+        borderRadius: '8px',
+        transition: 'all 0.2s ease',
+        marginBottom: '0.5rem',
+      }}
+      className={`pending-task-item ${isBound ? 'bound' : ''} ${isDragging ? 'dragging' : ''}`}
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onClick={() => onTaskClick(task.id, task.title)}
+      title={
+        isRunning
+          ? '番茄钟运行中，无法更换绑定'
+          : isBound
+            ? '点击取消绑定'
+            : '点击绑定到番茄钟'
+      }
+    >
+      {/* 拖拽手柄 */}
+      <div
+        className="drag-handle"
+        {...attributes}
+        {...listeners}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          cursor: 'grab',
+          padding: '0.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          color: 'var(--text-muted)',
+        }}
+      >
+        <GripVertical size={16} />
+      </div>
+
+
+
+      {/* 任务内容 */}
+      <div className="task-content" style={{ flex: 1, minWidth: 0 }}>
+        <div className="flex items-center gap-2">
+          {/* 任务标题 - 编辑状态或显示状态 */}
+          {editingTaskId === task.id ? (
+            <input
+              type="text"
+              value={editingTaskTitle}
+              onChange={(e) => onEditTitleChange?.(e.target.value)}
+              onBlur={onSaveEdit}
+              onKeyDown={onEditKeyPress}
+              onClick={(e) => e.stopPropagation()} // 阻止冒泡到父元素
+              className="task-title-input"
+              autoFocus
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '4px',
+                padding: '2px 6px',
+                fontSize: '14px',
+                color: 'var(--text-primary)',
+                outline: 'none',
+                flex: 1,
+                minWidth: '120px'
+              }}
+            />
+          ) : (
+            <span className="task-title" style={{ fontWeight: '500', color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+              {task.title}
+            </span>
+          )}
+
+          {/* 番茄数量显示 */}
+          {(task.pomodoroCount || 0) > 0 && (
+            <div className="pomodoro-count-badge" style={{
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)',
+              background: 'var(--bg-tertiary)',
+              padding: '0.125rem 0.375rem',
+              borderRadius: '12px',
+            }}>
+              🍅 {task.pomodoroCount}
+            </div>
+          )}
+
+          {/* 绑定状态指示 */}
+          {isBound && (
+            <div className="bound-indicator" style={{
+              color: 'var(--accent-primary)',
+              fontSize: '0.75rem',
+            }}>
+              <Clock size={14} />
+            </div>
+          )}
+        </div>
+        {task.description && (
+          <div className="task-description" style={{
+            fontSize: '0.75rem',
+            color: 'var(--text-muted)',
+            marginTop: '0.25rem',
+          }}>
+            {task.description}
+          </div>
+        )}
+      </div>
+
+      {/* 操作按钮 */}
+      <div className="task-actions">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onStartCountUp(task.id, task.title);
+          }}
+          className="action-btn start-btn"
+          title="开始正计时"
+        >
+          <Play size={16} />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEditTask(task);
+          }}
+          className="action-btn edit-btn"
+          title="编辑任务"
+        >
+          <Edit3 size={16} />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeleteTask(task.id);
+          }}
+          className="action-btn delete-btn"
+          title="删除任务"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+
+    </div>
+  );
+};
 
 const PendingTasks: React.FC<PendingTasksProps> = ({
   onTaskClick,
@@ -39,13 +262,91 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   const [updatingTasks, setUpdatingTasks] = useState<Record<string, boolean>>({});
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [dayStart, setDayStart] = useState<string | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskTitle, setEditingTaskTitle] = useState<string>('');
+
+  // 拖拽传感器配置
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // 处理拖拽开始
+  const handleDragStart = () => {
+    document.body.classList.add('dragging');
+  };
+
+  // 处理拖拽结束
+  const handleDragEnd = async (event: DragEndEvent) => {
+    // 移除拖拽样式
+    document.body.classList.remove('dragging');
+
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    // 只在未完成任务中查找索引
+    const pendingTasks = tasks.filter(task => !task.isCompleted);
+    const oldIndex = pendingTasks.findIndex(task => task.id === active.id);
+    const newIndex = pendingTasks.findIndex(task => task.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    // 重新排列未完成任务
+    const newPendingTasks = arrayMove(pendingTasks, oldIndex, newIndex);
+
+    // 合并已完成任务和重新排序的未完成任务
+    const completedTasks = tasks.filter(task => task.isCompleted);
+    const newTasks = [...newPendingTasks, ...completedTasks];
+    setTasks(newTasks);
+
+    // 只更新未完成任务的排序顺序
+    const taskOrders = newPendingTasks.map((task, index) => ({
+      id: task.id,
+      sortOrder: index,
+    }));
+
+    try {
+      await taskAPI.updateTasksOrder(taskOrders);
+    } catch (error) {
+      console.error('更新任务排序失败:', error);
+      // 如果更新失败，恢复原来的顺序
+      setTasks(tasks);
+    }
+  };
+
+  // 处理拖拽取消
+  const handleDragCancel = () => {
+    document.body.classList.remove('dragging');
+  };
 
   // 加载今日任务列表
   const loadTasks = async () => {
     try {
       setLoading(true);
       const response = await taskAPI.getTodayTasks();
-      setTasks(response.data || []);
+      const loadedTasks = response.data || [];
+      // 前端按sortOrder重新排序
+      const sortedTasks = [...loadedTasks].sort((a: any, b: any) => {
+        // 未完成任务在前，已完成任务在后
+        if (a.isCompleted !== b.isCompleted) {
+          return a.isCompleted ? 1 : -1;
+        }
+        // 同类型任务按sortOrder排序
+        if (!a.isCompleted && !b.isCompleted) {
+          return (a.sortOrder || 0) - (b.sortOrder || 0);
+        }
+        // 已完成任务按更新时间排序
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+
+      setTasks(sortedTasks);
     } catch (error) {
       console.error('加载今日任务失败:', error);
     } finally {
@@ -87,20 +388,44 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   const handleAddTask = async () => {
     if (!newTaskText.trim() || isAddingTask) return;
 
+    const tempId = `temp-${Date.now()}`;
+    const newTask = {
+      id: tempId,
+      title: newTaskText.trim(),
+      isCompleted: false,
+      priority: 1,
+      sortOrder: tasks.filter(t => !t.isCompleted).length,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
     try {
       setIsAddingTask(true);
-      await taskAPI.createTask({
-        title: newTaskText.trim(),
-        isCompleted: false,
-        priority: 1 // 使用数字：0=低，1=中，2=高
-      });
 
+      // 乐观更新：立即添加到本地状态
+      setTasks(prev => [newTask, ...prev]);
       setNewTaskText('');
       setShowInput(false);
-      await loadTasks(); // 重新加载任务列表
+
+      // 调用API创建任务
+      const response = await taskAPI.createTask({
+        title: newTask.title,
+        isCompleted: false,
+        priority: 1
+      });
+
+      // 用真实的任务数据替换临时任务
+      setTasks(prev => prev.map(task =>
+        task.id === tempId ? response.data : task
+      ));
+
     } catch (error) {
       console.error('添加任务失败:', error);
       alert('添加任务失败，请重试');
+
+      // 失败时移除临时任务
+      setTasks(prev => prev.filter(task => task.id !== tempId));
+      setShowInput(true); // 重新显示输入框
     } finally {
       setIsAddingTask(false);
     }
@@ -124,13 +449,16 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
         isCompleted: !currentStatus
       });
 
-      // 成功后重新加载任务列表以确保数据一致性
-      await loadTasks();
     } catch (error) {
       console.error('更新任务状态失败:', error);
       alert('更新任务失败，请重试');
-      // 失败时重新加载任务列表
-      await loadTasks();
+
+      // 失败时恢复原状态
+      setTasks(prev => prev.map(task =>
+        task.id === taskId
+          ? { ...task, isCompleted: currentStatus }
+          : task
+      ));
     } finally {
       // 清除更新状态
       setUpdatingTasks(prev => ({ ...prev, [taskId]: false }));
@@ -143,32 +471,71 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
 
     try {
       await taskAPI.deleteTask(taskId);
-      await loadTasks(); // 重新加载任务列表
+
+      // 本地移除任务，避免重新加载
+      setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
     } catch (error) {
       console.error('删除任务失败:', error);
       alert('删除任务失败，请重试');
     }
   };
 
-  // 处理任务点击（绑定番茄钟）
-  const handleTaskClick = (task: Task) => {
-    if (isRunning) {
-      alert('番茄钟正在运行中，无法更换绑定任务');
+
+
+  // 保存任务编辑
+  const handleSaveEdit = async () => {
+    if (!editingTaskId || !editingTaskTitle.trim()) {
+      setEditingTaskId(null);
+      setEditingTaskTitle('');
       return;
     }
 
-    onTaskClick(task.id, task.title);
-  };
+    try {
+      // 设置更新状态
+      setUpdatingTasks(prev => ({ ...prev, [editingTaskId]: true }));
 
-  // 处理正计时开始
-  const handleStartCountUp = (task: Task) => {
-    if (isRunning) {
-      alert('番茄钟正在运行中，请先停止当前番茄钟');
-      return;
+      // 调用API更新任务标题
+      await taskAPI.updateTask(editingTaskId, {
+        title: editingTaskTitle.trim()
+      });
+
+      // 本地更新任务状态，避免重新加载
+      setTasks(prevTasks =>
+        prevTasks.map(task =>
+          task.id === editingTaskId
+            ? { ...task, title: editingTaskTitle.trim() }
+            : task
+        )
+      );
+
+      // 清除编辑状态
+      setEditingTaskId(null);
+      setEditingTaskTitle('');
+    } catch (error) {
+      console.error('更新任务失败:', error);
+      alert('更新任务失败，请重试');
+    } finally {
+      // 清除更新状态
+      setUpdatingTasks(prev => ({ ...prev, [editingTaskId]: false }));
     }
-
-    onStartCountUp(task.id, task.title);
   };
+
+  // 取消编辑
+  const handleCancelEdit = () => {
+    setEditingTaskId(null);
+    setEditingTaskTitle('');
+  };
+
+  // 处理编辑输入框的键盘事件
+  const handleEditKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
+
 
   // 键盘事件处理
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -184,25 +551,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   const pendingTasks = tasks.filter(task => !task.isCompleted);
   const completedTasks = tasks.filter(task => task.isCompleted);
 
-  // 获取优先级颜色 - 使用CSS变量
-  const getPriorityColor = (priority: number) => {
-    switch (priority) {
-      case 2: return 'var(--error-color)'; // 高优先级
-      case 1: return 'var(--warning-color)'; // 中优先级
-      case 0: return 'var(--success-color)'; // 低优先级
-      default: return 'var(--text-muted)';
-    }
-  };
 
-  // 获取优先级标签
-  const getPriorityLabel = (priority: number) => {
-    switch (priority) {
-      case 2: return '🔴'; // 高优先级
-      case 1: return '🟡'; // 中优先级
-      case 0: return '🟢'; // 低优先级
-      default: return '⚪';
-    }
-  };
 
   if (loading) {
     return (
@@ -245,7 +594,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       )}
 
       {/* 任务列表 */}
-      <div className="space-y-2 mb-4 max-h-96 overflow-y-auto">
+      <div className="tasks-container space-y-2 mb-4">
         {pendingTasks.length === 0 ? (
           <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
             <CheckSquare size={40} className="mx-auto mb-2 opacity-50" />
@@ -253,88 +602,41 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
             <p className="text-sm">点击下方按钮添加今日任务</p>
           </div>
         ) : (
-          pendingTasks.map(task => (
-            <div
-              key={task.id}
-              className={`pending-task-item ${currentBoundTask === task.id ? 'bound' : ''}`}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
+            <div className="dnd-context">
+            <SortableContext
+              items={pendingTasks.map(task => task.id)}
+              strategy={verticalListSortingStrategy}
             >
-              {/* 复选框 */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleTask(task.id, task.isCompleted);
-                }}
-                className="task-checkbox"
-                title="点击完成任务"
-                disabled={updatingTasks[task.id]}
-              >
-                {updatingTasks[task.id] ? (
-                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <Check size={12} className="text-white opacity-0" />
-                )}
-              </button>
-
-              {/* 任务内容 - 点击切换绑定状态 */}
-              <div
-                className="task-content"
-                onClick={() => handleTaskClick(task)}
-                title={
-                  isRunning
-                    ? '番茄钟运行中，无法更换绑定'
-                    : currentBoundTask === task.id
-                      ? '点击取消绑定'
-                      : '点击绑定到番茄钟'
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <span className="task-title">{task.title}</span>
-
-                  {/* 番茄数量显示 */}
-                  {(task.pomodoroCount || 0) > 0 && (
-                    <div className="pomodoro-count-badge">
-                      🍅 {task.pomodoroCount}
-                    </div>
-                  )}
-
-                  {/* 绑定状态指示 */}
-                  {currentBoundTask === task.id && (
-                    <div className="bound-indicator">
-                      <Clock size={14} />
-                    </div>
-                  )}
-                </div>
-                {task.description && (
-                  <div className="task-description">{task.description}</div>
-                )}
-              </div>
-
-              {/* 操作按钮 */}
-              <div className="task-actions">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleStartCountUp(task);
+              {pendingTasks.map(task => (
+                <SortableTaskItem
+                  key={task.id}
+                  task={task}
+                  onTaskClick={onTaskClick}
+                  onStartCountUp={onStartCountUp}
+                  onDeleteTask={handleDeleteTask}
+                  onEditTask={(task) => {
+                    setEditingTaskId(task.id);
+                    setEditingTaskTitle(task.title);
                   }}
-                  className={`action-btn start-btn ${isRunning ? 'disabled' : ''}`}
-                  disabled={isRunning}
-                  title={isRunning ? '番茄钟运行中' : '开始正计时'}
-                >
-                  <Play size={14} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteTask(task.id);
-                  }}
-                  className="action-btn delete-btn"
-                  title="删除任务"
-                >
-                  <X size={14} />
-                </button>
-              </div>
+                  currentBoundTask={currentBoundTask}
+                  isRunning={isRunning}
+                  editingTaskId={editingTaskId}
+                  editingTaskTitle={editingTaskTitle}
+                  onSaveEdit={handleSaveEdit}
+                  onEditTitleChange={(title) => setEditingTaskTitle(title)}
+                  onEditKeyPress={handleEditKeyPress}
+                />
+              ))}
+            </SortableContext>
             </div>
-          ))
+          </DndContext>
         )}
       </div>
 

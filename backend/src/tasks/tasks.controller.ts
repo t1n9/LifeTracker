@@ -1,9 +1,26 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Put } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { IsArray, ValidateNested, IsString, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
+class TaskOrderDto {
+  @IsString()
+  id: string;
+
+  @IsNumber()
+  sortOrder: number;
+}
+
+class UpdateTasksOrderDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TaskOrderDto)
+  tasks: TaskOrderDto[];
+}
 
 @ApiTags('任务')
 @Controller('tasks')
@@ -53,5 +70,11 @@ export class TasksController {
   @ApiOperation({ summary: '删除任务' })
   remove(@Request() req, @Param('id') id: string) {
     return this.tasksService.remove(req.user.id, id);
+  }
+
+  @Put('order')
+  @ApiOperation({ summary: '批量更新任务排序' })
+  updateTasksOrder(@Request() req, @Body() updateTasksOrderDto: UpdateTasksOrderDto) {
+    return this.tasksService.updateTasksOrder(req.user.id, updateTasksOrderDto.tasks);
   }
 }

@@ -9,36 +9,73 @@ export class TasksService {
   constructor(private prisma: PrismaService) {}
 
   async create(userId: string, createTaskDto: CreateTaskDto) {
+    // 获取当前用户未完成任务的最大sortOrder
+    const maxSortOrder = await this.prisma.task.findFirst({
+      where: {
+        userId,
+        isCompleted: false,
+      },
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    });
+
+    const nextSortOrder = (maxSortOrder?.sortOrder || 0) + 1;
+
     return this.prisma.task.create({
       data: {
         ...createTaskDto,
         userId,
+        sortOrder: nextSortOrder,
       },
     });
   }
 
   async findAll(userId: string) {
-    // 获取任务列表，包含已完成的番茄钟数量统计
-    const tasks = await this.prisma.task.findMany({
-      where: { userId },
-      orderBy: [
-        { isCompleted: 'asc' },
-        { priority: 'desc' },
-        { createdAt: 'desc' },
-      ],
-      include: {
-        _count: {
-          select: {
-            studyRecords: true,
-            pomodoroSessions: {
-              where: {
-                status: 'COMPLETED', // 只统计已完成的番茄钟
+    // 分别获取未完成和已完成的任务，确保排序正确
+    const [pendingTasks, completedTasks] = await Promise.all([
+      // 未完成任务按sortOrder排序
+      this.prisma.task.findMany({
+        where: { userId, isCompleted: false },
+        orderBy: [
+          { sortOrder: 'asc' },
+          { createdAt: 'desc' },
+        ],
+        include: {
+          _count: {
+            select: {
+              studyRecords: true,
+              pomodoroSessions: {
+                where: {
+                  status: 'COMPLETED',
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+      // 已完成任务按完成时间排序
+      this.prisma.task.findMany({
+        where: { userId, isCompleted: true },
+        orderBy: [
+          { updatedAt: 'desc' },
+        ],
+        include: {
+          _count: {
+            select: {
+              studyRecords: true,
+              pomodoroSessions: {
+                where: {
+                  status: 'COMPLETED',
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    // 合并任务列表：未完成任务在前，已完成任务在后
+    const tasks = [...pendingTasks, ...completedTasks];
 
     // 返回任务列表，使用_count.pomodoroSessions作为番茄数量
     return tasks.map(task => ({
@@ -137,5 +174,20 @@ export class TasksService {
       ...task,
       pomodoroCount: task._count.pomodoroSessions || 0,
     }));
+  }
+
+  // 批量更新任务排序
+  async updateTasksOrder(userId: string, taskOrders: { id: string; sortOrder: number }[]) {
+    const updatePromises = taskOrders.map(({ id, sortOrder }) =>
+      this.prisma.task.update({
+        where: {
+          id,
+          userId, // 确保只能更新自己的任务
+        },
+        data: { sortOrder },
+      })
+    );
+
+    return Promise.all(updatePromises);
   }
 }

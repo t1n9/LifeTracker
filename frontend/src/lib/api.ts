@@ -111,6 +111,7 @@ export const taskAPI = {
   deleteTask: (id: string) => api.delete(`/tasks/${id}`),
   getTaskStats: () => api.get('/tasks/stats'),
   getTodayTasks: () => api.get('/tasks/today'),
+  updateTasksOrder: (tasks: { id: string; sortOrder: number }[]) => api.put('/tasks/order', { tasks }),
 };
 
 export const studyAPI = {
@@ -169,7 +170,7 @@ export const importantInfoAPI = {
 };
 
 export const exerciseAPI = {
-  getExerciseTypes: () => api.get('/exercise/types'),
+  getExerciseTypes: (includeInactive = false) => api.get(`/exercise/types${includeInactive ? '?includeInactive=true' : ''}`),
   createExerciseType: (data: {
     name: string;
     type: 'COUNT' | 'DISTANCE';

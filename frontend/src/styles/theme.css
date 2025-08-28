@@ -646,6 +646,22 @@
   cursor: not-allowed;
 }
 
+.pending-task-item .action-btn.edit-btn {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.pending-task-item .action-btn.edit-btn:hover:not(:disabled) {
+  background: var(--accent-secondary);
+  transform: scale(1.1);
+}
+
+.pending-task-item .action-btn.edit-btn:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
 .pending-task-item .action-btn.delete-btn {
   background: var(--error-color);
   color: white;

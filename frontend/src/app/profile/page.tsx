@@ -7,6 +7,7 @@ import { userAPI } from '@/lib/api';
 import '@/styles/theme.css';
 import { useAuthStore } from '@/store/auth';
 import SystemConfigPanel from '@/components/admin/SystemConfigPanel';
+import ExerciseConfigManager from '@/components/ExerciseConfigManager';
 import { VERSION_INFO, getVersionString, getFullVersionInfo } from '@/lib/version';
 
 interface UserData {
@@ -16,13 +17,6 @@ interface UserData {
   targetDate: string;
   examDate: string;
   isAdmin: boolean;
-  // 运动配置
-  showPullUps: boolean;
-  showSquats: boolean;
-  showPushUps: boolean;
-  showRunning: boolean;
-  showSwimming: boolean;
-  showCycling: boolean;
 }
 
 interface PasswordData {
@@ -48,13 +42,6 @@ export default function ProfilePage() {
     targetDate: '',
     examDate: '',
     isAdmin: false,
-    // 运动配置默认值
-    showPullUps: true,
-    showSquats: true,
-    showPushUps: true,
-    showRunning: true,
-    showSwimming: false,
-    showCycling: false,
   });
   
   // 密码修改表单
@@ -93,13 +80,6 @@ export default function ProfilePage() {
         targetDate: user.targetDate ? user.targetDate.split('T')[0] : '',
         examDate: user.examDate ? user.examDate.split('T')[0] : '',
         isAdmin: user.isAdmin || false,
-        // 运动配置
-        showPullUps: user.showPullUps ?? true,
-        showSquats: user.showSquats ?? true,
-        showPushUps: user.showPushUps ?? true,
-        showRunning: user.showRunning ?? true,
-        showSwimming: user.showSwimming ?? false,
-        showCycling: user.showCycling ?? false,
       });
     } catch (error: any) {
       console.error('加载用户数据失败:', error);
@@ -138,13 +118,6 @@ export default function ProfilePage() {
         targetName: userData.targetName || null,
         targetDate: userData.targetDate ? new Date(userData.targetDate).toISOString() : null,
         examDate: userData.examDate ? new Date(userData.examDate).toISOString() : null,
-        // 运动配置
-        showPullUps: userData.showPullUps,
-        showSquats: userData.showSquats,
-        showPushUps: userData.showPushUps,
-        showRunning: userData.showRunning,
-        showSwimming: userData.showSwimming,
-        showCycling: userData.showCycling,
       };
 
       await userAPI.updateProfile(updateData);
@@ -401,211 +374,12 @@ export default function ProfilePage() {
 
           {/* 运动配置标签页 */}
           {activeTab === 'exercise' && (
-            <form onSubmit={handleProfileUpdate} className="form-container">
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h3 style={{
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  color: 'var(--text-primary)',
-                  marginBottom: '0.75rem'
-                }}>
-                  选择要显示的运动项目
-                </h3>
-                <p style={{
-                  fontSize: '0.875rem',
-                  color: 'var(--text-muted)',
-                  marginBottom: '1rem'
-                }}>
-                  开启的运动项目将在运动统计中显示，关闭的项目将被隐藏
-                </p>
-              </div>
-
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1rem',
-                marginBottom: '1.5rem'
-              }}>
-                {/* 单杠 */}
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '1rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  background: userData.showPullUps ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={userData.showPullUps}
-                    onChange={(e) => setUserData(prev => ({ ...prev, showPullUps: e.target.checked }))}
-                    style={{
-                      width: '18px',
-                      height: '18px',
-                      accentColor: 'var(--accent-primary)'
-                    }}
-                  />
-                  <div>
-                    <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>💪 单杠</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>计数型运动</div>
-                  </div>
-                </label>
-
-                {/* 深蹲 */}
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '1rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  background: userData.showSquats ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={userData.showSquats}
-                    onChange={(e) => setUserData(prev => ({ ...prev, showSquats: e.target.checked }))}
-                    style={{
-                      width: '18px',
-                      height: '18px',
-                      accentColor: 'var(--accent-primary)'
-                    }}
-                  />
-                  <div>
-                    <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>🦵 深蹲</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>计数型运动</div>
-                  </div>
-                </label>
-
-                {/* 俯卧撑 */}
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '1rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  background: userData.showPushUps ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={userData.showPushUps}
-                    onChange={(e) => setUserData(prev => ({ ...prev, showPushUps: e.target.checked }))}
-                    style={{
-                      width: '18px',
-                      height: '18px',
-                      accentColor: 'var(--accent-primary)'
-                    }}
-                  />
-                  <div>
-                    <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>🤲 俯卧撑</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>计数型运动</div>
-                  </div>
-                </label>
-
-                {/* 跑步 */}
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '1rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  background: userData.showRunning ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={userData.showRunning}
-                    onChange={(e) => setUserData(prev => ({ ...prev, showRunning: e.target.checked }))}
-                    style={{
-                      width: '18px',
-                      height: '18px',
-                      accentColor: 'var(--accent-primary)'
-                    }}
-                  />
-                  <div>
-                    <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>🏃 跑步</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>距离型运动</div>
-                  </div>
-                </label>
-
-                {/* 游泳 */}
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '1rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  background: userData.showSwimming ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={userData.showSwimming}
-                    onChange={(e) => setUserData(prev => ({ ...prev, showSwimming: e.target.checked }))}
-                    style={{
-                      width: '18px',
-                      height: '18px',
-                      accentColor: 'var(--accent-primary)'
-                    }}
-                  />
-                  <div>
-                    <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>🏊 游泳</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>距离型运动</div>
-                  </div>
-                </label>
-
-                {/* 骑行 */}
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '1rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  background: userData.showCycling ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={userData.showCycling}
-                    onChange={(e) => setUserData(prev => ({ ...prev, showCycling: e.target.checked }))}
-                    style={{
-                      width: '18px',
-                      height: '18px',
-                      accentColor: 'var(--accent-primary)'
-                    }}
-                  />
-                  <div>
-                    <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>🚴 骑行</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>距离型运动</div>
-                  </div>
-                </label>
-              </div>
-
-              <div className="form-actions">
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={isLoading}
-                >
-                  <Save size={16} />
-                  {isLoading ? '保存中...' : '保存配置'}
-                </button>
-              </div>
-            </form>
+            <div className="form-container">
+              <ExerciseConfigManager onUpdate={() => {
+                // 运动配置更新后的回调，可以用来刷新其他相关数据
+                console.log('运动配置已更新');
+              }} />
+            </div>
           )}
 
           {/* 修改密码标签页 */}

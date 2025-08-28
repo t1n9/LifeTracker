@@ -15,12 +15,16 @@ export class ExerciseService {
   constructor(private prisma: PrismaService) {}
 
   // 获取用户的运动类型
-  async getExerciseTypes(userId: string) {
+  async getExerciseTypes(userId: string, includeInactive = false) {
+    const whereCondition: any = { userId };
+
+    // 如果不包含非活跃项目，则只查询活跃的
+    if (!includeInactive) {
+      whereCondition.isActive = true;
+    }
+
     return this.prisma.exerciseType.findMany({
-      where: { 
-        userId,
-        isActive: true 
-      },
+      where: whereCondition,
       orderBy: { sortOrder: 'asc' },
     });
   }
@@ -73,14 +77,22 @@ export class ExerciseService {
     });
   }
 
-  // 删除运动类型
+  // 删除运动类型（物理删除）
   async deleteExerciseType(userId: string, exerciseId: string) {
-    return this.prisma.exerciseType.update({
-      where: { 
+    // 首先删除相关的运动记录
+    await this.prisma.exerciseRecord.deleteMany({
+      where: {
+        exerciseId,
+        userId,
+      },
+    });
+
+    // 然后删除运动类型
+    return this.prisma.exerciseType.delete({
+      where: {
         id: exerciseId,
         userId,
       },
-      data: { isActive: false },
     });
   }
 

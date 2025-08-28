@@ -136,3 +136,7 @@ deploy.config.sh
 id_rsa*
 lifetracker_github.pub
 lifetracker_github
+
+# AI Generated Project Documentation (contains sensitive info)
+PROJECT_DOCUMENTATION.md
+AI_PROJECT_ANALYSIS.md

@@ -10,7 +10,7 @@ import {
   UseGuards, 
   Req 
 } from '@nestjs/common';
-import { IsString, IsNumber, IsEnum, IsOptional, IsIn, Min } from 'class-validator';
+import { IsString, IsNumber, IsEnum, IsOptional, IsIn, Min, IsBoolean } from 'class-validator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ExerciseService } from './exercise.service';
 
@@ -71,6 +71,14 @@ export class UpdateExerciseTypeDto {
   @IsOptional()
   @IsString()
   color?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  sortOrder?: number;
 }
 
 export class AddExerciseRecordDto {
@@ -112,13 +120,16 @@ export class ExerciseController {
 
   // 获取运动类型
   @Get('types')
-  async getExerciseTypes(@Req() req: any) {
+  async getExerciseTypes(@Req() req: any, @Query('includeInactive') includeInactive?: string) {
     const userId = req.user.id;
-    
+
     // 首次访问时初始化默认运动类型
     await this.exerciseService.initializeDefaultExerciseTypes(userId);
-    
-    const types = await this.exerciseService.getExerciseTypes(userId);
+
+    // 解析查询参数
+    const shouldIncludeInactive = includeInactive === 'true';
+
+    const types = await this.exerciseService.getExerciseTypes(userId, shouldIncludeInactive);
     return { data: types };
   }
 
