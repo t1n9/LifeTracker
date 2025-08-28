@@ -66,8 +66,9 @@ export class ExpenseController {
   @Post('others')
   async addOtherExpense(@Body() addDto: AddOtherExpenseDto, @Req() req: any) {
     const userId = req.user.id;
-    const record = await this.expenseService.addOtherExpense(userId, addDto);
-    return { 
+    const timezone = req.user.timezone || 'Asia/Shanghai';
+    const record = await this.expenseService.addOtherExpense(userId, addDto, timezone);
+    return {
       data: record,
       message: '消费记录添加成功'
     };
@@ -85,8 +86,9 @@ export class ExpenseController {
   @Get('stats')
   async getExpenseStats(@Query('days') days: string, @Req() req: any) {
     const userId = req.user.id;
+    const timezone = req.user.timezone || 'Asia/Shanghai';
     const dayCount = days ? parseInt(days) : 7;
-    const stats = await this.expenseService.getExpenseStats(userId, dayCount);
+    const stats = await this.expenseService.getExpenseStats(userId, dayCount, timezone);
     return { data: stats };
   }
 

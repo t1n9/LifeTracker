@@ -129,13 +129,15 @@ export class ExpenseService {
     description: string;
     amount: number;
     notes?: string;
-  }) {
-    const today = getTodayStart();
+  }, timezone: string = 'Asia/Shanghai') {
+    // 获取用户时区的今天日期
+    const todayDateStr = formatDateString(getTodayStart(timezone), timezone);
+    const todayDate = parseDateString(todayDateStr);
 
     return this.prisma.expenseRecord.create({
       data: {
         userId,
-        date: today,
+        date: todayDate,
         type: ExpenseTypeEnum.OTHER,
         category: 'other',
         description: data.description,
@@ -205,9 +207,9 @@ export class ExpenseService {
   }
 
   // 获取消费统计
-  async getExpenseStats(userId: string, days = 7) {
-    const endDate = getTodayEnd();
-    const startDate = getDaysAgoStart(days);
+  async getExpenseStats(userId: string, days = 7, timezone: string = 'Asia/Shanghai') {
+    const endDate = getTodayEnd(timezone);
+    const startDate = getDaysAgoStart(days, timezone);
 
     const records = await this.prisma.expenseRecord.findMany({
       where: {
