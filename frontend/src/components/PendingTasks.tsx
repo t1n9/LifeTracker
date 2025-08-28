@@ -401,8 +401,12 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     try {
       setIsAddingTask(true);
 
-      // 乐观更新：立即添加到本地状态
-      setTasks(prev => [newTask, ...prev]);
+      // 乐观更新：添加到未完成任务的最后
+      setTasks(prev => {
+        const pendingTasks = prev.filter(t => !t.isCompleted);
+        const completedTasks = prev.filter(t => t.isCompleted);
+        return [...pendingTasks, newTask, ...completedTasks];
+      });
       setNewTaskText('');
       setShowInput(false);
 
