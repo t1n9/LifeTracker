@@ -34,7 +34,8 @@
     "version:bump": "node scripts/version-manager.js bump",
     "version:bump:major": "node scripts/version-manager.js bump major",
     "version:bump:minor": "node scripts/version-manager.js bump minor",
-    "version:bump:patch": "node scripts/version-manager.js bump patch"
+    "version:bump:patch": "node scripts/version-manager.js bump patch",
+    "init": "node -e \"console.log('请运行以下命令进行初始化:'); console.log('Windows: scripts\\\\init-project.bat'); console.log('Linux/macOS: ./scripts/init-project.sh');\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

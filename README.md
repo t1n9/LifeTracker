@@ -4,13 +4,13 @@
 
 ![LifeTracker Logo](https://img.shields.io/badge/LifeTracker-生活记录系统-blue?style=for-the-badge)
 
-一个为考研学生设计的全栈Web应用，集成倒计时、学习计划、时间管理功能。
+一个为学生设计的全栈Web应用，集成倒计时、学习计划、时间管理功能。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-支持-blue.svg)](https://www.docker.com/)
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-自动部署-green.svg)](https://github.com/features/actions)
 
-[🚀 快速开始](#-快速开始) • [📖 文档](#-文档) • [🛠️ 技术栈](#️-技术栈) • [🤝 贡献](#-贡献)
+[🚀 快速开始](#-快速开始) • [📖 文档](#-文档) • [🛠️ 技术栈](#️-技术栈) • [🤝 贡献](#-贡献) • [📸 截图](#-截图)
 
 </div>
 
@@ -111,20 +111,45 @@ docker-compose logs -f
 
 ## 📦 本地开发
 
-### 环境要求
+### 🔧 环境要求
 
-- Node.js >= 18.0.0
-- npm >= 9.0.0
-- Docker & Docker Compose (可选)
+- **Node.js**: >= 18.0.0 ([下载地址](https://nodejs.org/))
+- **npm**: >= 9.0.0
+- **PostgreSQL**: >= 12.0 或 Docker
+- **Git**: 用于版本控制
 
-### 安装依赖
+### ⚡ 一键初始化
 
 ```bash
-# 安装根目录依赖
-npm install
+# Windows 用户
+scripts\init-project.bat
 
-# 安装前后端依赖
+# Linux/macOS 用户
+./scripts/init-project.sh
+```
+
+### 📋 手动安装
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/your-username/LifeTracker.git
+cd LifeTracker
+
+# 2. 安装依赖
 npm run setup
+
+# 3. 配置环境变量
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
+
+# 4. 初始化数据库
+cd backend
+npx prisma migrate dev
+npm run db:seed
+
+# 5. 启动开发服务器
+cd ..
+npm run dev
 ```
 
 ### 环境配置
@@ -211,15 +236,48 @@ npm run build
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
-## 📖 API文档
+## 📖 文档
 
-启动后端服务后，访问 `http://localhost:3001/api/docs` 查看Swagger API文档。
+- 📚 [完整文档](./docs/README.md) - 文档中心
+- ⚡ [快速开始](./docs/quick-start.md) - 5分钟快速体验
+- 📦 [安装指南](./docs/installation.md) - 详细安装步骤
+- 🔧 [故障排除](./docs/troubleshooting.md) - 常见问题解决
+- 📡 [API 文档](./docs/api.md) - 完整API说明
+- 🏗️ [系统架构](./docs/architecture.md) - 架构设计文档
+
+### 在线文档
+
+- **Swagger API**: http://localhost:3002/api/docs (启动后端后访问)
+
+## 📸 截图
+
+### 主界面
+
+![主界面](./docs/images/dashboard.png)
+
+### 任务管理
+
+![任务管理](./docs/images/tasks.png)
+
+### 番茄钟
+
+![番茄钟](./docs/images/pomodoro.png)
+
+### 数据统计
+
+![数据统计](./docs/images/statistics.png)
+
+> 📝 **注意**: 截图将在项目完善后添加
 
 ## 🤝 贡献指南
 
+我们欢迎所有形式的贡献！请查看 [贡献指南](./CONTRIBUTING.md) 了解详细信息。
+
+### 快速贡献
+
 1. Fork 项目
 2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+3. 提交更改 (`git commit -m 'feat: add amazing feature'`)
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
@@ -241,7 +299,7 @@ docker-compose -f docker-compose.prod.yml up -d
    - Ubuntu 20.04+ / CentOS 8+
    - Docker & Docker Compose
    - 2GB+ RAM, 20GB+ 存储空间
-   - 域名: t1n9.xyz (IP: 120.25.232.54)
+   - 域名和服务器（请配置您自己的服务器）
 2. **自动部署**
 
    ```bash
@@ -277,19 +335,21 @@ docker-compose down
 docker-compose exec backend npx prisma db push
 ```
 
-### 👤 默认账户
+### 👤 初始账户
 
-- **邮箱**: 
-- **密码**: 123456
+首次部署后，请使用管理员账户登录：
 
-> ⚠️ 请登录后立即修改密码
+- **邮箱**: admin@example.com
+- **密码**: 请在首次启动时设置
+
+> ⚠️ 首次登录后请立即修改密码和邮箱
 
 ### 📊 服务端口
 
 - **前端**: 3001
 - **后端**: 3002
 - **数据库**: 5432
-- **网站**: https://t1n9.xyz
+- **网站**: https://your-domain.com
 
 ## 🙏 致谢
 
