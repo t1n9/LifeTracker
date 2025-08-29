@@ -36,11 +36,21 @@ cd $(dirname $0)
 # 安装依赖
 if [ -f "package.json" ] && [ -f "package-lock.json" ]; then
     echo "📦 安装后端依赖..."
-    npm ci --only=production
+    npm config set registry https://registry.npmjs.org
+    npm ci --omit=dev
+    if [ ! -f "node_modules/iconv-lite/encodings/index.js" ]; then
+        echo "⚠️ 检测到 iconv-lite encodings 缺失，正在修复..."
+        npm i iconv-lite@0.6.3 raw-body@2.5.2 --no-save || true
+    fi
 elif [ -f "backend-package.json" ]; then
     echo "📦 使用npm install安装依赖..."
     cp backend-package.json package.json
-    npm install --only=production
+    npm config set registry https://registry.npmjs.org
+    npm install --omit=dev
+    if [ ! -f "node_modules/iconv-lite/encodings/index.js" ]; then
+        echo "⚠️ 检测到 iconv-lite encodings 缺失，正在修复..."
+        npm i iconv-lite@0.6.3 raw-body@2.5.2 --no-save || true
+    fi
 else
     echo "⚠️ 未找到package.json，跳过依赖安装"
 fi

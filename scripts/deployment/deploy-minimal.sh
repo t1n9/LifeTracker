@@ -45,10 +45,22 @@ fi
 if [ ! -d "node_modules" ] || [ ! -f "node_modules/@nestjs/core/package.json" ]; then
     echo "📦 检测到缺少依赖，安装生产依赖..."
     if [ -f "package.json" ] && [ -f "package-lock.json" ]; then
-        npm ci --only=production
+        # 使用官方npm源并安装依赖，避免裁剪包
+        npm config set registry https://registry.npmjs.org
+        npm ci --omit=dev
+        # 健康检查：确保 iconv-lite encodings 存在
+        if [ ! -f "node_modules/iconv-lite/encodings/index.js" ]; then
+            echo "⚠️ 检测到 iconv-lite encodings 缺失，正在修复..."
+            npm i iconv-lite@0.6.3 raw-body@2.5.2 --no-save || true
+        fi
     elif [ -f "backend-package.json" ]; then
         cp backend-package.json package.json
-        npm install --only=production
+        npm config set registry https://registry.npmjs.org
+        npm install --omit=dev
+        if [ ! -f "node_modules/iconv-lite/encodings/index.js" ]; then
+            echo "⚠️ 检测到 iconv-lite encodings 缺失，正在修复..."
+            npm i iconv-lite@0.6.3 raw-body@2.5.2 --no-save || true
+        fi
     else
         echo "❌ 未找到package.json文件"
         exit 1

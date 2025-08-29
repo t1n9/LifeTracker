@@ -1,10 +1,12 @@
 import { IsString, IsNumber, IsOptional, IsEnum, IsDateString, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type, Transform } from 'class-transformer';
 
 // 番茄时钟相关DTO
 export class StartPomodoroDto {
   @ApiProperty({ description: '番茄钟时长（分钟）', default: 25 })
   @IsNumber()
+  @Type(() => Number)
   duration: number;
 
   @ApiProperty({ description: '绑定的任务ID', required: false })
@@ -15,6 +17,7 @@ export class StartPomodoroDto {
   @ApiProperty({ description: '是否为正计时模式', required: false, default: false })
   @IsOptional()
   @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
   isCountUpMode?: boolean;
 }
 
