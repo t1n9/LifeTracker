@@ -1,4 +1,10 @@
 #!/bin/bash
+# 预检：如果后端已在运行且健康，直接跳过
+if curl -fsS http://localhost:3002/api/health > /dev/null 2>&1; then
+    echo "✅ 后端已在运行，跳过最小化部署"
+    exit 0
+fi
+
 
 # 最小化部署脚本 - 完全无外部依赖
 set -e
@@ -184,7 +190,7 @@ sleep 15
 # 检查后端是否启动成功
 if kill -0 $BACKEND_PID 2>/dev/null; then
     echo "✅ 后端进程运行中 (PID: $BACKEND_PID)"
-    
+
     # 测试后端API
     for i in {1..10}; do
         if curl -f http://localhost:${BACKEND_PORT}/api/health > /dev/null 2>&1; then

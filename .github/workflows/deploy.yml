@@ -171,16 +171,19 @@ jobs:
           chmod +x deploy-minimal.sh
           if ./deploy-minimal.sh; then
             echo "✅ 最小化部署成功"
+            exit 0
           else
             echo "⚠️ 最小化部署失败，尝试简化原生部署..."
             chmod +x deploy-simple-native.sh
             if ./deploy-simple-native.sh; then
               echo "✅ 简化原生部署成功"
+              exit 0
             else
               echo "⚠️ 简化部署失败，尝试完整原生部署..."
               chmod +x deploy-native.sh
               if ./deploy-native.sh; then
                 echo "✅ 完整原生部署成功"
+                exit 0
               else
                 echo "⚠️ 原生部署失败，尝试修复Nginx..."
                 chmod +x fix-nginx.sh

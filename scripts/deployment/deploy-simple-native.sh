@@ -1,4 +1,10 @@
 #!/bin/bash
+# 预检：如果后端已在运行且健康，直接跳过
+if curl -fsS http://localhost:3002/api/health > /dev/null 2>&1; then
+    echo "✅ 后端已在运行，跳过简化原生部署"
+    exit 0
+fi
+
 
 # 超简化原生部署脚本
 set -e
