@@ -19,46 +19,38 @@ jobs:
         node-version: '18'
         cache: 'npm'
 
-    - name: Build Backend
-      run: |
-        cd backend
-        npm ci
-        # 生成Prisma客户端
-        npx prisma generate
-        npm run build
+    # 跳过构建步骤，让Docker处理构建
+    # - name: Build Backend
+    #   run: |
+    #     cd backend
+    #     npm ci
+    #     npx prisma generate
+    #     npm run build
 
-    - name: Build Frontend
-      env:
-        NEXT_PUBLIC_API_URL: https://${{ secrets.DOMAIN_NAME }}/api
-      run: |
-        cd frontend
-        npm install
-        # 设置环境变量跳过ESLint检查
-        export ESLINT_NO_DEV_ERRORS=true
-        export CI=false
-        export DISABLE_ESLINT_PLUGIN=true
-        export NODE_ENV=production
-        npm run build
+    # - name: Build Frontend
+    #   env:
+    #     NEXT_PUBLIC_API_URL: https://${{ secrets.DOMAIN_NAME }}/api
+    #   run: |
+    #     cd frontend
+    #     npm install
+    #     npm run build
 
     - name: Create deployment package
       run: |
         mkdir -p deploy-package
 
-        # 复制后端文件
-        cp -r backend/dist deploy-package/backend-dist
-        cp backend/package.json deploy-package/backend-package.json
-        cp backend/package-lock.json deploy-package/backend-package-lock.json
+        # 复制后端源代码（让Docker处理构建）
+        cp -r backend deploy-package/
+        # 清理后端构建缓存
+        rm -rf deploy-package/backend/dist deploy-package/backend/node_modules
         # 复制到根目录以便部署脚本使用
         cp backend/package.json deploy-package/package.json
         cp backend/package-lock.json deploy-package/package-lock.json
-        # 复制Prisma schema文件
-        cp -r backend/prisma deploy-package/prisma
-        # 复制后端脚本目录（包含邮件诊断工具）
-        cp -r backend/scripts deploy-package/scripts
 
-        # 复制前端文件（静态导出）
-        cp -r frontend/out deploy-package/frontend-dist
-        cp frontend/package.json deploy-package/frontend-package.json
+        # 复制前端源代码（让Docker处理构建）
+        cp -r frontend deploy-package/
+        # 清理前端构建缓存
+        rm -rf deploy-package/frontend/.next deploy-package/frontend/node_modules
 
         # 复制配置文件
         cp docker-compose.prod.yml deploy-package/ || cp docker-compose.yml deploy-package/docker-compose.prod.yml
