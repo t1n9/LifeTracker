@@ -20,6 +20,9 @@ sudo pkill -f "node.*main.js" || true
 sudo lsof -ti:3002 | xargs -r sudo kill -9 || true
 sudo systemctl stop nginx || true
 
+# 等待端口释放
+sleep 3
+
 # 启动后端（直接运行，不用systemd）
 echo "🔧 启动后端服务..."
 cd $(dirname $0)
