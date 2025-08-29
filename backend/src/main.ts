@@ -45,8 +45,11 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      // 放宽非白名单字段为剔除而不是报错，避免前端偶发携带多余字段导致400
+      forbidNonWhitelisted: false,
       transform: true,
+      // 允许将字符串隐式转换为number/boolean，避免生产环境类型严格导致400
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
 
