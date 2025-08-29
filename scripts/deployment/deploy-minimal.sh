@@ -1,38 +1,58 @@
 #!/bin/bash
 
-# 最小化部署脚本 - 完全无外部依赖
+# 最小化部署脚本 - Docker优先
 set -e
 
 echo "🚀 开始最小化部署..."
 
-# 设置基本变量
-DOMAIN_NAME="t1n9.xyz"
-BACKEND_PORT=3002
-
 # 停止现有服务
 echo "🛑 停止现有服务..."
-sudo pkill -f "node.*backend-dist/main.js" || true
+sudo pkill -f "node.*main.js" || true
+sudo pkill -f "npm.*start" || true
 sudo systemctl stop nginx || true
+docker-compose down || true
 
-# 检查Node.js是否可用
-if ! command -v node &> /dev/null; then
-    echo "❌ Node.js未安装，无法继续"
-    exit 1
-fi
-
-echo "✅ Node.js版本: $(node --version)"
-
-# 启动后端服务（检查依赖）
-echo "🔧 启动后端服务..."
 cd $(dirname $0)
 
-# 检查后端文件是否存在
-if [ ! -f "backend-dist/main.js" ]; then
-    echo "❌ 后端编译文件不存在: backend-dist/main.js"
-    exit 1
+# 优先使用Docker部署
+if [ -f "docker-compose.yml" ] && command -v docker-compose &> /dev/null; then
+    echo "🐳 使用Docker Compose部署..."
+
+    # 确保环境变量文件存在
+    if [ ! -f ".env" ]; then
+        echo "⚠️ 未找到.env文件，创建基础配置..."
+        cat > .env << EOF
+DOMAIN_NAME=t1n9.xyz
+DB_NAME=lifetracker
+DB_USER=lifetracker
+DB_PASSWORD=your-secure-password
+JWT_SECRET=your-jwt-secret
+NODE_ENV=production
+EOF
+    fi
+
+    # 构建并启动服务
+    docker-compose up -d --build
+
+    # 等待服务启动
+    echo "⏳ 等待服务启动..."
+    sleep 30
+
+    # 检查服务状态
+    if curl -f http://localhost:3002/api/health > /dev/null 2>&1; then
+        echo "✅ Docker部署成功！"
+        echo "🌐 服务地址: http://localhost:3002"
+        exit 0
+    else
+        echo "⚠️ 服务可能还在启动中，请稍后检查"
+        docker-compose logs --tail=20
+        exit 0
+    fi
 fi
 
-# 检查是否需要安装依赖
+echo "❌ Docker未安装或docker-compose.yml不存在"
+echo "请安装Docker或使用其他部署方式"
+exit 1
 if [ ! -d "node_modules" ] || [ ! -f "node_modules/@nestjs/core/package.json" ]; then
     echo "📦 检测到缺少依赖，安装生产依赖..."
     if [ -f "package.json" ] && [ -f "package-lock.json" ]; then
@@ -78,10 +98,22 @@ else
     echo "📧 邮件服务配置: ⚠️ 未配置（可选功能）"
 fi
 
-# 后台启动后端（无依赖）
+# 后台启动后端
 echo "🚀 启动后端进程..."
-nohup node backend-dist/main.js > backend.log 2>&1 &
-BACKEND_PID=$!
+if [ -d "backend" ]; then
+    # 使用源代码启动
+    cd backend
+    nohup npm run start:prod > ../backend.log 2>&1 &
+    BACKEND_PID=$!
+    cd ..
+elif [ -f "backend-dist/main.js" ]; then
+    # 使用编译文件启动
+    nohup node backend-dist/main.js > backend.log 2>&1 &
+    BACKEND_PID=$!
+else
+    echo "❌ 无法找到后端启动文件"
+    exit 1
+fi
 echo $BACKEND_PID > backend.pid
 
 echo "⏳ 等待后端启动..."

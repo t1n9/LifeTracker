@@ -1,53 +1,56 @@
 #!/bin/bash
 
-# 超简化原生部署脚本
+# 超简化原生部署脚本 - Docker优先
 set -e
 
 echo "🚀 开始超简化部署..."
 
-# 加载环境变量
-if [ -f ".env" ]; then
-    source .env
-else
-    DOMAIN_NAME="t1n9.xyz"
-fi
-
 # 停止现有服务
 echo "🛑 停止现有服务..."
-sudo pkill -f "node.*backend-dist/main.js" || true
+sudo pkill -f "node.*main.js" || true
+sudo pkill -f "npm.*start" || true
 sudo systemctl stop nginx || true
+docker-compose down || true
 
-# 启动后端（直接运行，不用systemd）
-echo "🔧 启动后端服务..."
 cd $(dirname $0)
 
-# 安装依赖
-if [ -f "package.json" ] && [ -f "package-lock.json" ]; then
-    echo "📦 安装后端依赖..."
-    npm ci --only=production
-elif [ -f "backend-package.json" ]; then
-    echo "📦 使用npm install安装依赖..."
-    cp backend-package.json package.json
-    npm install --only=production
-else
-    echo "⚠️ 未找到package.json，跳过依赖安装"
-fi
+# 优先使用Docker
+if [ -f "docker-compose.yml" ] && command -v docker-compose &> /dev/null; then
+    echo "🐳 使用Docker Compose部署..."
+    docker-compose up -d --build
 
-# 初始化Prisma
-if [ -f "init-prisma.sh" ]; then
-    echo "🔧 使用Prisma初始化脚本..."
-    chmod +x init-prisma.sh
-    ./init-prisma.sh || echo "⚠️ Prisma初始化失败，继续尝试..."
-else
-    echo "🔧 生成Prisma客户端..."
-    if command -v npx &> /dev/null; then
-        npx prisma generate || echo "⚠️ Prisma生成失败，继续尝试..."
+    echo "⏳ 等待服务启动..."
+    sleep 30
+
+    if curl -f http://localhost:3002/api/health > /dev/null 2>&1; then
+        echo "✅ Docker部署成功！"
+        exit 0
     else
-        echo "⚠️ npx不可用，跳过Prisma生成"
+        echo "⚠️ 服务启动中，请稍后检查"
+        exit 0
     fi
 fi
 
-# 设置环境变量并启动后端
+# 如果没有Docker，尝试源代码部署
+if [ -d "backend" ] && [ -f "backend/package.json" ]; then
+    echo "📦 安装后端依赖..."
+    cd backend
+    npm ci --only=production
+
+    echo "🔧 初始化Prisma..."
+    npx prisma generate || echo "⚠️ Prisma生成失败"
+    npx prisma migrate deploy || echo "⚠️ 数据库迁移失败"
+
+    echo "🚀 启动后端..."
+    nohup npm run start:prod > ../backend.log 2>&1 &
+    cd ..
+
+    echo "✅ 后端启动完成"
+    exit 0
+fi
+
+echo "❌ 无法找到有效的部署方式"
+exit 1
 export NODE_ENV=production
 export DATABASE_URL="postgresql://lifetracker:TINGWU...123@localhost:5432/lifetracker"
 export REDIS_URL="redis://localhost:6379"
