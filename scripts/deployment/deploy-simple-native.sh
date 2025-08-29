@@ -60,24 +60,13 @@ if [ -d "backend" ] && [ -f "backend/package.json" ]; then
     if [ -f "../.env" ]; then
         source ../.env
         export DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@localhost:5432/${DB_NAME}"
-        echo "🔧 运行数据库迁移..."
+        echo "🔧 检查数据库连接..."
 
-        # 尝试迁移，如果失败则尝试基线化
-        if ! npx prisma migrate deploy; then
-            echo "⚠️ 标准迁移失败，尝试基线化现有数据库..."
-
-            # 获取第一个迁移文件名
-            FIRST_MIGRATION=$(ls prisma/migrations | head -1)
-            if [ -n "$FIRST_MIGRATION" ]; then
-                echo "🔧 基线化迁移: $FIRST_MIGRATION"
-                npx prisma migrate resolve --applied "$FIRST_MIGRATION" || echo "⚠️ 基线化失败"
-                npx prisma migrate deploy || echo "⚠️ 迁移仍然失败"
-            fi
-        fi
-
-        # 确保数据库schema是最新的（推送新的schema变更）
-        echo "🔧 同步数据库schema..."
-        npx prisma db push || echo "⚠️ 数据库推送失败，但继续启动"
+        # 只生成客户端，不进行任何可能破坏数据的操作
+        echo "⚠️ 为保护现有数据，跳过数据库迁移操作"
+        echo "📋 如需更新数据库结构，请手动执行："
+        echo "   npx prisma migrate deploy"
+        echo "   npx prisma db push"
     else
         echo "⚠️ 未找到.env文件，跳过数据库迁移"
     fi
