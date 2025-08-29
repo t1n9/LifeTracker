@@ -39,7 +39,16 @@ if [ -d "backend" ] && [ -f "backend/package.json" ]; then
 
     echo "🔧 初始化Prisma..."
     npx prisma generate || echo "⚠️ Prisma生成失败"
-    npx prisma migrate deploy || echo "⚠️ 数据库迁移失败"
+
+    # 设置数据库URL环境变量
+    if [ -f "../.env" ]; then
+        source ../.env
+        export DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@localhost:5432/${DB_NAME}"
+        echo "🔧 运行数据库迁移..."
+        npx prisma migrate deploy || echo "⚠️ 数据库迁移失败"
+    else
+        echo "⚠️ 未找到.env文件，跳过数据库迁移"
+    fi
 
     echo "🚀 启动后端..."
     nohup npm run start:prod > ../backend.log 2>&1 &
