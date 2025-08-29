@@ -48,10 +48,20 @@ fi
 if [ -d "backend" ] && [ -f "backend/package.json" ]; then
     echo "📦 安装后端依赖..."
     cd backend
-    npm ci
+
+    # 检查是否已有node_modules
+    if [ ! -d "node_modules" ]; then
+        npm ci
+    else
+        echo "✅ 依赖已存在，跳过安装"
+    fi
 
     echo "🔨 构建后端..."
-    npm run build
+    if [ ! -d "dist" ]; then
+        npm run build
+    else
+        echo "✅ 构建文件已存在，跳过构建"
+    fi
 
     echo "🔧 初始化Prisma..."
     npx prisma generate || echo "⚠️ Prisma生成失败"
@@ -72,10 +82,21 @@ if [ -d "backend" ] && [ -f "backend/package.json" ]; then
     fi
 
     echo "🚀 启动后端..."
+
+    # 设置环境变量
+    if [ -f "../.env" ]; then
+        source ../.env
+        export DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@localhost:5432/${DB_NAME}"
+        export NODE_ENV=production
+    fi
+
+    # 启动后端服务
     nohup npm run start:prod > ../backend.log 2>&1 &
     BACKEND_PID=$!
     echo $BACKEND_PID > ../backend.pid
     cd ..
+
+    echo "✅ 后端进程已启动，PID: $BACKEND_PID"
 
     # 等待服务启动
     echo "⏳ 等待后端服务启动..."
