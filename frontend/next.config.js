@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 移除静态导出配置，使用标准的Next.js服务器模式
+  // 只在生产构建时使用静态导出
+  ...(process.env.NODE_ENV !== 'development' && {
+    output: 'export',
+    trailingSlash: true,
+  }),
   images: {
     unoptimized: true
   },
@@ -12,7 +16,7 @@ const nextConfig = {
     // 在生产构建时忽略TypeScript错误
     ignoreBuildErrors: true,
   },
-  // API代理配置
+  // 开发环境使用rewrites进行API代理
   async rewrites() {
     if (process.env.NODE_ENV === 'development') {
       return [
@@ -21,15 +25,8 @@ const nextConfig = {
           destination: 'http://localhost:3002/api/:path*',
         },
       ];
-    } else {
-      // 生产环境API代理
-      return [
-        {
-          source: '/api/:path*',
-          destination: 'http://localhost:3002/api/:path*',
-        },
-      ];
     }
+    return [];
   },
 };
 

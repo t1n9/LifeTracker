@@ -27,17 +27,18 @@ export class VisitorService {
 
   // 记录访客访问
   async recordVisit(data: VisitorData): Promise<{ isNewVisitor: boolean; totalVisitors: number }> {
-    const deviceInfo = this.parseDeviceInfo(data.userAgent);
-    
-    // 查找现有访客记录
-    const existingVisitor = await this.prisma.profileVisitor.findUnique({
-      where: {
-        profileUserId_deviceFingerprint: {
-          profileUserId: data.profileUserId,
-          deviceFingerprint: data.deviceFingerprint,
+    try {
+      const deviceInfo = this.parseDeviceInfo(data.userAgent);
+
+      // 查找现有访客记录
+      const existingVisitor = await this.prisma.profileVisitor.findUnique({
+        where: {
+          profileUserId_deviceFingerprint: {
+            profileUserId: data.profileUserId,
+            deviceFingerprint: data.deviceFingerprint,
+          },
         },
-      },
-    });
+      }).catch(() => null); // 如果表不存在，返回null
 
     let isNewVisitor = false;
 
@@ -103,24 +104,30 @@ export class VisitorService {
       });
     }
 
-    // 获取总访客数
-    const totalVisitors = await this.prisma.profileVisitor.count({
-      where: { profileUserId: data.profileUserId },
-    });
+      // 获取总访客数
+      const totalVisitors = await this.prisma.profileVisitor.count({
+        where: { profileUserId: data.profileUserId },
+      });
 
-    return { isNewVisitor, totalVisitors };
+      return { isNewVisitor, totalVisitors };
+    } catch (error) {
+      // 如果访客统计表不存在，返回默认值
+      console.warn('记录访客访问失败:', error);
+      return { isNewVisitor: false, totalVisitors: 0 };
+    }
   }
 
   // 获取访客统计
   async getVisitorStats(profileUserId: string) {
-    const [
-      totalVisitors,
-      totalVisits,
-      recentVisitors,
-      deviceStats,
-      referrerStats,
-      dailyStats,
-    ] = await Promise.all([
+    try {
+      const [
+        totalVisitors,
+        totalVisits,
+        recentVisitors,
+        deviceStats,
+        referrerStats,
+        dailyStats,
+      ] = await Promise.all([
       // 总访客数
       this.prisma.profileVisitor.count({
         where: { profileUserId },
@@ -188,20 +195,32 @@ export class VisitorService {
       }),
     ]);
 
-    return {
-      totalVisitors,
-      totalVisits,
-      recentVisitors,
-      deviceStats: deviceStats.map(stat => ({
-        deviceType: stat.deviceType,
-        count: stat._count.deviceType,
-      })),
-      referrerStats: referrerStats.map(stat => ({
-        referrer: stat.referrer,
-        count: stat._count.referrer,
-      })),
-      dailyStats: this.processDailyStats(dailyStats),
-    };
+      return {
+        totalVisitors,
+        totalVisits,
+        recentVisitors,
+        deviceStats: deviceStats.map(stat => ({
+          deviceType: stat.deviceType,
+          count: stat._count.deviceType,
+        })),
+        referrerStats: referrerStats.map(stat => ({
+          referrer: stat.referrer,
+          count: stat._count.referrer,
+        })),
+        dailyStats: this.processDailyStats(dailyStats),
+      };
+    } catch (error) {
+      // 如果访客统计表不存在，返回默认值
+      console.warn('访客统计查询失败:', error);
+      return {
+        totalVisitors: 0,
+        totalVisits: 0,
+        recentVisitors: [],
+        deviceStats: [],
+        referrerStats: [],
+        dailyStats: [],
+      };
+    }
   }
 
   // 生成设备指纹
