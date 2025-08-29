@@ -79,6 +79,8 @@ jobs:
         # 复制访客统计初始化脚本
         cp scripts/init-visitor-stats.sh deploy-package/
         cp scripts/update-visitor-stats.sql deploy-package/
+        # 复制端口冲突修复脚本
+        cp fix-port-conflict.sh deploy-package/
 
         # 创建压缩包
         tar -czf deploy-package.tar.gz deploy-package/
@@ -215,9 +217,18 @@ jobs:
             if curl -f -k https://${{ secrets.DOMAIN_NAME }}/ || curl -f http://${{ secrets.DOMAIN_NAME }}/; then
               echo "✅ 403错误修复成功！网站可访问"
             else
-              echo "❌ 部署失败，请检查服务状态"
-              ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /opt/lifetracker/current && systemctl status nginx && curl -f http://localhost:3002/api/health"
-              exit 1
+              echo "❌ 常规部署失败，尝试端口冲突修复..."
+              ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /opt/lifetracker/current && chmod +x fix-port-conflict.sh && ./fix-port-conflict.sh"
+
+              # 最终检查
+              sleep 10
+              if curl -f -k https://${{ secrets.DOMAIN_NAME }}/api/health; then
+                echo "✅ 端口冲突修复成功！"
+              else
+                echo "❌ 所有修复方案都失败了"
+                ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /opt/lifetracker/current && systemctl status nginx && curl -f http://localhost:3002/api/health"
+                exit 1
+              fi
             fi
           fi
         fi
