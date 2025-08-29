@@ -3,7 +3,7 @@ version: '3.3'
 services:
   # PostgreSQL Database
   postgres:
-    image: https://rugjamqi.mirror.aliyuncs.com
+    image: postgres:15-alpine
     container_name: lifetracker-postgres
     restart: unless-stopped
     environment:
