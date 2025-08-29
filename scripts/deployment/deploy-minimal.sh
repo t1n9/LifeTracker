@@ -12,7 +12,20 @@ sudo pkill -f "npm.*start" || true
 sudo systemctl stop nginx || true
 docker-compose down || true
 
-cd $(dirname $0)
+# 进入项目根目录（脚本可能在子目录中）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/docker-compose.yml" ]; then
+    cd "$SCRIPT_DIR"
+elif [ -f "$SCRIPT_DIR/../docker-compose.yml" ]; then
+    cd "$SCRIPT_DIR/.."
+elif [ -f "$SCRIPT_DIR/../../docker-compose.yml" ]; then
+    cd "$SCRIPT_DIR/../.."
+else
+    # 如果都找不到，就在当前目录
+    echo "⚠️ 未找到docker-compose.yml，在当前目录执行"
+fi
+
+echo "📁 当前工作目录: $(pwd)"
 
 # 优先使用Docker部署
 if [ -f "docker-compose.yml" ] && command -v docker-compose &> /dev/null; then

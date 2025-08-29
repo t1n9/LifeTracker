@@ -12,7 +12,20 @@ sudo pkill -f "npm.*start" || true
 sudo systemctl stop nginx || true
 docker-compose down || true
 
-cd $(dirname $0)
+# 进入项目根目录（脚本可能在子目录中）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/docker-compose.yml" ]; then
+    cd "$SCRIPT_DIR"
+elif [ -f "$SCRIPT_DIR/../docker-compose.yml" ]; then
+    cd "$SCRIPT_DIR/.."
+elif [ -f "$SCRIPT_DIR/../../docker-compose.yml" ]; then
+    cd "$SCRIPT_DIR/../.."
+else
+    # 如果都找不到，就在当前目录
+    echo "⚠️ 未找到docker-compose.yml，在当前目录执行"
+fi
+
+echo "📁 当前工作目录: $(pwd)"
 
 # 优先使用Docker
 if [ -f "docker-compose.yml" ] && command -v docker-compose &> /dev/null; then
@@ -35,7 +48,10 @@ fi
 if [ -d "backend" ] && [ -f "backend/package.json" ]; then
     echo "📦 安装后端依赖..."
     cd backend
-    npm ci --only=production
+    npm ci
+
+    echo "🔨 构建后端..."
+    npm run build
 
     echo "🔧 初始化Prisma..."
     npx prisma generate || echo "⚠️ Prisma生成失败"
@@ -45,16 +61,54 @@ if [ -d "backend" ] && [ -f "backend/package.json" ]; then
         source ../.env
         export DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@localhost:5432/${DB_NAME}"
         echo "🔧 运行数据库迁移..."
-        npx prisma migrate deploy || echo "⚠️ 数据库迁移失败"
+
+        # 尝试迁移，如果失败则尝试基线化
+        if ! npx prisma migrate deploy; then
+            echo "⚠️ 标准迁移失败，尝试基线化现有数据库..."
+
+            # 获取第一个迁移文件名
+            FIRST_MIGRATION=$(ls prisma/migrations | head -1)
+            if [ -n "$FIRST_MIGRATION" ]; then
+                echo "🔧 基线化迁移: $FIRST_MIGRATION"
+                npx prisma migrate resolve --applied "$FIRST_MIGRATION" || echo "⚠️ 基线化失败"
+                npx prisma migrate deploy || echo "⚠️ 迁移仍然失败"
+            fi
+        fi
+
+        # 确保数据库schema是最新的（推送新的schema变更）
+        echo "🔧 同步数据库schema..."
+        npx prisma db push || echo "⚠️ 数据库推送失败，但继续启动"
     else
         echo "⚠️ 未找到.env文件，跳过数据库迁移"
     fi
 
     echo "🚀 启动后端..."
     nohup npm run start:prod > ../backend.log 2>&1 &
+    BACKEND_PID=$!
+    echo $BACKEND_PID > ../backend.pid
     cd ..
 
-    echo "✅ 后端启动完成"
+    # 等待服务启动
+    echo "⏳ 等待后端服务启动..."
+    sleep 15
+
+    # 健康检查
+    echo "🔍 执行健康检查..."
+    for i in {1..6}; do
+        if curl -f http://localhost:3002/api/health > /dev/null 2>&1; then
+            echo "✅ 后端服务健康检查通过！"
+            echo "🌐 服务地址: http://localhost:3002"
+            echo "📊 API文档: http://localhost:3002/api/docs"
+            exit 0
+        else
+            echo "⏳ 等待服务启动... ($i/6)"
+            sleep 10
+        fi
+    done
+
+    echo "⚠️ 健康检查失败，但服务可能仍在启动中"
+    echo "📋 查看日志: tail -f backend.log"
+    echo "🔍 检查进程: ps aux | grep node"
     exit 0
 fi
 
