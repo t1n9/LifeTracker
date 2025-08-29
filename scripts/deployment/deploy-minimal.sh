@@ -12,6 +12,9 @@ BACKEND_PORT=3002
 # 停止现有服务
 echo "🛑 停止现有服务..."
 sudo pkill -f "node.*backend-dist/main.js" || true
+sudo pkill -f "node.*main.js" || true
+# 强制杀死占用3002端口的进程
+sudo lsof -ti:3002 | xargs -r sudo kill -9 || true
 sudo systemctl stop nginx || true
 
 # 检查Node.js是否可用
