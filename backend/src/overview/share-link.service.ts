@@ -108,6 +108,7 @@ export class ShareLinkService {
     return {
       userId: shareLink.user.id,
       userInfo: {
+        userId: shareLink.user.id,
         email: shareLink.user.email,
         displayName: shareLink.user.name || '学习者',
         shareNote: `${shareLink.user.name || '学习者'}的学习概况分享`,

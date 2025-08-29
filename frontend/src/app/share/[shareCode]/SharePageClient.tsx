@@ -5,6 +5,7 @@ import { shareAPI } from '@/lib/api';
 import TaskHeatmap from '@/components/overview/TaskHeatmap';
 import StudyChart from '@/components/overview/StudyChart';
 import RecentActivities from '@/components/overview/RecentActivities';
+import VisitorCounter from '@/components/VisitorCounter';
 
 interface SharedOverviewData {
   heatmapData: any[];
@@ -19,6 +20,7 @@ interface SharedOverviewData {
     currentStreak: number;
   };
   userInfo: {
+    userId: string;
     email: string;
     displayName: string;
     shareNote: string;
@@ -137,6 +139,8 @@ export default function SharePageClient({ shareCode }: { shareCode: string }) {
               <span>分享者: {data.userInfo.displayName}</span>
               <span>•</span>
               <span>更新时间: {new Date().toLocaleDateString()}</span>
+              <span>•</span>
+              <VisitorCounter userId={data.userInfo.userId} />
             </div>
           </div>
         </div>

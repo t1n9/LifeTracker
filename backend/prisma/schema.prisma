@@ -41,6 +41,11 @@ model User {
   tasks            Task[]
   userSettings     UserSettings?
 
+  // 访客统计关联
+  profileVisitors  ProfileVisitor[]  @relation("ProfileVisitors") // 访问我的用户
+  visitorRecords   ProfileVisitor[]  @relation("VisitorRecords")  // 我访问的记录
+  profileVisitLogs ProfileVisitLog[] @relation("ProfileVisitLogs") // 我的访问日志
+
   @@map("users")
 }
 
@@ -314,4 +319,85 @@ enum PomodoroType {
   WORK
   SHORT_BREAK
   LONG_BREAK
+}
+
+enum DeviceType {
+  DESKTOP
+  MOBILE
+  TABLET
+}
+
+// 访客统计表
+model ProfileVisitor {
+  id                String      @id @default(uuid())
+  profileUserId     String      @map("profile_user_id") // 被访问的用户ID
+  visitorUserId     String?     @map("visitor_user_id") // 访客用户ID（如果已登录）
+  deviceFingerprint String      @map("device_fingerprint") // 设备指纹
+  ipAddress         String      @map("ip_address")
+  userAgent         String      @map("user_agent")
+  sessionId         String      @map("session_id")
+
+  // 地理位置信息
+  country           String?
+  city              String?
+
+  // 设备信息
+  deviceType        DeviceType  @map("device_type")
+  browser           String?
+  os                String?
+
+  // 访问统计
+  firstVisitAt      DateTime    @map("first_visit_at") @db.Timestamptz(6)
+  lastVisitAt       DateTime    @map("last_visit_at") @db.Timestamptz(6)
+  visitCount        Int         @default(1) @map("visit_count")
+
+  // 来源信息
+  referrer          String?
+  utmSource         String?     @map("utm_source")
+  utmMedium         String?     @map("utm_medium")
+  utmCampaign       String?     @map("utm_campaign")
+
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 关联关系
+  profileUser       User               @relation("ProfileVisitors", fields: [profileUserId], references: [id], onDelete: Cascade)
+  visitorUser       User?              @relation("VisitorRecords", fields: [visitorUserId], references: [id], onDelete: SetNull)
+  visitLogs         ProfileVisitLog[]  // 访问日志
+
+  // 索引
+  @@unique([profileUserId, deviceFingerprint]) // 同一用户的同一设备只记录一次
+  @@index([profileUserId, lastVisitAt])
+  @@index([deviceFingerprint])
+  @@index([ipAddress, userAgent])
+  @@map("profile_visitors")
+}
+
+// 访问记录表（详细的每次访问）
+model ProfileVisitLog {
+  id                String      @id @default(uuid())
+  profileUserId     String      @map("profile_user_id")
+  visitorId         String      @map("visitor_id") // 关联到 ProfileVisitor
+
+  // 访问详情
+  visitedAt         DateTime    @map("visited_at") @db.Timestamptz(6)
+  duration          Int?        @map("duration") // 停留时间（秒）
+  pageViews         Int         @default(1) @map("page_views") // 页面浏览数
+
+  // 访问来源
+  referrer          String?
+  utmSource         String?     @map("utm_source")
+  utmMedium         String?     @map("utm_medium")
+  utmCampaign       String?     @map("utm_campaign")
+
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  profileUser       User           @relation("ProfileVisitLogs", fields: [profileUserId], references: [id], onDelete: Cascade)
+  visitor           ProfileVisitor @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+
+  // 索引
+  @@index([profileUserId, visitedAt])
+  @@index([visitorId])
+  @@map("profile_visit_logs")
 }

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import StudyOverview from '@/components/overview/StudyOverview';
+import VisitorStats from '@/components/VisitorStats';
 import { userAPI } from '@/lib/api';
 
 // 导入统一的主题样式
@@ -113,7 +114,7 @@ export default function OverviewPage() {
         {theme === 'dark' ? '🌙' : '☀️'}
       </button>
 
-      <StudyOverview />
+      <StudyOverview userId={user?.id} />
     </div>
   );
 }

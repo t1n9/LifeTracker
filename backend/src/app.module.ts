@@ -19,6 +19,7 @@ import { DailyModule } from './daily/daily.module';
 import { OverviewModule } from './overview/overview.module';
 import { EmailModule } from './email/email.module';
 import { VersionModule } from './version/version.module';
+import { VisitorModule } from './visitor/visitor.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TimeFormatInterceptor, TimeValidationInterceptor } from './common/interceptors/time-format.interceptor';
@@ -56,6 +57,7 @@ import { TimeFormatInterceptor, TimeValidationInterceptor } from './common/inter
     OverviewModule,
     EmailModule,
     VersionModule,
+    VisitorModule,
   ],
   controllers: [AppController],
   providers: [

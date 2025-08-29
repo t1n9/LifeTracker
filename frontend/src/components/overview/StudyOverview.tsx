@@ -5,6 +5,7 @@ import { Calendar, TrendingUp, Award, Clock, Share2, Copy, Check } from 'lucide-
 import TaskHeatmap from './TaskHeatmap';
 import RecentActivities from './RecentActivities';
 import StudyChart from './StudyChart';
+import VisitorStats from '../VisitorStats';
 import { overviewAPI, shareLinkAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 
@@ -98,7 +99,11 @@ const generateMockChartData = () => {
   return data;
 };
 
-const StudyOverview: React.FC = () => {
+interface StudyOverviewProps {
+  userId?: string;
+}
+
+const StudyOverview: React.FC<StudyOverviewProps> = ({ userId }) => {
   const { user } = useAuthStore();
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
@@ -444,6 +449,13 @@ const StudyOverview: React.FC = () => {
       <div style={{ marginBottom: '32px' }}>
         <TaskHeatmap data={heatmapData} />
       </div>
+
+      {/* 访客统计 */}
+      {userId && (
+        <div style={{ marginBottom: '32px' }}>
+          <VisitorStats userId={userId} isOwner={true} />
+        </div>
+      )}
 
       {/* 图表和活动 */}
       <div
