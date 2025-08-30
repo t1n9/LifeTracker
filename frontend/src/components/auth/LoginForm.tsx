@@ -163,9 +163,7 @@ export default function LoginForm() {
           }}>
             LifeTracker
           </h1>
-          <p style={{ color: '#475569', fontSize: '1rem', fontWeight: '500' }}>
-            生活记录系统 v2.0
-          </p>
+
         </div>
 
         <form onSubmit={handleSubmit}>
