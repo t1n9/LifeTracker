@@ -1,8 +1,7 @@
 #!/bin/bash
-# 预检：如果后端已在运行且健康，直接跳过
+# 预检：如果后端已在运行且健康，仅提示，不退出，继续执行以更新前端与Nginx
 if curl -fsS http://localhost:3002/api/health > /dev/null 2>&1; then
-    echo "✅ 后端已在运行，跳过最小化部署"
-    exit 0
+    echo "ℹ️ 后端已在运行，将继续更新前端与Nginx"
 fi
 
 
