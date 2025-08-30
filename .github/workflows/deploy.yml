@@ -27,7 +27,7 @@ jobs:
         npx prisma generate
         npm run build
 
-    - name: Build Frontend
+    - name: Build Frontend (static export)
       env:
         NEXT_PUBLIC_API_URL: https://${{ secrets.DOMAIN_NAME }}/api
       run: |
@@ -38,7 +38,7 @@ jobs:
         export CI=false
         export DISABLE_ESLINT_PLUGIN=true
         export NODE_ENV=production
-        npm run build
+        npm run build:static
 
     - name: Create deployment package
       run: |
