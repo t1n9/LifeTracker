@@ -201,11 +201,34 @@ export default function SharePageClient({ shareCode }: { shareCode: string }) {
 
         {/* 底部备案信息 */}
         <div className="text-center py-8 border-t border-gray-700 mt-8">
-          <p className="text-sm text-gray-500">
-            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:text-gray-400">
+          {/* ICP备案 */}
+          <div className="mb-2">
+            <a
+              href="https://beian.miit.gov.cn"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-gray-500 hover:text-gray-400"
+            >
               粤ICP备2025456526号-1
             </a>
-          </p>
+          </div>
+
+          {/* 公安备案 */}
+          <div className="flex items-center justify-center gap-1">
+            <img
+              src="/beian-icon.png"
+              alt="备案图标"
+              className="w-3.5 h-3.5 opacity-60"
+            />
+            <a
+              href="https://beian.mps.gov.cn/#/query/webSearch?code=44030002007784"
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-gray-500 hover:text-gray-400"
+            >
+              粤公网安备44030002007784号
+            </a>
+          </div>
         </div>
       </div>
     </div>
