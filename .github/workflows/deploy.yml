@@ -30,10 +30,9 @@ jobs:
     - name: Build Frontend
       env:
         NEXT_PUBLIC_API_URL: https://${{ secrets.DOMAIN_NAME }}/api
-        NODE_ENV: production
       run: |
         cd frontend
-        npm install
+        npm ci --include=dev
         # 设置环境变量跳过ESLint检查
         export ESLINT_NO_DEV_ERRORS=true
         export CI=false
