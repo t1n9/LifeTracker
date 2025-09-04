@@ -62,4 +62,16 @@ export class UsersController {
     await this.usersService.update(req.user.id, { theme });
     return { success: true, theme };
   }
+
+  @Get('settings')
+  @ApiOperation({ summary: '获取用户设置' })
+  async getUserSettings(@Request() req) {
+    return this.usersService.getUserSettings(req.user.id);
+  }
+
+  @Patch('settings')
+  @ApiOperation({ summary: '更新用户设置' })
+  async updateUserSettings(@Request() req, @Body() body: Record<string, any>) {
+    return this.usersService.updateUserSettings(req.user.id, body);
+  }
 }

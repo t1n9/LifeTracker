@@ -7,6 +7,7 @@ export interface DayData {
   dayStart?: string;
   dayReflection?: string;
   reflectionTime?: string;
+  wakeUpTime?: string; // 起床时间
   study?: {
     totalMinutes: number;
     pomodoroCount: number;

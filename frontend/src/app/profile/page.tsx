@@ -7,6 +7,7 @@ import { userAPI } from '@/lib/api';
 import '@/styles/theme.css';
 import { useAuthStore } from '@/store/auth';
 import SystemConfigPanel from '@/components/admin/SystemConfigPanel';
+import SuggestionManagement from '@/components/admin/SuggestionManagement';
 import ExerciseConfigManager from '@/components/ExerciseConfigManager';
 import { VERSION_INFO, getVersionString, getFullVersionInfo } from '@/lib/version';
 
@@ -29,6 +30,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'exercise' | 'account' | 'admin'>('profile');
+  const [adminSubTab, setAdminSubTab] = useState<'config' | 'suggestions'>('config');
   const [isLoading, setIsLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [error, setError] = useState('');
@@ -605,9 +607,54 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* 系统配置标签页（仅管理员可见） */}
+          {/* 系统管理标签页（仅管理员可见） */}
           {activeTab === 'admin' && userData.isAdmin && (
-            <SystemConfigPanel />
+            <div>
+              {/* 管理员子标签 */}
+              <div style={{
+                display: 'flex',
+                gap: '1rem',
+                marginBottom: '2rem',
+                borderBottom: '1px solid var(--border-color)',
+              }}>
+                <button
+                  onClick={() => setAdminSubTab('config')}
+                  style={{
+                    padding: '0.75rem 1rem',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: adminSubTab === 'config' ? 'var(--primary-color)' : 'var(--text-secondary)',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    borderBottom: adminSubTab === 'config' ? '2px solid var(--primary-color)' : '2px solid transparent',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  系统配置
+                </button>
+                <button
+                  onClick={() => setAdminSubTab('suggestions')}
+                  style={{
+                    padding: '0.75rem 1rem',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: adminSubTab === 'suggestions' ? 'var(--primary-color)' : 'var(--text-secondary)',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    borderBottom: adminSubTab === 'suggestions' ? '2px solid var(--primary-color)' : '2px solid transparent',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  系统建议
+                </button>
+              </div>
+
+              {/* 子标签内容 */}
+              {adminSubTab === 'config' && <SystemConfigPanel />}
+              {adminSubTab === 'suggestions' && <SuggestionManagement />}
+            </div>
           )}
         </div>
       </div>

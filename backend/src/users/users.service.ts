@@ -105,4 +105,29 @@ export class UsersService {
       dailyDataCount,
     };
   }
+
+  async getUserSettings(userId: string) {
+    const userSettings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+    });
+
+    if (!userSettings) {
+      // 如果没有设置，创建默认设置
+      return await this.prisma.userSettings.create({
+        data: { userId },
+      });
+    }
+
+    return userSettings;
+  }
+
+  async updateUserSettings(userId: string, data: Record<string, any>) {
+    // 确保用户设置存在
+    await this.getUserSettings(userId);
+
+    return this.prisma.userSettings.update({
+      where: { userId },
+      data,
+    });
+  }
 }

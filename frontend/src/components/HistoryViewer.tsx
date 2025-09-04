@@ -710,7 +710,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                 </div>
 
                 {/* 复盘记录 */}
-                {(dayData.dayStart || dayData.dayReflection) && (
+                {(dayData.dayStart || dayData.dayReflection || dayData.wakeUpTime) && (
                   <div style={{
                     padding: '1rem',
                     backgroundColor: 'var(--bg-tertiary)',
@@ -728,6 +728,31 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                     }}>
                       🌅 复盘记录
                     </h5>
+                    {dayData.wakeUpTime && (
+                      <div style={{ marginBottom: '1rem' }}>
+                        <div style={{
+                          fontSize: '0.875rem',
+                          fontWeight: 'bold',
+                          color: 'var(--text-secondary)',
+                          marginBottom: '0.5rem'
+                        }}>
+                          起床时间:
+                        </div>
+                        <div style={{
+                          padding: '0.75rem',
+                          backgroundColor: 'var(--bg-secondary)',
+                          borderRadius: '6px',
+                          color: 'var(--text-primary)',
+                          lineHeight: '1.5',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          <span style={{ fontSize: '1.2rem' }}>⏰</span>
+                          {dayData.wakeUpTime}
+                        </div>
+                      </div>
+                    )}
                     {dayData.dayStart && (
                       <div style={{ marginBottom: '1rem' }}>
                         <div style={{

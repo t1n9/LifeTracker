@@ -19,6 +19,7 @@ interface PomodoroTimerProps {
   onTaskBind?: (taskId: string | null) => void;
   onRunningStateChange?: (isRunning: boolean) => void;
   startCountUpTrigger?: {taskId: string, taskTitle: string} | null; // 正计时触发器
+  onElapsedTimeChange?: (elapsedTime: number) => void;
 }
 
 // interface ActiveSession {
@@ -41,7 +42,8 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   onToggleTheme,
   onTaskBind,
   onRunningStateChange,
-  startCountUpTrigger
+  startCountUpTrigger,
+  onElapsedTimeChange
 }) => {
   const [selectedMinutes, setSelectedMinutes] = useState(25); // 默认25分钟
   const [timeLeft, setTimeLeft] = useState(selectedMinutes * 60); // 秒数
@@ -91,7 +93,12 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           setIsCompleted(true);
           return 0;
         }
-        return prev - 1;
+        const newTimeLeft = prev - 1;
+        // 通知父组件已运行时间
+        if (onElapsedTimeChange) {
+          onElapsedTimeChange(selectedMinutes * 60 - newTimeLeft);
+        }
+        return newTimeLeft;
       });
     }, 1000);
   };
@@ -351,6 +358,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         setCountUpTime(prev => {
           const newTime = prev + 1;
 
+          // 通知父组件已运行时间（正计时模式）
+          if (onElapsedTimeChange) {
+            onElapsedTimeChange(newTime);
+          }
+
           // 检查是否达到3小时（180分钟 = 10800秒）
           if (newTime >= 10800) {
             console.log('⏰ 正计时达到3小时，自动暂停');
@@ -380,7 +392,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isCountUpMode, isRunning, isPaused]);
+  }, [isCountUpMode, isRunning, isPaused, onElapsedTimeChange]);
 
   // 通知运行状态变化
   useEffect(() => {
@@ -988,10 +1000,12 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
   // 开始休息模式
   const startBreakMode = () => {
-    // 根据累计专注时间决定休息类型：1小时内短休息5分钟，1小时以上长休息15分钟
-    const totalFocusMinutes = (pomodoroCount + 1) * selectedMinutes; // 包括当前完成的番茄钟
-    const isLongBreak = totalFocusMinutes >= 60; // 1小时(60分钟)以上
+    // 正确的番茄钟技术：每完成4个番茄钟后进行长休息，其他时候短休息
+    const completedPomodoros = pomodoroCount + 1; // 包括当前完成的番茄钟
+    const isLongBreak = completedPomodoros % 4 === 0; // 每4个番茄钟后长休息
     const breakDuration = isLongBreak ? 15 : 5; // 长休息15分钟，短休息5分钟
+
+    console.log(`🍅 已完成番茄钟数量: ${completedPomodoros}, 休息类型: ${isLongBreak ? '长休息' : '短休息'}`);
 
     setBreakType(isLongBreak ? 'long' : 'short');
     setBreakTimeLeft(breakDuration * 60);
@@ -1001,7 +1015,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     // 发送休息开始通知
     sendNotification(
       isLongBreak ? '🌳 长休息时间！' : '🌸 短休息时间！',
-      `${breakDuration}分钟休息开始，放松一下吧！`,
+      `${breakDuration}分钟休息开始，放松一下吧！${isLongBreak ? '（第' + completedPomodoros + '个番茄钟完成）' : ''}`,
       '/favicon.ico'
     );
 

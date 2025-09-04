@@ -11,6 +11,7 @@ interface DailyStatus {
   dayReflection: string | null;
   reflectionTime: string | null;
   phoneUsage: number | null;
+  wakeUpTime: string | null; // 今日起床时间
 }
 
 interface DayReflectionProps {
@@ -26,6 +27,7 @@ export default function DayReflection({ mode, onClose, onSave }: DayReflectionPr
   const [reflectionContent, setReflectionContent] = useState('');
   const [tomorrowPlan, setTomorrowPlan] = useState('');
   const [phoneUsageTime, setPhoneUsageTime] = useState('');
+  const [wakeUpTime, setWakeUpTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [dailyStatus, setDailyStatus] = useState<DailyStatus>({
     hasStarted: false,
@@ -34,6 +36,7 @@ export default function DayReflection({ mode, onClose, onSave }: DayReflectionPr
     dayReflection: null,
     reflectionTime: null,
     phoneUsage: null,
+    wakeUpTime: null,
   });
 
   // 加载今日状态
@@ -46,6 +49,8 @@ export default function DayReflection({ mode, onClose, onSave }: DayReflectionPr
     }
   };
 
+  // 不再需要加载用户设置中的起床时间，只作为每日记录
+
   useEffect(() => {
     loadTodayStatus();
   }, []);
@@ -55,6 +60,8 @@ export default function DayReflection({ mode, onClose, onSave }: DayReflectionPr
     if (mode === 'start') {
       // 设置开启内容为已保存的内容
       setStartContent(dailyStatus.dayStart || '');
+      // 设置今日起床时间（如果有记录）
+      setWakeUpTime(dailyStatus.wakeUpTime || '');
       setShowStartModal(true);
     } else if (mode === 'reflection') {
       // 设置复盘内容为已保存的内容
@@ -98,7 +105,14 @@ export default function DayReflection({ mode, onClose, onSave }: DayReflectionPr
 
     try {
       setLoading(true);
-      await dailyAPI.updateDayStart({ dayStart: startContent.trim() });
+
+      // 保存开启内容，包含今日起床时间
+      const dayStartData: any = { dayStart: startContent.trim() };
+      if (wakeUpTime.trim()) {
+        dayStartData.wakeUpTime = wakeUpTime.trim();
+      }
+      await dailyAPI.updateDayStart(dayStartData);
+
       await loadTodayStatus();
       setStartContent('');
       setShowStartModal(false);
@@ -245,7 +259,42 @@ export default function DayReflection({ mode, onClose, onSave }: DayReflectionPr
                 rows={4}
               />
             </div>
-            
+
+            {/* 起床时间设置 */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                color: 'var(--text-primary)',
+                marginBottom: '0.5rem',
+              }}>
+                起床时间（可选）
+              </label>
+              <input
+                type="time"
+                value={wakeUpTime}
+                onChange={(e) => setWakeUpTime(e.target.value)}
+                style={{
+                  width: '150px',
+                  padding: '0.5rem',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  backgroundColor: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.875rem',
+                }}
+              />
+              <small style={{
+                display: 'block',
+                marginTop: '0.25rem',
+                color: 'var(--text-secondary)',
+                fontSize: '0.75rem',
+              }}>
+                记录今日的实际起床时间
+              </small>
+            </div>
+
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
               <button
                 onClick={handleCloseStartModal}

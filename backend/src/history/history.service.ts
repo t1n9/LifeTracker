@@ -163,6 +163,7 @@ export class HistoryService {
           dayStart: true,
           dayReflection: true,
           reflectionTime: true,
+          wakeUpTime: true,
         },
       });
       const exerciseRecords = await this.prisma.exerciseRecord.findMany({
@@ -335,6 +336,7 @@ export class HistoryService {
         dayStart: dailyData?.dayStart || null,
         dayReflection: dailyData?.dayReflection || null,
         reflectionTime: dailyData?.reflectionTime ? String(dailyData.reflectionTime) : null,
+        wakeUpTime: dailyData?.wakeUpTime || null,
         study: {
           totalMinutes,
           pomodoroCount,

@@ -6,6 +6,11 @@ export class UpdateDayStartDto {
   @IsString()
   dayStart: string;
 
+  @ApiProperty({ description: '起床时间', required: false })
+  @IsOptional()
+  @IsString()
+  wakeUpTime?: string;
+
   @ApiProperty({ description: '日期', required: false })
   @IsOptional()
   @IsDateString()

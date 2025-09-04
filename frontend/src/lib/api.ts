@@ -102,6 +102,8 @@ export const userAPI = {
   getStats: () => api.get('/users/stats'),
   updateTheme: (theme: string) => api.patch('/users/theme', { theme }),
   getExerciseConfig: () => api.get('/users/exercise-config'),
+  getUserSettings: () => api.get('/users/settings'),
+  updateUserSettings: (data: Record<string, unknown>) => api.patch('/users/settings', data),
 };
 
 export const taskAPI = {
@@ -246,6 +248,17 @@ export const emailAPI = {
     api.post('/email/send-code', { email, purpose }),
   verifyCode: (email: string, code: string, purpose: string) =>
     api.post('/email/verify-code', { email, code, purpose }),
+};
+
+// 系统建议API
+export const suggestionsAPI = {
+  getSuggestions: (all?: boolean) => api.get('/suggestions', { params: { all } }),
+  createSuggestion: (data: { title: string; content: string; priority?: string; category?: string }) =>
+    api.post('/suggestions', data),
+  updateSuggestion: (id: string, data: { status?: string; adminReply?: string; priority?: string }) =>
+    api.patch(`/suggestions/${id}`, data),
+  deleteSuggestion: (id: string) => api.delete(`/suggestions/${id}`),
+  getSuggestionStats: () => api.get('/suggestions/stats'),
 };
 
 // 分享链接管理API（需要认证）

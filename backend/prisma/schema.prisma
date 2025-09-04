@@ -45,6 +45,8 @@ model User {
   profileVisitors  ProfileVisitor[]  @relation("ProfileVisitors") // 访问我的用户
   visitorRecords   ProfileVisitor[]  @relation("VisitorRecords")  // 我访问的记录
   profileVisitLogs ProfileVisitLog[] @relation("ProfileVisitLogs") // 我的访问日志
+  systemSuggestions SystemSuggestion[] // 我提交的建议
+  reviewedSuggestions SystemSuggestion[] @relation("ReviewedSuggestions") // 我审核的建议
 
   @@map("users")
 }
@@ -151,6 +153,7 @@ model DailyData {
   dayStart        String?  @map("day_start")
   dayReflection   String?  @map("day_reflection")
   reflectionTime  String?  @map("reflection_time")
+  wakeUpTime      String?  @map("wake_up_time") // 今日起床时间
   focusMode       Boolean  @default(false) @map("focus_mode")
   focusQuoteIndex Int      @default(0) @map("focus_quote_index")
   exerciseFeeling String?  @map("exercise_feeling")
@@ -400,4 +403,24 @@ model ProfileVisitLog {
   @@index([profileUserId, visitedAt])
   @@index([visitorId])
   @@map("profile_visit_logs")
+}
+
+model SystemSuggestion {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  title       String
+  content     String
+  status      String   @default("pending") // pending, reviewed, implemented, rejected
+  priority    String   @default("normal") // low, normal, high, urgent
+  category    String?  // bug, feature, improvement, other
+  adminReply  String?  @map("admin_reply")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  reviewedAt  DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  reviewedBy  String?  @map("reviewed_by")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewer    User?    @relation("ReviewedSuggestions", fields: [reviewedBy], references: [id])
+
+  @@map("system_suggestions")
 }

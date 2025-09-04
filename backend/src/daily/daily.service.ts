@@ -24,6 +24,7 @@ export class DailyService {
         dayStart: true,
         dayReflection: true,
         reflectionTime: true,
+        wakeUpTime: true,
         totalMinutes: true,
         pomodoroCount: true,
         focusMode: true,
@@ -51,11 +52,13 @@ export class DailyService {
       },
       update: {
         dayStart: updateDayStartDto.dayStart,
+        ...(updateDayStartDto.wakeUpTime && { wakeUpTime: updateDayStartDto.wakeUpTime }),
       },
       create: {
         userId,
         date: targetDate,
         dayStart: updateDayStartDto.dayStart,
+        ...(updateDayStartDto.wakeUpTime && { wakeUpTime: updateDayStartDto.wakeUpTime }),
         totalMinutes: 0,
         pomodoroCount: 0,
       },
@@ -138,6 +141,7 @@ export class DailyService {
         dayStart: true,
         dayReflection: true,
         reflectionTime: true,
+        wakeUpTime: true,
       },
     });
 
@@ -160,6 +164,7 @@ export class DailyService {
       dayStart: dailyData?.dayStart || null,
       dayReflection: dailyData?.dayReflection || null,
       reflectionTime: dailyData?.reflectionTime || null,
+      wakeUpTime: dailyData?.wakeUpTime || null,
       phoneUsage: healthRecord?.phoneUsage ? Math.round(healthRecord.phoneUsage * 60) : null, // 转换为分钟
     };
   }

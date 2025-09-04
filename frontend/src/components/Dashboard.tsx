@@ -13,6 +13,7 @@ import ExerciseStats from './ExerciseStats';
 import ExpenseStats from './ExpenseStats';
 import ChangePasswordForm from './auth/ChangePasswordForm';
 import DayReflection from './daily/DayReflection';
+import SystemSuggestion from './SystemSuggestion';
 
 
 // 导入统一的主题样式
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const [currentBoundTask, setCurrentBoundTask] = useState<string | null>(null);
   const [isPomodoroRunning, setIsPomodoroRunning] = useState(false);
   const [startCountUpMode, setStartCountUpMode] = useState<{taskId: string, taskTitle: string} | null>(null);
+  const [pomodoroElapsedTime, setPomodoroElapsedTime] = useState(0);
 
   // 学习时长相关状态
   const [studyTime, setStudyTime] = useState(0); // 总学习时长（分钟）
@@ -162,6 +164,29 @@ export default function Dashboard() {
     setTimeout(() => {
       setStartCountUpMode(null);
     }, 100);
+  };
+
+  // 完成任务并结束番茄钟
+  const handleCompleteTaskWithPomodoro = async (taskId: string) => {
+    try {
+      // 先完成任务
+      await taskAPI.updateTask(taskId, { isCompleted: true });
+
+      // 通知番茄钟组件结束当前会话
+      // 这里需要通过ref或者状态管理来调用番茄钟的结束方法
+      // 暂时通过重新加载数据来刷新状态
+      loadTasks();
+      loadTodayStats();
+
+      // 清除绑定状态
+      setCurrentBoundTask(null);
+      setIsPomodoroRunning(false);
+
+      console.log('✅ 任务已完成，番茄钟已结束');
+    } catch (error) {
+      console.error('完成任务失败:', error);
+      alert('完成任务失败，请重试');
+    }
   };
 
   useEffect(() => {
@@ -556,6 +581,9 @@ export default function Dashboard() {
                 setIsPomodoroRunning(isRunning);
                 // console.log('🍅 番茄钟运行状态:', isRunning);
               }}
+              onElapsedTimeChange={(elapsedTime) => {
+                setPomodoroElapsedTime(elapsedTime);
+              }}
               onPomodoroComplete={() => {
                 // 番茄钟完成后重新加载今日数据和任务列表
                 loadTodayStats();
@@ -579,6 +607,8 @@ export default function Dashboard() {
               isRunning={isPomodoroRunning}
               dayStartRefreshTrigger={dayStartRefreshTrigger}
               pomodoroCompleteRefreshTrigger={pomodoroCompleteRefreshTrigger}
+              onCompleteTaskWithPomodoro={handleCompleteTaskWithPomodoro}
+              pomodoroElapsedTime={pomodoroElapsedTime}
             />
 
 
@@ -768,6 +798,9 @@ export default function Dashboard() {
           }}
         />
       )}
+
+      {/* 系统建议浮动按钮 */}
+      <SystemSuggestion />
 
     </div>
   );
