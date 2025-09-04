@@ -122,9 +122,14 @@ const FocusMode: React.FC<FocusModeProps> = ({
         onExit();
       } else if (e.key === ' ') {
         e.preventDefault();
-        if (isRunning) {
+        if (isRunning && !isPaused) {
+          // 正在运行且未暂停，执行暂停
           onPause();
-        } else {
+        } else if (isPaused) {
+          // 已暂停，执行继续（调用onPause来继续）
+          onPause();
+        } else if (!isRunning && !isPaused) {
+          // 未开始，执行开始
           onStart();
         }
       }
@@ -132,7 +137,7 @@ const FocusMode: React.FC<FocusModeProps> = ({
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isRunning, onStart, onPause, onExit]);
+  }, [isRunning, isPaused, onStart, onPause, onExit]);
 
   // 定期更新激励文字
   useEffect(() => {

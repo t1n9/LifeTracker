@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { userAPI, studyAPI, taskAPI, api } from '@/lib/api';
 import { getVersionString } from '@/lib/version';
 import HistoryViewer from './HistoryViewer';
-import PomodoroTimer from './PomodoroTimer';
+import PomodoroTimer, { PomodoroTimerRef } from './PomodoroTimer';
 import PendingTasks from './PendingTasks';
 import ImportantInfo from './ImportantInfo';
 import ExerciseStats from './ExerciseStats';
@@ -31,6 +31,8 @@ export default function Dashboard() {
   const [dayReflectionMode, setDayReflectionMode] = useState<'start' | 'reflection'>('start');
   const [dayStartRefreshTrigger, setDayStartRefreshTrigger] = useState(0);
   const [pomodoroCompleteRefreshTrigger, setPomodoroCompleteRefreshTrigger] = useState(0);
+  const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0);
+  const pomodoroTimerRef = useRef<PomodoroTimerRef>(null);
 
   const [tasks, setTasks] = useState<Array<{
     id: string,
@@ -166,23 +168,60 @@ export default function Dashboard() {
     }, 100);
   };
 
-  // 完成任务并结束番茄钟
+  // 完成任务并结束番茄钟（计入番茄数）
   const handleCompleteTaskWithPomodoro = async (taskId: string) => {
     try {
+      console.log('🍅 开始完成任务并结束番茄钟（计入番茄数）:', taskId);
+
       // 先完成任务
       await taskAPI.updateTask(taskId, { isCompleted: true });
+      console.log('✅ 任务状态已更新为完成');
 
-      // 通知番茄钟组件结束当前会话
-      // 这里需要通过ref或者状态管理来调用番茄钟的结束方法
-      // 暂时通过重新加载数据来刷新状态
-      loadTasks();
+      // 通知番茄钟组件完成当前会话（计入番茄数）
+      if (pomodoroTimerRef.current) {
+        pomodoroTimerRef.current.completeCurrentSession();
+      }
+
+      // 更新状态
+      setIsPomodoroRunning(false);
+      setCurrentBoundTask(null);
+      setPomodoroElapsedTime(0);
+
+      // 刷新任务列表和统计数据
+      setTaskRefreshTrigger(prev => prev + 1);
       loadTodayStats();
 
-      // 清除绑定状态
-      setCurrentBoundTask(null);
-      setIsPomodoroRunning(false);
+      console.log('✅ 任务已完成，番茄钟已结束并计入番茄数');
+    } catch (error) {
+      console.error('完成任务失败:', error);
+      alert('完成任务失败，请重试');
+    }
+  };
 
-      console.log('✅ 任务已完成，番茄钟已结束');
+  // 完成任务并取消番茄钟（不计入番茄数）
+  const handleCompleteTaskCancelPomodoro = async (taskId: string) => {
+    try {
+      console.log('🍅 开始完成任务并取消番茄钟（不计入番茄数）:', taskId);
+
+      // 先完成任务
+      await taskAPI.updateTask(taskId, { isCompleted: true });
+      console.log('✅ 任务状态已更新为完成');
+
+      // 通知番茄钟组件取消当前会话（不计入番茄数）
+      if (pomodoroTimerRef.current) {
+        pomodoroTimerRef.current.cancelCurrentSession();
+      }
+
+      // 更新状态
+      setIsPomodoroRunning(false);
+      setCurrentBoundTask(null);
+      setPomodoroElapsedTime(0);
+
+      // 刷新任务列表和统计数据（不触发番茄钟完成逻辑）
+      setTaskRefreshTrigger(prev => prev + 1);
+      loadTodayStats();
+
+      console.log('✅ 任务已完成，番茄钟已取消（不计入番茄数）');
     } catch (error) {
       console.error('完成任务失败:', error);
       alert('完成任务失败，请重试');
@@ -566,6 +605,7 @@ export default function Dashboard() {
 
             {/* 番茄时钟卡片 */}
             <PomodoroTimer
+              ref={pomodoroTimerRef}
               tasks={tasks}
               currentBoundTask={currentBoundTask}
               studyTime={studyTime}
@@ -608,7 +648,9 @@ export default function Dashboard() {
               dayStartRefreshTrigger={dayStartRefreshTrigger}
               pomodoroCompleteRefreshTrigger={pomodoroCompleteRefreshTrigger}
               onCompleteTaskWithPomodoro={handleCompleteTaskWithPomodoro}
+              onCompleteTaskCancelPomodoro={handleCompleteTaskCancelPomodoro}
               pomodoroElapsedTime={pomodoroElapsedTime}
+              taskRefreshTrigger={taskRefreshTrigger}
             />
 
 

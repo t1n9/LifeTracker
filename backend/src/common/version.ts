@@ -1,6 +1,6 @@
 // 自动生成的版本文件，请勿手动修改
 export const VERSION_INFO = {
-  version: '2.3.0',
+  version: '2.3.1',
   name: 'LifeTracker',
   description: '生活记录系统',
   buildDate: '2025-09-04',

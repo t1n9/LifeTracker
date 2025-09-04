@@ -44,8 +44,10 @@ interface PendingTasksProps {
   isRunning?: boolean; // 番茄钟是否正在运行
   dayStartRefreshTrigger?: number; // 开启内容刷新触发器
   pomodoroCompleteRefreshTrigger?: number; // 番茄钟完成刷新触发器
-  onCompleteTaskWithPomodoro?: (taskId: string) => void; // 完成任务并结束番茄钟
+  onCompleteTaskWithPomodoro?: (taskId: string) => void; // 完成任务并结束番茄钟（计入番茄数）
+  onCompleteTaskCancelPomodoro?: (taskId: string) => void; // 完成任务并取消番茄钟（不计入番茄数）
   pomodoroElapsedTime?: number; // 番茄钟已运行时间（秒）
+  taskRefreshTrigger?: number; // 任务刷新触发器
 }
 
 // 可拖拽的任务项组件
@@ -155,6 +157,9 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
           <input
             type="checkbox"
             checked={task.isCompleted}
+            onClick={(e) => {
+              e.stopPropagation(); // 阻止冒泡到父元素的点击事件
+            }}
             onChange={(e) => {
               e.stopPropagation();
               onToggleTask(task.id, task.isCompleted);
@@ -281,7 +286,9 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   dayStartRefreshTrigger,
   pomodoroCompleteRefreshTrigger,
   onCompleteTaskWithPomodoro,
-  pomodoroElapsedTime = 0
+  onCompleteTaskCancelPomodoro,
+  pomodoroElapsedTime = 0,
+  taskRefreshTrigger = 0
 }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskText, setNewTaskText] = useState('');
@@ -424,6 +431,14 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     }
   }, [pomodoroCompleteRefreshTrigger]);
 
+  // 当任务刷新触发器变化时，重新加载任务列表
+  useEffect(() => {
+    if (taskRefreshTrigger !== undefined && taskRefreshTrigger > 0) {
+      console.log('🔄 任务刷新触发器变化，重新加载任务列表');
+      loadTasks();
+    }
+  }, [taskRefreshTrigger]);
+
   // 添加新任务
   const handleAddTask = async () => {
     if (!newTaskText.trim() || isAddingTask) return;
@@ -478,18 +493,39 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   // 切换任务完成状态
   const handleToggleTask = async (taskId: string, currentStatus: boolean) => {
     try {
-      // 检查是否是番茄钟运行中的绑定任务，且运行时间超过5分钟
-      const isCurrentBoundTask = currentBoundTask === taskId;
-      const canCompleteWithPomodoro = isRunning && isCurrentBoundTask && pomodoroElapsedTime >= 300; // 5分钟 = 300秒
+      console.log('🔄 处理任务状态切换:', { taskId, currentStatus, isRunning, currentBoundTask, pomodoroElapsedTime });
 
-      if (canCompleteWithPomodoro && !currentStatus && onCompleteTaskWithPomodoro) {
-        // 如果是番茄钟运行中的任务且超过5分钟，调用特殊完成逻辑
-        const confirmed = confirm('番茄钟正在运行中，完成此任务将提前结束番茄钟。是否继续？');
-        if (confirmed) {
-          onCompleteTaskWithPomodoro(taskId);
-          return;
-        } else {
-          return; // 用户取消，不执行任何操作
+      // 如果是要完成任务（从未完成变为完成）
+      if (!currentStatus) {
+        // 检查是否是番茄钟运行中的绑定任务
+        const isCurrentBoundTask = currentBoundTask === taskId;
+        const isPomodoroRunning = isRunning && isCurrentBoundTask;
+
+        if (isPomodoroRunning) {
+          // 番茄钟正在运行中，根据运行时间决定处理方式
+          if (pomodoroElapsedTime >= 300) { // 5分钟 = 300秒
+            // 超过5分钟，可以正常完成任务并计入番茄数
+            if (onCompleteTaskWithPomodoro) {
+              const confirmed = confirm('番茄钟正在运行中，完成此任务将提前结束番茄钟并计入番茄数。是否继续？');
+              if (confirmed) {
+                onCompleteTaskWithPomodoro(taskId);
+                return;
+              } else {
+                return; // 用户取消，不执行任何操作
+              }
+            }
+          } else {
+            // 不足5分钟，完成任务但不计入番茄数
+            if (onCompleteTaskCancelPomodoro) {
+              const confirmed = confirm('番茄钟运行不足5分钟，完成此任务将取消番茄钟且不计入番茄数。是否继续？');
+              if (confirmed) {
+                onCompleteTaskCancelPomodoro(taskId);
+                return;
+              } else {
+                return; // 用户取消，不执行任何操作
+              }
+            }
+          }
         }
       }
 

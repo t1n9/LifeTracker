@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Play, Pause, RotateCcw, Focus, Square } from 'lucide-react';
 import { pomodoroAPI } from '@/lib/api';
@@ -22,6 +22,11 @@ interface PomodoroTimerProps {
   onElapsedTimeChange?: (elapsedTime: number) => void;
 }
 
+export interface PomodoroTimerRef {
+  completeCurrentSession: () => void;
+  cancelCurrentSession: () => void;
+}
+
 // interface ActiveSession {
 //   id: string;
 //   timeLeft: number;
@@ -31,7 +36,7 @@ interface PomodoroTimerProps {
 //   boundTaskId?: string;
 // }
 
-const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
+const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
   currentBoundTask,
   tasks = [],
   onPomodoroComplete,
@@ -44,7 +49,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   onRunningStateChange,
   startCountUpTrigger,
   onElapsedTimeChange
-}) => {
+}, ref) => {
   const [selectedMinutes, setSelectedMinutes] = useState(25); // 默认25分钟
   const [timeLeft, setTimeLeft] = useState(selectedMinutes * 60); // 秒数
   const [isRunning, setIsRunning] = useState(false);
@@ -94,10 +99,6 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
           return 0;
         }
         const newTimeLeft = prev - 1;
-        // 通知父组件已运行时间
-        if (onElapsedTimeChange) {
-          onElapsedTimeChange(selectedMinutes * 60 - newTimeLeft);
-        }
         return newTimeLeft;
       });
     }, 1000);
@@ -358,11 +359,6 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         setCountUpTime(prev => {
           const newTime = prev + 1;
 
-          // 通知父组件已运行时间（正计时模式）
-          if (onElapsedTimeChange) {
-            onElapsedTimeChange(newTime);
-          }
-
           // 检查是否达到3小时（180分钟 = 10800秒）
           if (newTime >= 10800) {
             console.log('⏰ 正计时达到3小时，自动暂停');
@@ -392,7 +388,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isCountUpMode, isRunning, isPaused, onElapsedTimeChange]);
+  }, [isCountUpMode, isRunning, isPaused]);
 
   // 通知运行状态变化
   useEffect(() => {
@@ -400,6 +396,93 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       onRunningStateChange(isRunning && !isPaused);
     }
   }, [isRunning, isPaused, onRunningStateChange]);
+
+  // 通知已运行时间变化
+  useEffect(() => {
+    if (onElapsedTimeChange && (isRunning && !isPaused)) {
+      if (isCountUpMode) {
+        onElapsedTimeChange(countUpTime);
+      } else {
+        onElapsedTimeChange(selectedMinutes * 60 - timeLeft);
+      }
+    }
+  }, [timeLeft, countUpTime, isCountUpMode, isRunning, isPaused, selectedMinutes, onElapsedTimeChange]);
+
+  // 监听外部绑定任务变化
+  useEffect(() => {
+    if (currentBoundTask === null && startBoundTask !== null) {
+      console.log('🔄 外部绑定任务已清空，清理内部绑定状态');
+      setStartBoundTask(null);
+    }
+  }, [currentBoundTask, startBoundTask]);
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    completeCurrentSession: async () => {
+      console.log('🍅 外部调用完成当前会话');
+      if (isRunning || isPaused) {
+        // 计算实际运行时间
+        let actualRunTime = 0;
+        if (isCountUpMode) {
+          actualRunTime = countUpTime; // 正计时模式：直接使用计时时间
+        } else {
+          actualRunTime = selectedMinutes * 60 - timeLeft; // 倒计时模式：总时间减去剩余时间
+        }
+
+        console.log('🍅 实际运行时间:', actualRunTime, '秒');
+
+        // 停止本地定时器
+        stopLocalTimer();
+        stopSync();
+
+        // 停止服务器端会话
+        if (sessionId && serverConnected) {
+          try {
+            console.log('🔚 停止服务器端番茄钟会话');
+            const result = await pomodoroAPI.stopPomodoro(sessionId);
+
+            // 如果运行时间超过5分钟，计入番茄数
+            if (actualRunTime >= 300) {
+              console.log('🍅 运行时间超过5分钟，计入番茄数');
+              onPomodoroComplete?.();
+            } else {
+              console.log('🍅 运行时间不足5分钟，不计入番茄数');
+            }
+          } catch (error) {
+            console.error('停止服务器端番茄钟失败:', error);
+          }
+        }
+
+        // 重置所有状态
+        resetLocalState();
+
+        console.log('✅ 会话已完成');
+      }
+    },
+    cancelCurrentSession: async () => {
+      console.log('🍅 外部调用取消当前会话');
+      if (isRunning || isPaused) {
+        // 停止本地定时器
+        stopLocalTimer();
+        stopSync();
+
+        // 停止服务器端会话（不计入番茄数）
+        if (sessionId && serverConnected) {
+          try {
+            console.log('🔚 取消服务器端番茄钟会话');
+            await pomodoroAPI.stopPomodoro(sessionId);
+          } catch (error) {
+            console.error('取消服务器端番茄钟失败:', error);
+          }
+        }
+
+        // 重置所有状态（不计入番茄数）
+        resetLocalState();
+
+        console.log('✅ 会话已取消（不计入番茄数）');
+      }
+    }
+  }), [isRunning, isPaused, isCountUpMode, selectedMinutes, timeLeft, countUpTime, sessionId, serverConnected, onPomodoroComplete]);
 
   // 处理番茄时钟完成的副作用
   useEffect(() => {
@@ -751,6 +834,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     setStartBoundTask(null);
     setSessionId(null);
     setIsPaused(false);
+    setCountUpTime(0);
+    setIsCountUpMode(false);
+
+    console.log('🔄 本地状态已重置');
   };
 
   // 本地计时逻辑（回退模式）
@@ -1442,6 +1529,8 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       )}
     </div>
   );
-};
+});
+
+PomodoroTimer.displayName = 'PomodoroTimer';
 
 export default PomodoroTimer;
