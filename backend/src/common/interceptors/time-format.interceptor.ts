@@ -77,7 +77,11 @@ export class TimeFormatInterceptor implements NestInterceptor {
     if (path.includes('/health')) {
       return TIME_FIELD_CONFIGS.HEALTH;
     }
-    
+
+    if (path.includes('/visitor')) {
+      return TIME_FIELD_CONFIGS.VISITOR;
+    }
+
     // 默认使用基础时间字段
     return TIME_FIELD_CONFIGS.BASIC;
   }

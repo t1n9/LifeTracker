@@ -7,14 +7,15 @@ interface VisitorStatsData {
   totalVisitors: number;
   totalVisits: number;
   recentVisitors: Array<{
+    id?: string;
     deviceType: 'DESKTOP' | 'MOBILE' | 'TABLET';
     browser?: string;
     os?: string;
     country?: string;
     city?: string;
     visitCount: number;
-    firstVisitAt: string;
-    lastVisitAt: string;
+    firstVisitAt?: any;
+    lastVisitAt?: any;
     visitorUser?: {
       name?: string;
       email?: string;
@@ -86,13 +87,17 @@ const VisitorStats: React.FC<VisitorStatsProps> = ({ userId, isOwner = false }) 
       }
 
       const data = await response.json();
+
+      // 直接使用后端返回的数据，时间字段应该已经被正确处理
+      const processedRecentVisitors = data.data.recentVisitors || [];
+
       setStats({
-        totalVisitors: data.data.totalVisitors,
-        totalVisits: data.data.totalVisits,
-        recentVisitors: [],
-        deviceStats: [],
-        referrerStats: [],
-        dailyStats: [],
+        totalVisitors: data.data.totalVisitors || 0,
+        totalVisits: data.data.totalVisits || 0,
+        recentVisitors: processedRecentVisitors,
+        deviceStats: data.data.deviceStats || [],
+        referrerStats: data.data.referrerStats || [],
+        dailyStats: data.data.dailyStats || [],
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : '获取访客数据失败');
@@ -134,11 +139,27 @@ const VisitorStats: React.FC<VisitorStatsProps> = ({ userId, isOwner = false }) 
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateInput: any) => {
     try {
-      const date = new Date(dateString);
+      // 检查输入是否有效
+      if (!dateInput) {
+        return '时间未知';
+      }
+
+      let date: Date;
+
+      // 处理不同类型的时间输入
+      if (dateInput instanceof Date) {
+        date = dateInput;
+      } else if (typeof dateInput === 'string') {
+        date = new Date(dateInput);
+      } else {
+        // 对于其他类型，尝试转换为字符串再解析
+        date = new Date(String(dateInput));
+      }
+
       if (isNaN(date.getTime())) {
-        return '未知时间';
+        return '时间格式错误';
       }
 
       const now = new Date();
@@ -162,7 +183,7 @@ const VisitorStats: React.FC<VisitorStatsProps> = ({ userId, isOwner = false }) 
         });
       }
     } catch (error) {
-      return '未知时间';
+      return '时间错误';
     }
   };
 

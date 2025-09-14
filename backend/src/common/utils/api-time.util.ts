@@ -184,4 +184,7 @@ export const TIME_FIELD_CONFIGS = {
   
   // 健康记录相关时间字段
   HEALTH: ['createdAt', 'updatedAt'],
+
+  // 访客统计相关时间字段
+  VISITOR: ['createdAt', 'updatedAt', 'firstVisitAt', 'lastVisitAt', 'visitedAt'],
 };
