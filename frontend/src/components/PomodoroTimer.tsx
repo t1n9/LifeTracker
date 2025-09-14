@@ -25,6 +25,7 @@ interface PomodoroTimerProps {
 export interface PomodoroTimerRef {
   completeCurrentSession: () => void;
   cancelCurrentSession: () => void;
+  updateBoundTaskId: (oldId: string, newId: string) => void;
 }
 
 // interface ActiveSession {
@@ -481,8 +482,15 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
 
         console.log('✅ 会话已取消（不计入番茄数）');
       }
+    },
+    updateBoundTaskId: (oldId: string, newId: string) => {
+      console.log('🔄 更新番茄钟内部绑定任务ID:', oldId, '->', newId);
+      if (startBoundTask === oldId) {
+        setStartBoundTask(newId);
+        console.log('✅ 番茄钟内部绑定任务ID已更新');
+      }
     }
-  }), [isRunning, isPaused, isCountUpMode, selectedMinutes, timeLeft, countUpTime, sessionId, serverConnected, onPomodoroComplete]);
+  }), [isRunning, isPaused, isCountUpMode, selectedMinutes, timeLeft, countUpTime, sessionId, serverConnected, onPomodoroComplete, startBoundTask]);
 
   // 处理番茄时钟完成的副作用
   useEffect(() => {
@@ -813,9 +821,33 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
   // 停止服务器端番茄钟
   const stopServerPomodoro = async () => {
     if (!sessionId) return;
-    
+
     try {
-      await pomodoroAPI.stopPomodoro(sessionId);
+      console.log('🔚 停止服务器端番茄钟会话');
+      const result = await pomodoroAPI.stopPomodoro(sessionId);
+
+      // 检查是否完成（时间足够）
+      if (result.data.completed) {
+        console.log(`✅ 番茄钟提前结束但时间足够：${result.data.duration}分钟，已计入番茄数量和学习记录`);
+
+        // 发送完成通知
+        sendNotification(
+          '🍅 番茄钟完成！',
+          `专注时间：${result.data.duration}分钟，已计入番茄数量和学习记录`,
+          '/favicon.ico'
+        );
+
+        // 播放完成提示音
+        playNotificationSound('complete');
+
+        // 调用完成回调
+        if (onPomodoroComplete) {
+          onPomodoroComplete();
+        }
+      } else {
+        console.log(`❌ 番茄钟提前结束时间不足：${result.data.duration}分钟，不计入番茄数量`);
+      }
+
       resetLocalState();
     } catch (error) {
       console.error('停止服务器端番茄钟失败:', error);

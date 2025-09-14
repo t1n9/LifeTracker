@@ -217,6 +217,24 @@ export default function Dashboard() {
     }
   };
 
+  // 更新番茄钟绑定任务ID（用于任务ID从临时ID变为真实ID时）
+  const handleUpdatePomodoroTaskId = (oldId: string, newId: string) => {
+    if (pomodoroTimerRef.current) {
+      pomodoroTimerRef.current.updateBoundTaskId(oldId, newId);
+    }
+    // 同时更新Dashboard的绑定状态
+    if (currentBoundTask === oldId) {
+      setCurrentBoundTask(newId);
+    }
+  };
+
+  // 任务添加成功后的回调
+  const handleTaskAdded = (newTask: any) => {
+    console.log('📝 Dashboard收到新任务添加通知:', newTask);
+    // 重新加载任务列表以确保同步
+    loadTasks();
+  };
+
   // 完成任务并取消番茄钟（不计入番茄数）
   const handleCompleteTaskCancelPomodoro = async (taskId: string) => {
     try {
@@ -672,6 +690,8 @@ export default function Dashboard() {
               onCompleteTaskCancelPomodoro={handleCompleteTaskCancelPomodoro}
               pomodoroElapsedTime={pomodoroElapsedTime}
               taskRefreshTrigger={taskRefreshTrigger}
+              onUpdatePomodoroTaskId={handleUpdatePomodoroTaskId}
+              onTaskAdded={handleTaskAdded}
             />
 
 

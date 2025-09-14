@@ -48,6 +48,8 @@ interface PendingTasksProps {
   onCompleteTaskCancelPomodoro?: (taskId: string) => void; // 完成任务并取消番茄钟（不计入番茄数）
   pomodoroElapsedTime?: number; // 番茄钟已运行时间（秒）
   taskRefreshTrigger?: number; // 任务刷新触发器
+  onUpdatePomodoroTaskId?: (oldId: string, newId: string) => void; // 更新番茄钟绑定任务ID
+  onTaskAdded?: (newTask: any) => void; // 任务添加成功回调
 }
 
 // 可拖拽的任务项组件
@@ -289,7 +291,9 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   onCompleteTaskWithPomodoro,
   onCompleteTaskCancelPomodoro,
   pomodoroElapsedTime = 0,
-  taskRefreshTrigger = 0
+  taskRefreshTrigger = 0,
+  onUpdatePomodoroTaskId,
+  onTaskAdded
 }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskText, setNewTaskText] = useState('');
@@ -478,6 +482,23 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       setTasks(prev => prev.map(task =>
         task.id === tempId ? response.data : task
       ));
+
+      // 通知Dashboard任务已添加
+      if (onTaskAdded) {
+        onTaskAdded(response.data);
+      }
+
+      // 如果当前绑定的任务是临时ID，更新为真实ID
+      if (currentBoundTask === tempId) {
+        console.log('🔄 更新番茄钟绑定任务ID:', tempId, '->', response.data.id);
+        // 使用专门的更新方法，避免重新绑定
+        if (onUpdatePomodoroTaskId) {
+          onUpdatePomodoroTaskId(tempId, response.data.id);
+        } else {
+          // 兜底方案：重新绑定
+          onTaskClick(response.data.id, response.data.title);
+        }
+      }
 
     } catch (error) {
       console.error('添加任务失败:', error);

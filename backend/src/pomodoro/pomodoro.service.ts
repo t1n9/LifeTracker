@@ -193,8 +193,8 @@ export class PomodoroService {
     let status = 'CANCELLED';
     let actualDuration = 0;
 
-    // 如果是正计时模式且时间足够，标记为完成
     if (session.isCountUpMode) {
+      // 正计时模式：检查已用时间
       const elapsedMinutes = Math.floor((session.countUpTime || 0) / 60);
       actualDuration = elapsedMinutes;
 
@@ -203,6 +203,18 @@ export class PomodoroService {
         console.log(`✅ 正计时完成：${elapsedMinutes}分钟，标记为完成`);
       } else {
         console.log(`❌ 正计时时间不足：${elapsedMinutes}分钟，标记为取消`);
+      }
+    } else {
+      // 倒计时模式：检查已运行时间
+      const totalMinutes = session.duration;
+      const elapsedMinutes = totalMinutes - Math.floor(session.timeLeft / 60);
+      actualDuration = elapsedMinutes;
+
+      if (elapsedMinutes >= 5) {
+        status = 'COMPLETED';
+        console.log(`✅ 倒计时提前结束：运行${elapsedMinutes}分钟，标记为完成`);
+      } else {
+        console.log(`❌ 倒计时提前结束：运行${elapsedMinutes}分钟，时间不足，标记为取消`);
       }
     }
 
@@ -217,8 +229,13 @@ export class PomodoroService {
     });
 
     // 如果是完成状态，创建学习记录
-    if (status === 'COMPLETED' && session.isCountUpMode) {
-      await this.createStudyRecord(session, actualDuration);
+    if (status === 'COMPLETED') {
+      if (session.isCountUpMode) {
+        await this.createStudyRecord(session, actualDuration);
+      } else {
+        // 倒计时模式提前结束但时间足够，创建学习记录
+        await this.createCountdownStudyRecord(session, actualDuration);
+      }
     }
 
     // 移除活跃会话
@@ -258,6 +275,40 @@ export class PomodoroService {
       return studyRecord;
     } catch (error) {
       console.error('创建学习记录失败:', error);
+      throw error;
+    }
+  }
+
+  // 创建学习记录（倒计时提前结束但时间足够时）
+  private async createCountdownStudyRecord(session: ActiveSession, durationMinutes: number) {
+    try {
+      const completedAt = new Date();
+
+      // 创建学习记录
+      const studyRecord = await this.prisma.studyRecord.create({
+        data: {
+          userId: session.userId,
+          subject: '番茄时钟', // 倒计时模式科目
+          duration: durationMinutes,
+          notes: `倒计时提前结束 ${durationMinutes} 分钟`,
+          startedAt: session.startedAt,
+          completedAt,
+          taskId: session.taskId,
+        },
+      });
+
+      console.log(`📚 创建倒计时学习记录: ${durationMinutes}分钟`);
+
+      // 更新每日数据汇总（倒计时提前结束但时间足够，增加番茄数量）
+      await this.updateDailyData(session.userId, completedAt, durationMinutes, true);
+
+      if (session.taskId) {
+        console.log(`🍅 任务完成番茄钟: ${session.taskId}`);
+      }
+
+      return studyRecord;
+    } catch (error) {
+      console.error('创建倒计时学习记录失败:', error);
       throw error;
     }
   }
