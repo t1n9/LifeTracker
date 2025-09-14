@@ -121,14 +121,7 @@ export class HistoryService {
         endDate = getDateEnd(date, timezone);
       }
 
-      console.log(`🕐 时区调试信息 (${date}):`, {
-        requestedDate: date,
-        todayInUserTz,
-        isToday: date === todayInUserTz,
-        timezone,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString()
-      });
+
 
       // 获取任务数据 - 显示在该日期范围内有活动的任务
       const tasks = await this.prisma.task.findMany({

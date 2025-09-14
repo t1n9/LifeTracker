@@ -58,7 +58,7 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
   // 更新餐饮消费
   const updateMealExpense = async (category: 'breakfast' | 'lunch' | 'dinner', amount: number) => {
     const oldValue = todayExpenses.meals[category];
-    
+
     if (amount === oldValue) {
       return; // 值没有变化
     }
@@ -66,21 +66,20 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
     setSubmitting(prev => ({ ...prev, [category]: true }));
 
     try {
-      // 乐观更新
+      // 先调用API，成功后再更新状态，避免双重更新
+      await expenseAPI.setMealExpense({ category, amount });
+
+      // API成功后更新状态
       setTodayExpenses(prev => ({
         ...prev,
         meals: { ...prev.meals, [category]: amount },
         totalMeal: prev.totalMeal - oldValue + amount,
       }));
-
-      // 后台提交
-      await expenseAPI.setMealExpense({ category, amount });
     } catch (error) {
       console.error('更新餐饮消费失败:', error);
       alert('更新餐饮消费失败');
-      // 失败时恢复原值
+      // 失败时恢复输入框的值
       setMealValues(prev => ({ ...prev, [category]: oldValue }));
-      await loadData();
     } finally {
       setSubmitting(prev => ({ ...prev, [category]: false }));
     }
@@ -154,16 +153,21 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
 
   // 处理餐饮输入失去焦点
   const handleMealInputBlur = (category: 'breakfast' | 'lunch' | 'dinner') => {
+    // 如果正在提交中，跳过blur事件，避免重复提交
+    if (submitting[category]) {
+      return;
+    }
     const value = mealValues[category];
     updateMealExpense(category, value);
   };
 
   // 处理餐饮输入回车键
-  const handleMealInputKeyPress = (e: React.KeyboardEvent, category: 'breakfast' | 'lunch' | 'dinner') => {
+  const handleMealInputKeyDown = (e: React.KeyboardEvent, category: 'breakfast' | 'lunch' | 'dinner') => {
     if (e.key === 'Enter') {
       const value = mealValues[category];
       updateMealExpense(category, value);
-      (e.target as HTMLInputElement).blur();
+      // 不调用blur()，避免触发onBlur事件导致重复提交
+      // (e.target as HTMLInputElement).blur();
     }
   };
 
@@ -212,7 +216,7 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
                     value={mealValues[meal.key] > 0 ? mealValues[meal.key] : ''}
                     onChange={(e) => handleMealInputChange(meal.key, e.target.value)}
                     onBlur={() => handleMealInputBlur(meal.key)}
-                    onKeyPress={(e) => handleMealInputKeyPress(e, meal.key)}
+                    onKeyDown={(e) => handleMealInputKeyDown(e, meal.key)}
                     onFocus={(e) => e.target.select()}
                     className="expense-meal-input"
                     style={{ opacity: submitting[meal.key] ? 0.6 : 1 }}
@@ -250,7 +254,7 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
                 value={otherForm.amount}
                 onChange={(e) => setOtherForm(prev => ({ ...prev, amount: e.target.value }))}
                 onFocus={(e) => e.target.select()}
-                onKeyPress={(e) => {
+                onKeyDown={(e) => {
                   if (e.key === 'Enter' && otherForm.description.trim() && otherForm.amount) {
                     addOtherExpense();
                   }
