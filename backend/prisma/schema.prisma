@@ -8,45 +8,42 @@ datasource db {
 }
 
 model User {
-  id               String            @id @default(uuid())
-  email            String            @unique
-  passwordHash     String            @map("password_hash")
-  name             String?
-  targetName       String?           @map("target_name")
-  targetDate       DateTime?         @map("target_date") @db.Timestamptz(6)
-  examDate         DateTime?         @map("exam_date") @db.Timestamptz(6)
-  timezone         String            @default("Asia/Shanghai")
-  theme            String            @default("dark")
-  isActive         Boolean           @default(true) @map("is_active")
-  emailVerified    Boolean           @default(false) @map("email_verified")
-  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  showPullUps      Boolean?          @default(true) @map("show_pull_ups")
-  showSquats       Boolean?          @default(true) @map("show_squats")
-  showPushUps      Boolean?          @default(true) @map("show_push_ups")
-  showRunning      Boolean?          @default(true) @map("show_running")
-  showSwimming     Boolean?          @default(false) @map("show_swimming")
-  showCycling      Boolean?          @default(false) @map("show_cycling")
-  isAdmin          Boolean           @default(false) @map("is_admin")
-  countdowns       Countdown[]
-  dailyData        DailyData[]
-  exerciseRecords  ExerciseRecord[]  @relation("UserExerciseRecords")
-  exerciseTypes    ExerciseType[]    @relation("UserExerciseTypes")
-  expenseRecords   ExpenseRecord[]   @relation("UserExpenseRecords")
-  healthRecords    HealthRecord[]
-  importantInfos   ImportantInfo[]
-  pomodoroSessions PomodoroSession[]
-  shareLinks       ShareLink[]       @relation("UserShareLinks")
-  studyRecords     StudyRecord[]
-  tasks            Task[]
-  userSettings     UserSettings?
+  id                  String             @id @default(uuid())
+  email               String             @unique
+  passwordHash        String             @map("password_hash")
+  name                String?
 
-  // 访客统计关联
-  profileVisitors  ProfileVisitor[]  @relation("ProfileVisitors") // 访问我的用户
-  visitorRecords   ProfileVisitor[]  @relation("VisitorRecords")  // 我访问的记录
-  profileVisitLogs ProfileVisitLog[] @relation("ProfileVisitLogs") // 我的访问日志
-  systemSuggestions SystemSuggestion[] // 我提交的建议
-  reviewedSuggestions SystemSuggestion[] @relation("ReviewedSuggestions") // 我审核的建议
+  timezone            String             @default("Asia/Shanghai")
+  theme               String             @default("dark")
+  isActive            Boolean            @default(true) @map("is_active")
+  emailVerified       Boolean            @default(false) @map("email_verified")
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  showPullUps         Boolean?           @default(true) @map("show_pull_ups")
+  showSquats          Boolean?           @default(true) @map("show_squats")
+  showPushUps         Boolean?           @default(true) @map("show_push_ups")
+  showRunning         Boolean?           @default(true) @map("show_running")
+  showSwimming        Boolean?           @default(false) @map("show_swimming")
+  showCycling         Boolean?           @default(false) @map("show_cycling")
+  isAdmin             Boolean            @default(false) @map("is_admin")
+  countdowns          Countdown[]
+  dailyData           DailyData[]
+  exerciseRecords     ExerciseRecord[]   @relation("UserExerciseRecords")
+  exerciseTypes       ExerciseType[]     @relation("UserExerciseTypes")
+  expenseRecords      ExpenseRecord[]    @relation("UserExpenseRecords")
+  healthRecords       HealthRecord[]
+  importantInfos      ImportantInfo[]
+  pomodoroSessions    PomodoroSession[]
+  profileVisitLogs    ProfileVisitLog[]  @relation("ProfileVisitLogs")
+  profileVisitors     ProfileVisitor[]   @relation("ProfileVisitors")
+  visitorRecords      ProfileVisitor[]   @relation("VisitorRecords")
+  shareLinks          ShareLink[]        @relation("UserShareLinks")
+  studyRecords        StudyRecord[]
+  reviewedSuggestions SystemSuggestion[] @relation("ReviewedSuggestions")
+  systemSuggestions   SystemSuggestion[]
+  tasks               Task[]
+  userGoals           UserGoal[]
+  userSettings        UserSettings?
 
   @@map("users")
 }
@@ -82,9 +79,9 @@ model Task {
   dueDate          DateTime?         @map("due_date") @db.Timestamptz(6)
   estimatedHours   Float?            @map("estimated_hours")
   actualHours      Float?            @map("actual_hours")
-  sortOrder        Int               @default(0) @map("sort_order")
   createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sortOrder        Int               @default(0) @map("sort_order")
   pomodoroSessions PomodoroSession[]
   studyRecords     StudyRecord[]
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -153,12 +150,12 @@ model DailyData {
   dayStart        String?  @map("day_start")
   dayReflection   String?  @map("day_reflection")
   reflectionTime  String?  @map("reflection_time")
-  wakeUpTime      String?  @map("wake_up_time") // 今日起床时间
   focusMode       Boolean  @default(false) @map("focus_mode")
   focusQuoteIndex Int      @default(0) @map("focus_quote_index")
   exerciseFeeling String?  @map("exercise_feeling")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  wakeUpTime      String?  @map("wake_up_time")
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
@@ -259,13 +256,13 @@ model ExpenseRecord {
 }
 
 model ShareLink {
-  id          String   @id @default(uuid())
-  userId      String   @map("user_id")
-  shareCode   String   @unique @map("share_code")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  user        User     @relation("UserShareLinks", fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  shareCode String   @unique @map("share_code")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User     @relation("UserShareLinks", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("share_links")
@@ -300,6 +297,98 @@ model SystemConfig {
   @@map("system_configs")
 }
 
+model ProfileVisitor {
+  id                String            @id @default(uuid())
+  profileUserId     String            @map("profile_user_id")
+  visitorUserId     String?           @map("visitor_user_id")
+  deviceFingerprint String            @map("device_fingerprint")
+  ipAddress         String            @map("ip_address")
+  userAgent         String            @map("user_agent")
+  sessionId         String            @map("session_id")
+  country           String?
+  city              String?
+  deviceType        DeviceType        @map("device_type")
+  browser           String?
+  os                String?
+  firstVisitAt      DateTime          @map("first_visit_at") @db.Timestamptz(6)
+  lastVisitAt       DateTime          @map("last_visit_at") @db.Timestamptz(6)
+  visitCount        Int               @default(1) @map("visit_count")
+  referrer          String?
+  utmSource         String?           @map("utm_source")
+  utmMedium         String?           @map("utm_medium")
+  utmCampaign       String?           @map("utm_campaign")
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  visitLogs         ProfileVisitLog[]
+  profileUser       User              @relation("ProfileVisitors", fields: [profileUserId], references: [id], onDelete: Cascade)
+  visitorUser       User?             @relation("VisitorRecords", fields: [visitorUserId], references: [id])
+
+  @@unique([profileUserId, deviceFingerprint])
+  @@index([profileUserId, lastVisitAt])
+  @@index([deviceFingerprint])
+  @@index([ipAddress, userAgent])
+  @@map("profile_visitors")
+}
+
+model ProfileVisitLog {
+  id            String         @id @default(uuid())
+  profileUserId String         @map("profile_user_id")
+  visitorId     String         @map("visitor_id")
+  visitedAt     DateTime       @map("visited_at") @db.Timestamptz(6)
+  duration      Int?           @map("duration")
+  pageViews     Int            @default(1) @map("page_views")
+  referrer      String?
+  utmSource     String?        @map("utm_source")
+  utmMedium     String?        @map("utm_medium")
+  utmCampaign   String?        @map("utm_campaign")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  profileUser   User           @relation("ProfileVisitLogs", fields: [profileUserId], references: [id], onDelete: Cascade)
+  visitor       ProfileVisitor @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+
+  @@index([profileUserId, visitedAt])
+  @@index([visitorId])
+  @@map("profile_visit_logs")
+}
+
+model SystemSuggestion {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  title      String
+  content    String
+  status     String    @default("pending")
+  priority   String    @default("normal")
+  category   String?
+  adminReply String?   @map("admin_reply")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  reviewedBy String?   @map("reviewed_by")
+  reviewer   User?     @relation("ReviewedSuggestions", fields: [reviewedBy], references: [id])
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("system_suggestions")
+}
+
+model UserGoal {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  goalName    String    @map("goal_name")
+  targetDate  DateTime? @map("target_date") @db.Timestamptz(6)
+
+  startDate   DateTime  @map("start_date") @db.Timestamptz(6)
+  endDate     DateTime? @map("end_date") @db.Timestamptz(6)
+  isActive    Boolean   @default(true) @map("is_active")
+  status      String    @default("ACTIVE")
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@index([userId, status])
+  @@map("user_goals")
+}
+
 enum ExerciseTypeEnum {
   COUNT
   DISTANCE
@@ -328,99 +417,4 @@ enum DeviceType {
   DESKTOP
   MOBILE
   TABLET
-}
-
-// 访客统计表
-model ProfileVisitor {
-  id                String      @id @default(uuid())
-  profileUserId     String      @map("profile_user_id") // 被访问的用户ID
-  visitorUserId     String?     @map("visitor_user_id") // 访客用户ID（如果已登录）
-  deviceFingerprint String      @map("device_fingerprint") // 设备指纹
-  ipAddress         String      @map("ip_address")
-  userAgent         String      @map("user_agent")
-  sessionId         String      @map("session_id")
-
-  // 地理位置信息
-  country           String?
-  city              String?
-
-  // 设备信息
-  deviceType        DeviceType  @map("device_type")
-  browser           String?
-  os                String?
-
-  // 访问统计
-  firstVisitAt      DateTime    @map("first_visit_at") @db.Timestamptz(6)
-  lastVisitAt       DateTime    @map("last_visit_at") @db.Timestamptz(6)
-  visitCount        Int         @default(1) @map("visit_count")
-
-  // 来源信息
-  referrer          String?
-  utmSource         String?     @map("utm_source")
-  utmMedium         String?     @map("utm_medium")
-  utmCampaign       String?     @map("utm_campaign")
-
-  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  // 关联关系
-  profileUser       User               @relation("ProfileVisitors", fields: [profileUserId], references: [id], onDelete: Cascade)
-  visitorUser       User?              @relation("VisitorRecords", fields: [visitorUserId], references: [id], onDelete: SetNull)
-  visitLogs         ProfileVisitLog[]  // 访问日志
-
-  // 索引
-  @@unique([profileUserId, deviceFingerprint]) // 同一用户的同一设备只记录一次
-  @@index([profileUserId, lastVisitAt])
-  @@index([deviceFingerprint])
-  @@index([ipAddress, userAgent])
-  @@map("profile_visitors")
-}
-
-// 访问记录表（详细的每次访问）
-model ProfileVisitLog {
-  id                String      @id @default(uuid())
-  profileUserId     String      @map("profile_user_id")
-  visitorId         String      @map("visitor_id") // 关联到 ProfileVisitor
-
-  // 访问详情
-  visitedAt         DateTime    @map("visited_at") @db.Timestamptz(6)
-  duration          Int?        @map("duration") // 停留时间（秒）
-  pageViews         Int         @default(1) @map("page_views") // 页面浏览数
-
-  // 访问来源
-  referrer          String?
-  utmSource         String?     @map("utm_source")
-  utmMedium         String?     @map("utm_medium")
-  utmCampaign       String?     @map("utm_campaign")
-
-  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  // 关联关系
-  profileUser       User           @relation("ProfileVisitLogs", fields: [profileUserId], references: [id], onDelete: Cascade)
-  visitor           ProfileVisitor @relation(fields: [visitorId], references: [id], onDelete: Cascade)
-
-  // 索引
-  @@index([profileUserId, visitedAt])
-  @@index([visitorId])
-  @@map("profile_visit_logs")
-}
-
-model SystemSuggestion {
-  id          String   @id @default(uuid())
-  userId      String   @map("user_id")
-  title       String
-  content     String
-  status      String   @default("pending") // pending, reviewed, implemented, rejected
-  priority    String   @default("normal") // low, normal, high, urgent
-  category    String?  // bug, feature, improvement, other
-  adminReply  String?  @map("admin_reply")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  reviewedAt  DateTime? @map("reviewed_at") @db.Timestamptz(6)
-  reviewedBy  String?  @map("reviewed_by")
-
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reviewer    User?    @relation("ReviewedSuggestions", fields: [reviewedBy], references: [id])
-
-  @@map("system_suggestions")
 }

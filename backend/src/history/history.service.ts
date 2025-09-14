@@ -384,4 +384,168 @@ export class HistoryService {
       throw error;
     }
   }
+
+  // 获取目标时间段的数据概况
+  async getGoalOverview(userId: string, goalId?: string) {
+    try {
+      // 获取用户时区信息
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { timezone: true },
+      });
+      const timezone = user?.timezone || 'Asia/Shanghai';
+
+      let startDate: Date, endDate: Date;
+
+      if (goalId) {
+        // 获取特定目标的时间范围
+        const goal = await this.prisma.userGoal.findUnique({
+          where: { id: goalId, userId },
+        });
+
+        if (!goal) {
+          throw new Error('目标不存在');
+        }
+
+        startDate = goal.startDate;
+        endDate = goal.endDate || new Date(); // 如果目标还在进行中，使用当前时间
+      } else {
+        // 获取所有时间的数据
+        const firstRecord = await this.prisma.task.findFirst({
+          where: { userId },
+          orderBy: { createdAt: 'asc' },
+          select: { createdAt: true },
+        });
+
+        startDate = firstRecord?.createdAt || new Date();
+        endDate = new Date();
+      }
+
+      // 获取时间段内的所有数据
+      const [tasks, studyRecords, pomodoroSessions, exerciseRecords, expenseRecords] = await Promise.all([
+        // 任务数据
+        this.prisma.task.findMany({
+          where: {
+            userId,
+            createdAt: { gte: startDate, lte: endDate },
+          },
+          select: {
+            id: true,
+            title: true,
+            isCompleted: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        }),
+
+        // 学习记录
+        this.prisma.studyRecord.findMany({
+          where: {
+            userId,
+            startedAt: { gte: startDate, lte: endDate },
+          },
+          select: {
+            duration: true,
+            subject: true,
+            startedAt: true,
+          },
+        }),
+
+        // 番茄钟记录
+        this.prisma.pomodoroSession.findMany({
+          where: {
+            userId,
+            startedAt: { gte: startDate, lte: endDate },
+            status: 'COMPLETED',
+            type: 'WORK',
+          },
+          select: {
+            duration: true,
+            startedAt: true,
+          },
+        }),
+
+        // 运动记录
+        this.prisma.exerciseRecord.findMany({
+          where: {
+            userId,
+            date: { gte: startDate, lte: endDate },
+          },
+          include: {
+            exercise: true,
+          },
+        }),
+
+        // 消费记录
+        this.prisma.expenseRecord.findMany({
+          where: {
+            userId,
+            date: { gte: startDate, lte: endDate },
+          },
+          select: {
+            amount: true,
+            type: true,
+            date: true,
+          },
+        }),
+
+
+      ]);
+
+      // 计算统计数据
+      const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      const totalTasks = tasks.length;
+      const completedTasks = tasks.filter(task => task.isCompleted).length;
+      const totalStudyMinutes = studyRecords.reduce((sum, record) => sum + record.duration, 0);
+      const totalPomodoroCount = pomodoroSessions.length;
+      const totalExpense = expenseRecords.reduce((sum, record) => sum + record.amount, 0);
+
+      // 按运动类型汇总
+      const exerciseStats = new Map<string, { name: string; total: number; unit: string }>();
+      exerciseRecords.forEach(record => {
+        const key = record.exercise.id;
+        if (exerciseStats.has(key)) {
+          exerciseStats.get(key)!.total += record.value;
+        } else {
+          exerciseStats.set(key, {
+            name: record.exercise.name,
+            total: record.value,
+            unit: record.unit || record.exercise.unit || '',
+          });
+        }
+      });
+
+      return {
+        period: {
+          startDate: formatDateString(startDate, timezone),
+          endDate: formatDateString(endDate, timezone),
+          totalDays,
+        },
+        tasks: {
+          total: totalTasks,
+          completed: completedTasks,
+          completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+        },
+        study: {
+          totalMinutes: totalStudyMinutes,
+          totalHours: Math.round(totalStudyMinutes / 60 * 100) / 100,
+          averageMinutesPerDay: totalDays > 0 ? Math.round(totalStudyMinutes / totalDays) : 0,
+          pomodoroCount: totalPomodoroCount,
+          averagePomodoroPerDay: totalDays > 0 ? Math.round(totalPomodoroCount / totalDays * 100) / 100 : 0,
+        },
+        exercise: {
+          totalRecords: exerciseRecords.length,
+          exerciseTypes: Array.from(exerciseStats.values()),
+        },
+        expense: {
+          total: totalExpense,
+          averagePerDay: totalDays > 0 ? Math.round(totalExpense / totalDays * 100) / 100 : 0,
+          recordCount: expenseRecords.length,
+        },
+      };
+    } catch (error) {
+      console.error('获取目标概况失败:', error);
+      throw error;
+    }
+  }
 }

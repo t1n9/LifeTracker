@@ -9,14 +9,12 @@ import { useAuthStore } from '@/store/auth';
 import SystemConfigPanel from '@/components/admin/SystemConfigPanel';
 import SuggestionManagement from '@/components/admin/SuggestionManagement';
 import ExerciseConfigManager from '@/components/ExerciseConfigManager';
-import { VERSION_INFO, getVersionString, getFullVersionInfo } from '@/lib/version';
+import GoalManagement from '@/components/GoalManagement';
+import { VERSION_INFO, getVersionString } from '@/lib/version';
 
 interface UserData {
   name: string;
   email: string;
-  targetName: string;
-  targetDate: string;
-  examDate: string;
   isAdmin: boolean;
 }
 
@@ -35,14 +33,12 @@ export default function ProfilePage() {
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
   
   // 用户信息表单
   const [userData, setUserData] = useState<UserData>({
     name: '',
     email: '',
-    targetName: '',
-    targetDate: '',
-    examDate: '',
     isAdmin: false,
   });
   
@@ -68,21 +64,35 @@ export default function ProfilePage() {
     loadUserData();
   }, [isAuthenticated, router]);
 
+  // 应用主题到document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    // 同时为Tailwind深色模式添加class
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
   // 加载用户数据（实时从后端获取）
   const loadUserData = async () => {
     try {
       setIsPageLoading(true);
       const response = await userAPI.getProfile();
       const user = response.data;
-      
+
       setUserData({
         name: user.name || '',
         email: user.email || '',
-        targetName: user.targetName || '',
-        targetDate: user.targetDate ? user.targetDate.split('T')[0] : '',
-        examDate: user.examDate ? user.examDate.split('T')[0] : '',
         isAdmin: user.isAdmin || false,
       });
+
+      // 设置主题
+      if (user.theme) {
+        const userTheme = user.theme === 'dark' ? 'dark' : 'light';
+        setTheme(userTheme);
+      }
     } catch (error: any) {
       console.error('加载用户数据失败:', error);
       if (error.response?.status === 401) {
@@ -117,9 +127,6 @@ export default function ProfilePage() {
     try {
       const updateData: any = {
         name: userData.name,
-        targetName: userData.targetName || null,
-        targetDate: userData.targetDate ? new Date(userData.targetDate).toISOString() : null,
-        examDate: userData.examDate ? new Date(userData.examDate).toISOString() : null,
       };
 
       await userAPI.updateProfile(updateData);
@@ -248,6 +255,7 @@ export default function ProfilePage() {
               <Edit size={18} />
               个人信息
             </button>
+
             <button
               className={`tab-button ${activeTab === 'exercise' ? 'active' : ''}`}
               onClick={() => setActiveTab('exercise')}
@@ -294,85 +302,66 @@ export default function ProfilePage() {
 
           {/* 个人信息标签页 */}
           {activeTab === 'profile' && (
-            <form onSubmit={handleProfileUpdate} className="form-container">
-              <div className="form-group">
-                <label htmlFor="name">姓名 *</label>
-                <div className="input-with-icon">
-                  <User size={18} />
-                  <input
-                    type="text"
-                    id="name"
-                    className="form-input"
-                    value={userData.name}
-                    onChange={(e) => setUserData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="请输入姓名"
-                    required
-                  />
+            <div>
+              <form onSubmit={handleProfileUpdate} className="form-container">
+                <div className="form-group">
+                  <label htmlFor="name">姓名 *</label>
+                  <div className="input-with-icon">
+                    <User size={18} />
+                    <input
+                      type="text"
+                      id="name"
+                      className="form-input"
+                      value={userData.name}
+                      onChange={(e) => setUserData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="请输入姓名"
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="form-group">
-                <label htmlFor="email">邮箱</label>
-                <div className="input-with-icon">
-                  <Mail size={18} />
-                  <input
-                    type="email"
-                    id="email"
-                    className="form-input"
-                    value={userData.email}
-                    disabled
-                    placeholder="邮箱不可修改"
-                  />
+                <div className="form-group">
+                  <label htmlFor="email">邮箱</label>
+                  <div className="input-with-icon">
+                    <Mail size={18} />
+                    <input
+                      type="email"
+                      id="email"
+                      className="form-input"
+                      value={userData.email}
+                      disabled
+                      placeholder="邮箱不可修改"
+                    />
+                  </div>
+                  <small className="form-help">邮箱地址不可修改</small>
                 </div>
-                <small className="form-help">邮箱地址不可修改</small>
-              </div>
 
-              <div className="form-group">
-                <label htmlFor="targetName">目标名称</label>
-                <input
-                  type="text"
-                  id="targetName"
-                  className="form-input"
-                  value={userData.targetName}
-                  onChange={(e) => setUserData(prev => ({ ...prev, targetName: e.target.value }))}
-                  placeholder="如：雅思、考研、托福等"
-                />
-              </div>
 
-              <div className="form-group">
-                <label htmlFor="targetDate">目标日期</label>
-                <input
-                  type="date"
-                  id="targetDate"
-                  className="form-input"
-                  value={userData.targetDate}
-                  onChange={(e) => setUserData(prev => ({ ...prev, targetDate: e.target.value }))}
-                />
-              </div>
 
-              <div className="form-group">
-                <label htmlFor="examDate">考试日期</label>
-                <input
-                  type="date"
-                  id="examDate"
-                  className="form-input"
-                  value={userData.examDate}
-                  onChange={(e) => setUserData(prev => ({ ...prev, examDate: e.target.value }))}
-                />
-              </div>
+                <div className="form-actions">
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={isLoading}
+                  >
+                    <Save size={16} />
+                    {isLoading ? '保存中...' : '保存更改'}
+                  </button>
+                </div>
+              </form>
 
-              <div className="form-actions">
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={isLoading}
-                >
-                  <Save size={16} />
-                  {isLoading ? '保存中...' : '保存更改'}
-                </button>
+              {/* 目标管理功能 */}
+              <div className="mt-8">
+                <GoalManagement onGoalChange={() => {
+                  // 目标变更后的回调，可以用来刷新其他相关数据
+                  console.log('目标已更新');
+                  loadUserData(); // 重新加载用户数据以更新目标信息
+                }} />
               </div>
-            </form>
+            </div>
           )}
+
+
 
           {/* 运动配置标签页 */}
           {activeTab === 'exercise' && (

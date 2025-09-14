@@ -101,9 +101,10 @@ const generateMockChartData = () => {
 
 interface StudyOverviewProps {
   userId?: string;
+  theme?: 'dark' | 'light';
 }
 
-const StudyOverview: React.FC<StudyOverviewProps> = ({ userId }) => {
+const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }) => {
   const { user } = useAuthStore();
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
@@ -119,6 +120,16 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId }) => {
   useEffect(() => {
     loadOverviewData();
   }, []);
+
+  // 应用主题
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   // 分享功能
   const handleShare = async () => {
@@ -447,7 +458,7 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId }) => {
 
       {/* 任务完成热力图 */}
       <div style={{ marginBottom: '32px' }}>
-        <TaskHeatmap data={heatmapData} />
+        <TaskHeatmap data={heatmapData} theme={theme} />
       </div>
 
       {/* 访客统计 */}
@@ -467,11 +478,23 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId }) => {
           marginBottom: '32px',
         }}
       >
-        <div style={{ minWidth: '0' }}> {/* 防止内容溢出 */}
-          <StudyChart data={chartData} />
+        <div style={{
+          minWidth: '0',
+          backgroundColor: 'var(--bg-secondary)',
+          borderRadius: '12px',
+          border: '1px solid var(--border-color)',
+          padding: '20px',
+        }}> {/* 防止内容溢出 */}
+          <StudyChart data={chartData} theme={theme} />
         </div>
-        <div style={{ minWidth: '0' }}> {/* 防止内容溢出 */}
-          <RecentActivities activities={activities} />
+        <div style={{
+          minWidth: '0',
+          backgroundColor: 'var(--bg-secondary)',
+          borderRadius: '12px',
+          border: '1px solid var(--border-color)',
+          padding: '20px',
+        }}> {/* 防止内容溢出 */}
+          <RecentActivities activities={activities} theme={theme} />
         </div>
       </div>
 

@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import StudyOverview from '@/components/overview/StudyOverview';
-import VisitorStats from '@/components/VisitorStats';
+import GoalOverview from '@/components/GoalOverview';
+
 import { userAPI } from '@/lib/api';
 
 // 导入统一的主题样式
@@ -16,6 +17,7 @@ export default function OverviewPage() {
   const router = useRouter();
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [user, setUser] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'goal' | 'study'>('study');
 
   // 加载用户信息
   useEffect(() => {
@@ -49,6 +51,12 @@ export default function OverviewPage() {
   // 应用主题到document
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    // 同时为Tailwind深色模式添加class
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, [theme]);
 
   // 初始化主题（从用户配置加载）
@@ -114,7 +122,37 @@ export default function OverviewPage() {
         {theme === 'dark' ? '🌙' : '☀️'}
       </button>
 
-      <StudyOverview userId={user?.id} />
+      {/* 标签页切换 */}
+      <div className="max-w-6xl mx-auto mb-6">
+        <div className="flex space-x-1 bg-white dark:bg-gray-800 rounded-lg p-1 shadow-sm border border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setActiveTab('study')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'study'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            学习概况
+          </button>
+          <button
+            onClick={() => setActiveTab('goal')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'goal'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            目标概况
+          </button>
+        </div>
+      </div>
+
+      {/* 内容区域 */}
+      <div className="max-w-6xl mx-auto">
+        {activeTab === 'study' && <StudyOverview userId={user?.id} theme={theme} />}
+        {activeTab === 'goal' && <GoalOverview userId={user?.id} />}
+      </div>
     </div>
   );
 }

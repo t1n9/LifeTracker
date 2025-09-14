@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { userAPI, studyAPI, taskAPI, api } from '@/lib/api';
+import { goalService, UserGoal } from '../services/goalService';
 import { getVersionString } from '@/lib/version';
 import HistoryViewer from './HistoryViewer';
 import PomodoroTimer, { PomodoroTimerRef } from './PomodoroTimer';
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const router = useRouter();
 
   const [user, setUser] = useState<any>(null);
+  const [currentGoal, setCurrentGoal] = useState<UserGoal | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [theme, setTheme] = useState<'dark' | 'light'>('light'); // 默认浅色，等用户数据加载后再设置
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -86,6 +88,12 @@ export default function Dashboard() {
   // 应用主题到document
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    // 同时为Tailwind深色模式添加class
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, [theme]);
 
   // 初始化主题（从用户配置加载）
@@ -106,6 +114,17 @@ export default function Dashboard() {
       setPomodoroCount(stats.pomodoroCount);
     } catch (error) {
       console.error('加载今日学习数据失败:', error);
+    }
+  };
+
+  // 加载当前目标
+  const loadCurrentGoal = async () => {
+    try {
+      const goal = await goalService.getCurrentGoal();
+      setCurrentGoal(goal);
+    } catch (error) {
+      console.error('加载当前目标失败:', error);
+      // 不显示错误提示，因为没有目标是正常情况
     }
   };
 
@@ -230,6 +249,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadUserData();
+    loadCurrentGoal();
     loadTodayStats();
     loadTasks();
   }, []);
@@ -364,28 +384,26 @@ export default function Dashboard() {
 
 
 
-  // 计算倒计时
+  // 计算倒计时 - 使用新的目标管理系统
   const getTargetInfo = () => {
-    // 优先使用用户设置的考试日期，其次是目标日期
-    const examDate = user?.examDate;
-    const targetDate = user?.targetDate;
-    const targetName = user?.targetName;
+    // 首先检查是否有当前活跃的目标
+    if (currentGoal) {
+      const targetDate = currentGoal.targetDate;
+      const goalName = currentGoal.goalName;
 
-    let finalDate = null;
-    let displayName = '';
-    let hasTarget = false;
+      let finalDate = null;
+      let displayName = goalName || '';
+      let hasTarget = true;
 
-    if (examDate) {
-      finalDate = new Date(examDate);
-      displayName = targetName || '考研';
-      hasTarget = true;
-    } else if (targetDate) {
-      finalDate = new Date(targetDate);
-      displayName = targetName || '';
-      hasTarget = true;
+      if (targetDate) {
+        finalDate = new Date(targetDate);
+      }
+
+      return { date: finalDate, name: displayName, hasTarget };
     }
 
-    return { date: finalDate, name: displayName, hasTarget };
+    // 如果没有活跃目标，返回无目标状态
+    return { date: null, name: '', hasTarget: false };
   };
 
   const { date: targetDate, name: targetName, hasTarget } = getTargetInfo();

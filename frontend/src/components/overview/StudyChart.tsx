@@ -12,9 +12,10 @@ interface ChartData {
 
 interface StudyChartProps {
   data: ChartData[];
+  theme?: 'dark' | 'light';
 }
 
-const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
+const StudyChart: React.FC<StudyChartProps> = ({ data, theme = 'light' }) => {
   const [activeMetric, setActiveMetric] = useState<'studyTime' | 'tasksCompleted' | 'pomodoroCount'>('studyTime');
   const chartScrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -71,7 +72,7 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
           y1={y}
           x2={Math.max(chartWidth, 400 - padding.right)}
           y2={y}
-          stroke="#4b5563"
+          stroke={theme === 'dark' ? '#4b5563' : '#e5e7eb'}
           strokeWidth="1"
           opacity="0.3"
         />
@@ -109,10 +110,10 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
         <div style={{
           display: 'flex',
           gap: '8px',
-          backgroundColor: '#374151', // 深灰色背景
+          backgroundColor: theme === 'dark' ? '#374151' : '#f3f4f6',
           padding: '4px',
           borderRadius: '8px',
-          border: '1px solid #4b5563',
+          border: `1px solid ${theme === 'dark' ? '#4b5563' : '#d1d5db'}`,
         }}>
           {Object.entries(metrics).map(([key, metric]) => (
             <button
@@ -126,7 +127,7 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
                 borderRadius: '6px',
                 border: 'none',
                 backgroundColor: activeMetric === key ? currentMetric.color : 'transparent',
-                color: activeMetric === key ? 'white' : '#d1d5db',
+                color: activeMetric === key ? 'white' : (theme === 'dark' ? '#d1d5db' : '#6b7280'),
                 fontSize: '0.75rem',
                 fontWeight: '500',
                 cursor: 'pointer',
@@ -149,13 +150,13 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
       }}>
         <div style={{
           padding: '12px',
-          backgroundColor: '#374151',
+          backgroundColor: theme === 'dark' ? '#374151' : '#f9fafb',
           borderRadius: '8px',
-          border: '1px solid #4b5563',
+          border: `1px solid ${theme === 'dark' ? '#4b5563' : '#e5e7eb'}`,
         }}>
           <div style={{
             fontSize: '0.75rem',
-            color: '#9ca3af',
+            color: theme === 'dark' ? '#9ca3af' : '#6b7280',
             marginBottom: '4px',
           }}>
             总计
@@ -171,13 +172,13 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
 
         <div style={{
           padding: '12px',
-          backgroundColor: '#374151',
+          backgroundColor: theme === 'dark' ? '#374151' : '#f9fafb',
           borderRadius: '8px',
-          border: '1px solid #4b5563',
+          border: `1px solid ${theme === 'dark' ? '#4b5563' : '#e5e7eb'}`,
         }}>
           <div style={{
             fontSize: '0.75rem',
-            color: '#9ca3af',
+            color: theme === 'dark' ? '#9ca3af' : '#6b7280',
             marginBottom: '4px',
           }}>
             平均
@@ -200,13 +201,13 @@ const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
 
         <div style={{
           padding: '12px',
-          backgroundColor: '#374151',
+          backgroundColor: theme === 'dark' ? '#374151' : '#f9fafb',
           borderRadius: '8px',
-          border: '1px solid #4b5563',
+          border: `1px solid ${theme === 'dark' ? '#4b5563' : '#e5e7eb'}`,
         }}>
           <div style={{
             fontSize: '0.75rem',
-            color: '#9ca3af',
+            color: theme === 'dark' ? '#9ca3af' : '#6b7280',
             marginBottom: '4px',
           }}>
             趋势

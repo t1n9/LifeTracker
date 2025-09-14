@@ -9,20 +9,7 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsString()
   name?: string;
 
-  @ApiProperty({ description: '目标名称', required: false })
-  @IsOptional()
-  @IsString()
-  targetName?: string;
 
-  @ApiProperty({ description: '目标日期', required: false })
-  @IsOptional()
-  @IsDateString()
-  targetDate?: string;
-
-  @ApiProperty({ description: '考试日期', required: false })
-  @IsOptional()
-  @IsDateString()
-  examDate?: string;
 
   @ApiProperty({ description: '主题', required: false })
   @IsOptional()

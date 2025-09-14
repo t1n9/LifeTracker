@@ -10,9 +10,10 @@ interface DayData {
 
 interface TaskHeatmapProps {
   data: DayData[];
+  theme?: 'dark' | 'light';
 }
 
-const TaskHeatmap: React.FC<TaskHeatmapProps> = ({ data }) => {
+const TaskHeatmap: React.FC<TaskHeatmapProps> = ({ data, theme = 'light' }) => {
   const [hoveredDay, setHoveredDay] = useState<DayData | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -42,15 +43,23 @@ const TaskHeatmap: React.FC<TaskHeatmapProps> = ({ data }) => {
   // 将数据转换为日期映射
   const dataMap = new Map(data.map(d => [d.date, d]));
 
-  // 获取颜色 - 红色系
+  // 获取颜色 - 支持深色模式的红色系
   const getColor = (level: number) => {
-    const colors = [
+    const lightColors = [
       '#ebedf0', // 0 - 灰色（无任务）
       '#fecaca', // 1 - 浅红色（1-2个任务）
       '#fca5a5', // 2 - 中浅红色（3-4个任务）
       '#f87171', // 3 - 中红色（5-7个任务）
       '#ef4444', // 4 - 深红色（8+个任务）
     ];
+    const darkColors = [
+      '#374151', // 0 - 深灰色（无任务）
+      '#7f1d1d', // 1 - 深红色（1-2个任务）
+      '#991b1b', // 2 - 中深红色（3-4个任务）
+      '#b91c1c', // 3 - 红色（5-7个任务）
+      '#dc2626', // 4 - 亮红色（8+个任务）
+    ];
+    const colors = theme === 'dark' ? darkColors : lightColors;
     return colors[level] || colors[0];
   };
 

@@ -14,9 +14,10 @@ interface Activity {
 
 interface RecentActivitiesProps {
   activities: Activity[];
+  theme?: 'dark' | 'light';
 }
 
-const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
+const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities, theme = 'light' }) => {
   const getIcon = (type: string) => {
     switch (type) {
       case 'task':
@@ -84,7 +85,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
           <div style={{
             textAlign: 'center',
             padding: '40px 20px',
-            color: '#9ca3af',
+            color: theme === 'dark' ? '#9ca3af' : '#6b7280',
           }}>
             <Clock size={40} style={{ opacity: 0.5, marginBottom: '12px' }} />
             <p>暂无最近活动</p>
@@ -98,9 +99,9 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
                 alignItems: 'flex-start',
                 gap: '12px',
                 padding: '12px',
-                backgroundColor: '#374151',
+                backgroundColor: theme === 'dark' ? '#374151' : '#f9fafb',
                 borderRadius: '8px',
-                border: '1px solid #4b5563',
+                border: `1px solid ${theme === 'dark' ? '#4b5563' : '#e5e7eb'}`,
                 transition: 'all 0.2s ease',
               }}
             >
@@ -127,7 +128,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
                   <span style={{
                     fontSize: '0.75rem',
                     fontWeight: '500',
-                    color: '#9ca3af',
+                    color: theme === 'dark' ? '#9ca3af' : '#6b7280',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                   }}>
@@ -136,8 +137,8 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
                   {activity.duration && (
                     <span style={{
                       fontSize: '0.75rem',
-                      color: '#9ca3af',
-                      backgroundColor: '#4b5563',
+                      color: theme === 'dark' ? '#9ca3af' : '#6b7280',
+                      backgroundColor: theme === 'dark' ? '#4b5563' : '#e5e7eb',
                       padding: '2px 6px',
                       borderRadius: '4px',
                     }}>
@@ -150,7 +151,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
                   margin: '0 0 4px 0',
                   fontSize: '0.875rem',
                   fontWeight: '500',
-                  color: '#f9fafb',
+                  color: theme === 'dark' ? '#f9fafb' : '#1f2937',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -162,7 +163,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
                   <p style={{
                     margin: '0 0 8px 0',
                     fontSize: '0.75rem',
-                    color: '#d1d5db',
+                    color: theme === 'dark' ? '#d1d5db' : '#4b5563',
                     lineHeight: '1.4',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -174,7 +175,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
 
                 <time style={{
                   fontSize: '0.75rem',
-                  color: '#9ca3af',
+                  color: theme === 'dark' ? '#9ca3af' : '#6b7280',
                 }}>
                   {formatTime(activity.timestamp)}
                 </time>
