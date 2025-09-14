@@ -36,6 +36,15 @@ export class SuggestionsController {
     return this.suggestionsService.getStats();
   }
 
+  @Get('export')
+  @ApiOperation({ summary: '导出所有建议（管理员）' })
+  exportAllSuggestions(@Request() req) {
+    if (!req.user.isAdmin) {
+      throw new Error('需要管理员权限');
+    }
+    return this.suggestionsService.exportAllSuggestions();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '获取单个建议' })
   findOne(@Request() req, @Param('id') id: string) {

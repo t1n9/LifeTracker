@@ -46,6 +46,57 @@ export default function SuggestionManagement() {
   const [updating, setUpdating] = useState(false);
   const [filter, setFilter] = useState<string>('all');
 
+  // 导出建议数据
+  const exportSuggestions = async () => {
+    try {
+      setLoading(true);
+      const response = await suggestionsAPI.exportAllSuggestions();
+      const allSuggestions = response.data;
+
+      const dataToExport = allSuggestions.map((suggestion: any) => ({
+        '建议ID': suggestion.id,
+        '标题': suggestion.title,
+        '内容': suggestion.content,
+        '状态': getStatusText(suggestion.status),
+        '优先级': getPriorityText(suggestion.priority),
+        '分类': getCategoryText(suggestion.category),
+        '提交者': suggestion.user.name,
+        '提交者邮箱': suggestion.user.email,
+        '提交时间': new Date(suggestion.createdAt).toLocaleString('zh-CN'),
+        '管理员回复': suggestion.adminReply || '无',
+        '审核时间': suggestion.reviewedAt ? new Date(suggestion.reviewedAt).toLocaleString('zh-CN') : '未审核',
+        '审核者': suggestion.reviewer?.name || '无'
+      }));
+
+      // 转换为CSV格式
+      const headers = Object.keys(dataToExport[0] || {});
+      const csvContent = [
+        headers.join(','),
+        ...dataToExport.map((row: any) =>
+          headers.map(header => `"${String(row[header]).replace(/"/g, '""')}"`).join(',')
+        )
+      ].join('\n');
+
+      // 下载文件
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `系统建议_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      console.log(`✅ 已导出 ${allSuggestions.length} 条建议`);
+    } catch (error) {
+      console.error('导出建议失败:', error);
+      alert('导出失败，请重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadSuggestions();
     loadStats();
@@ -169,21 +220,42 @@ export default function SuggestionManagement() {
   return (
     <div style={{ padding: '2rem' }}>
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{
-          fontSize: '1.5rem',
-          fontWeight: '600',
-          color: 'var(--text-primary)',
-          marginBottom: '0.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-        }}>
-          <MessageSquare size={24} />
-          系统建议管理
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-          管理用户提交的系统建议和反馈
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{
+              fontSize: '1.5rem',
+              fontWeight: '600',
+              color: 'var(--text-primary)',
+              marginBottom: '0.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}>
+              <MessageSquare size={24} />
+              系统建议管理
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+              管理用户提交的系统建议和反馈
+            </p>
+          </div>
+          <button
+            onClick={exportSuggestions}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#059669',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: suggestions.length === 0 ? 'not-allowed' : 'pointer',
+              opacity: suggestions.length === 0 ? 0.5 : 1,
+              fontSize: '0.875rem',
+              fontWeight: '500',
+            }}
+            disabled={suggestions.length === 0}
+          >
+            导出所有建议 ({suggestions.length})
+          </button>
+        </div>
       </div>
 
       {/* 统计卡片 */}

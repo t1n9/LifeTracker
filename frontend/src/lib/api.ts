@@ -259,6 +259,7 @@ export const suggestionsAPI = {
     api.patch(`/suggestions/${id}`, data),
   deleteSuggestion: (id: string) => api.delete(`/suggestions/${id}`),
   getSuggestionStats: () => api.get('/suggestions/stats'),
+  exportAllSuggestions: () => api.get('/suggestions/export'),
 };
 
 // 分享链接管理API（需要认证）

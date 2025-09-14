@@ -165,4 +165,50 @@ export class SuggestionsService {
       rejected,
     };
   }
+
+  async exportAllSuggestions() {
+    const suggestions = await this.prisma.systemSuggestion.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        reviewer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return suggestions.map(suggestion => ({
+      id: suggestion.id,
+      title: suggestion.title,
+      content: suggestion.content,
+      status: suggestion.status,
+      priority: suggestion.priority,
+      category: suggestion.category,
+      user: {
+        id: suggestion.user.id,
+        name: suggestion.user.name,
+        email: suggestion.user.email,
+      },
+      adminReply: suggestion.adminReply,
+      createdAt: suggestion.createdAt,
+      reviewedAt: suggestion.reviewedAt,
+      reviewer: suggestion.reviewer ? {
+        id: suggestion.reviewer.id,
+        name: suggestion.reviewer.name,
+        email: suggestion.reviewer.email,
+      } : null,
+    }));
+  }
 }
