@@ -197,47 +197,46 @@ export class HistoryService {
         },
       });
 
-      // 调试信息
-      console.log('🔍 运动记录查询结果:', {
-        userId,
-        date: date,
-        targetDate: targetDate.toISOString(),
-        recordCount: exerciseRecords.length,
-        records: exerciseRecords.map(r => ({
-          exerciseName: r.exercise.name,
-          value: r.value,
-          date: r.date.toISOString()
-        }))
-      });
 
-      // 将运动记录按类型分组，并转换为前端期望的格式
-      const exerciseData = {
-        running: 0,
-        pushUps: 0,
-        pullUps: 0,
-        squats: 0,
-        cycling: 0,
-        swimming: 0,
+
+      // 将运动记录按类型分组，动态生成运动数据
+      const exerciseData: {
+        exercises: Array<{
+          id: string;
+          name: string;
+          value: number;
+          unit: string;
+        }>;
+        feeling: string | null;
+      } = {
+        exercises: [],
         feeling: null,
       };
 
+      // 按运动类型分组并汇总
+      const exerciseMap = new Map<string, { name: string; value: number; unit: string }>();
+
       exerciseRecords.forEach(record => {
-        const exerciseName = record.exercise.name.toLowerCase();
-        // 映射运动名称到前端期望的字段
-        if (exerciseName.includes('跑步') || exerciseName.includes('running')) {
-          exerciseData.running += record.value;
-        } else if (exerciseName.includes('俯卧撑') || exerciseName.includes('pushup')) {
-          exerciseData.pushUps += record.value;
-        } else if (exerciseName.includes('单杠') || exerciseName.includes('pullup') || exerciseName.includes('引体向上')) {
-          exerciseData.pullUps += record.value;
-        } else if (exerciseName.includes('深蹲') || exerciseName.includes('squat')) {
-          exerciseData.squats += record.value;
-        } else if (exerciseName.includes('骑车') || exerciseName.includes('cycling') || exerciseName.includes('骑行')) {
-          exerciseData.cycling += record.value;
-        } else if (exerciseName.includes('游泳') || exerciseName.includes('swimming')) {
-          exerciseData.swimming += record.value;
+        const key = record.exercise.id;
+        if (exerciseMap.has(key)) {
+          const existing = exerciseMap.get(key)!;
+          existing.value += record.value;
+        } else {
+          exerciseMap.set(key, {
+            name: record.exercise.name,
+            value: record.value,
+            unit: record.unit || record.exercise.unit || '',
+          });
         }
       });
+
+      // 转换为数组格式
+      exerciseData.exercises = Array.from(exerciseMap.entries()).map(([id, data]) => ({
+        id,
+        name: data.name,
+        value: data.value,
+        unit: data.unit,
+      }));
 
       // 获取运动感受 - 使用具体日期匹配
       const dailyDataForFeeling = await this.prisma.dailyData.findFirst({

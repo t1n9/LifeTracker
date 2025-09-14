@@ -498,56 +498,39 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                   }}>
                     🏃 运动记录
                   </h5>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '0.5rem',
-                    marginBottom: '0.75rem'
-                  }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'var(--accent-primary)', marginBottom: '0.25rem' }}>
-                        {dayData.exercise.pullUps}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>引体向上</div>
+                  {dayData.exercise.exercises && dayData.exercise.exercises.length > 0 ? (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+                      gap: '0.5rem',
+                      marginBottom: '0.75rem'
+                    }}>
+                      {dayData.exercise.exercises.map((exercise, index) => (
+                        <div key={exercise.id || index} style={{ textAlign: 'center' }}>
+                          <div style={{
+                            fontSize: '1.125rem',
+                            fontWeight: 'bold',
+                            color: `hsl(${(index * 60) % 360}, 60%, 50%)`,
+                            marginBottom: '0.25rem'
+                          }}>
+                            {exercise.value}{exercise.unit}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            {exercise.name}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'var(--success-color)', marginBottom: '0.25rem' }}>
-                        {dayData.exercise.squats}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>深蹲</div>
+                  ) : (
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '1rem',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.875rem'
+                    }}>
+                      今日无运动记录
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'var(--warning-color)', marginBottom: '0.25rem' }}>
-                        {dayData.exercise.pushUps}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>俯卧撑</div>
-                    </div>
-                  </div>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '0.5rem',
-                    marginBottom: '0.75rem'
-                  }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'var(--error-color)', marginBottom: '0.25rem' }}>
-                        {dayData.exercise.running}km
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>跑步</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'var(--accent-secondary)', marginBottom: '0.25rem' }}>
-                        {dayData.exercise.cycling}km
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>骑车</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                        {dayData.exercise.swimming}km
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>游泳</div>
-                    </div>
-                  </div>
+                  )}
                   {dayData.exercise.feeling && (
                     <div style={{
                       padding: '0.5rem',

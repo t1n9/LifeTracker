@@ -19,12 +19,12 @@ export interface DayData {
     pomodoroCount: number;
   }>;
   exercise?: {
-    running: number;
-    pushUps: number;
-    pullUps: number;
-    squats: number;
-    cycling: number;
-    swimming: number;
+    exercises: Array<{
+      id: string;
+      name: string;
+      value: number;
+      unit: string;
+    }>;
     feeling?: string;
   };
   expenses?: {
