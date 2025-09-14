@@ -42,9 +42,6 @@ export class AuthController {
         id: req.user.id,
         email: req.user.email,
         name: req.user.name,
-        targetName: req.user.targetName,
-        targetDate: req.user.targetDate,
-        examDate: req.user.examDate,
         theme: req.user.theme,
       },
     };

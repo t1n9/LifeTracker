@@ -50,9 +50,6 @@ export class AuthService {
         email: user.email,
         name: user.name,
         theme: user.theme,
-        targetName: user.targetName,
-        targetDate: user.targetDate,
-        examDate: user.examDate,
       },
       accessToken,
     };
@@ -77,9 +74,6 @@ export class AuthService {
         email: user.email,
         name: user.name,
         theme: user.theme,
-        targetName: user.targetName,
-        targetDate: user.targetDate,
-        examDate: user.examDate,
       },
       accessToken,
     };
