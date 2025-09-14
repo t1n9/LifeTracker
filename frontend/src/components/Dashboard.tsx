@@ -638,8 +638,11 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* 中列：待办任务 */}
+          {/* 中列：重要信息和待办任务 */}
           <div className="dashboard-center">
+            {/* 重要信息卡片 */}
+            <ImportantInfo theme={theme} />
+
             <PendingTasks
               onTaskClick={handleTaskClick}
               onStartCountUp={handleStartCountUp}
@@ -656,11 +659,8 @@ export default function Dashboard() {
 
           </div>
 
-          {/* 右列：重要信息和统计信息 */}
+          {/* 右列：统计信息 */}
           <div className="dashboard-right">
-            {/* 重要信息卡片 */}
-            <ImportantInfo theme={theme} />
-
             {/* 运动统计卡片 */}
             <ExerciseStats theme={theme} />
 

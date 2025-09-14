@@ -157,6 +157,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
           <input
             type="checkbox"
             checked={task.isCompleted}
+            title="完成任务"
             onClick={(e) => {
               e.stopPropagation(); // 阻止冒泡到父元素的点击事件
             }}
@@ -756,7 +757,23 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
                     <Check size={12} className="text-white" />
                   )}
                 </button>
-                <span className="task-title completed">{task.title}</span>
+                <span className="task-title completed" style={{ flex: 1 }}>{task.title}</span>
+
+                {/* 番茄数量显示 */}
+                {(task.pomodoroCount || 0) > 0 && (
+                  <div className="pomodoro-count-badge" style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--text-muted)',
+                    background: 'var(--bg-tertiary)',
+                    padding: '0.125rem 0.375rem',
+                    borderRadius: '12px',
+                    opacity: 0.8,
+                    marginRight: '0.5rem',
+                  }}>
+                    🍅 {task.pomodoroCount}
+                  </div>
+                )}
+
                 <button
                   onClick={() => handleDeleteTask(task.id)}
                   className="action-btn delete-btn"

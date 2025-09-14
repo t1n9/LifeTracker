@@ -41,8 +41,8 @@
 
 .task-item.dragging {
   opacity: 0.8;
-  transform: rotate(2deg) scale(1.02);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  transform: rotate(1deg) scale(1.01);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
   z-index: 1000;
   background: var(--bg-primary);
   border-color: var(--accent-primary);
