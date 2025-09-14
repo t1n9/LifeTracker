@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { toBeijingTime, getTodayStart, getTodayEnd, getDateStart, getDateEnd } from '../common/utils/date.util';
+import { toBeijingTime, getTodayStart, getTodayEnd, getDateStart, getDateEnd, formatDateString, parseDateString } from '../common/utils/date.util';
 
 @Injectable()
 export class HistoryService {
@@ -8,67 +8,85 @@ export class HistoryService {
 
   async getAvailableDates(userId: string): Promise<string[]> {
     try {
+      // 获取用户时区信息
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { timezone: true },
+      });
+      const timezone = user?.timezone || 'Asia/Shanghai';
+
       const uniqueDates = new Set<string>();
 
-      // 从任务表获取日期
+      // 从任务表获取日期 - 包含创建日期和完成日期，使用用户时区
       const tasks = await this.prisma.task.findMany({
         where: { userId },
-        select: { createdAt: true },
+        select: {
+          createdAt: true,
+          updatedAt: true,
+          isCompleted: true
+        },
       });
       tasks.forEach(task => {
-        const date = task.createdAt.toISOString().split('T')[0];
-        uniqueDates.add(date);
+        // 添加创建日期（使用用户时区）
+        const createdDate = formatDateString(task.createdAt, timezone);
+        uniqueDates.add(createdDate);
+
+        // 如果任务已完成，也添加完成日期（更新日期，使用用户时区）
+        if (task.isCompleted) {
+          const completedDate = formatDateString(task.updatedAt, timezone);
+          uniqueDates.add(completedDate);
+        }
       });
 
-      // 从学习记录表获取日期
+      // 从学习记录表获取日期（使用用户时区）
       const studyRecords = await this.prisma.studyRecord.findMany({
         where: { userId },
         select: { startedAt: true },
       });
       studyRecords.forEach(record => {
-        const date = record.startedAt.toISOString().split('T')[0];
+        const date = formatDateString(record.startedAt, timezone);
         uniqueDates.add(date);
       });
 
-      // 从番茄钟表获取日期
+      // 从番茄钟表获取日期（使用用户时区）
       const pomodoroSessions = await this.prisma.pomodoroSession.findMany({
         where: { userId },
         select: { startedAt: true },
       });
       pomodoroSessions.forEach(session => {
-        const date = session.startedAt.toISOString().split('T')[0];
+        const date = formatDateString(session.startedAt, timezone);
         uniqueDates.add(date);
       });
 
-      // 从每日数据表获取日期
+      // 从每日数据表获取日期（使用用户时区）
       const dailyData = await this.prisma.dailyData.findMany({
         where: { userId },
         select: { date: true },
       });
       dailyData.forEach(data => {
-        const date = data.date.toISOString().split('T')[0];
+        const date = formatDateString(data.date, timezone);
         uniqueDates.add(date);
       });
 
-      // 从运动记录表获取日期
+      // 从运动记录表获取日期（使用用户时区）
       const exerciseRecords = await this.prisma.exerciseRecord.findMany({
         where: { userId },
         select: { date: true },
         distinct: ['date'],
       });
       exerciseRecords.forEach(record => {
-        const date = record.date.toISOString().split('T')[0];
+        const date = formatDateString(record.date, timezone);
         uniqueDates.add(date);
       });
 
-      // 从消费记录表获取日期
+      // 从消费记录表获取日期（使用用户时区）
       const expenseRecords = await this.prisma.expenseRecord.findMany({
         where: { userId },
         select: { date: true },
         distinct: ['date'],
       });
       expenseRecords.forEach(record => {
-        const date = record.date.toISOString().split('T')[0];
+        const date = formatDateString(record.date, timezone);
         uniqueDates.add(date);
       });
 
@@ -90,11 +108,12 @@ export class HistoryService {
       });
       const timezone = user?.timezone || 'Asia/Shanghai';
 
-      // 计算时间范围
-      const today = new Date().toISOString().split('T')[0];
+      // 计算时间范围 - 修复时区问题
+      // 使用用户时区的今天日期，而不是UTC日期
+      const todayInUserTz = formatDateString(new Date(), timezone);
       let startDate: Date, endDate: Date;
 
-      if (date === today) {
+      if (date === todayInUserTz) {
         startDate = getTodayStart(timezone);
         endDate = getTodayEnd(timezone);
       } else {
@@ -102,11 +121,20 @@ export class HistoryService {
         endDate = getDateEnd(date, timezone);
       }
 
-      // 获取任务数据
+      console.log(`🕐 时区调试信息 (${date}):`, {
+        requestedDate: date,
+        todayInUserTz,
+        isToday: date === todayInUserTz,
+        timezone,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      });
+
+      // 获取任务数据 - 显示在该日期范围内有活动的任务
       const tasks = await this.prisma.task.findMany({
         where: {
           userId,
-          createdAt: {
+          updatedAt: {  // 改为使用更新时间，这样能看到完成的任务
             gte: startDate,
             lt: endDate,
           },
@@ -150,8 +178,8 @@ export class HistoryService {
         },
       });
 
-      // 获取运动数据 - 使用具体日期匹配
-      const targetDate = new Date(date);
+      // 获取运动数据 - 使用具体日期匹配（解析为UTC日期）
+      const targetDate = parseDateString(date);
 
       // 获取每日数据（复盘等）- 使用具体日期匹配
       const dailyData = await this.prisma.dailyData.findFirst({
