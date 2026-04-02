@@ -1,236 +1,48 @@
-name: Build and Deploy LifeTracker
+name: Deploy LifeTracker
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-
-    - name: Build Backend
-      run: |
-        cd backend
-        npm ci
-        # 生成Prisma客户端
-        npx prisma generate
-        npm run build
-
-    - name: Build Frontend
-      env:
-        NEXT_PUBLIC_API_URL: https://${{ secrets.DOMAIN_NAME }}/api
-      run: |
-        cd frontend
-        npm ci --include=dev
-        # 设置环境变量跳过ESLint检查
-        export ESLINT_NO_DEV_ERRORS=true
-        export CI=false
-        export DISABLE_ESLINT_PLUGIN=true
-        npm run build
-
-    - name: Create deployment package
-      run: |
-        mkdir -p deploy-package
-
-        # 复制后端文件
-        cp -r backend/dist deploy-package/backend-dist
-        cp backend/package.json deploy-package/backend-package.json
-        cp backend/package-lock.json deploy-package/backend-package-lock.json
-        # 复制到根目录以便部署脚本使用
-        cp backend/package.json deploy-package/package.json
-        cp backend/package-lock.json deploy-package/package-lock.json
-        # 复制Prisma schema文件
-        cp -r backend/prisma deploy-package/prisma
-        # 复制后端脚本目录（包含邮件诊断工具）
-        cp -r backend/scripts deploy-package/scripts
-
-        # 复制前端文件（静态导出）
-        cp -r frontend/out deploy-package/frontend-dist
-        cp frontend/package.json deploy-package/frontend-package.json
-
-        # 复制配置文件
-        cp docker-compose.prod.yml deploy-package/ || cp docker-compose.yml deploy-package/docker-compose.prod.yml
-        cp docker-compose.simple.yml deploy-package/
-        cp -r nginx deploy-package/
-        # 确保超简化配置存在
-        cp nginx/nginx.ultra-simple.conf deploy-package/nginx/
-        cp scripts/deployment/deploy-prod.sh deploy-package/ || echo "#!/bin/bash" > deploy-package/deploy-prod.sh
-        cp scripts/deployment/deploy-native.sh deploy-package/
-        cp scripts/deployment/deploy-simple-native.sh deploy-package/
-        cp scripts/deployment/deploy-minimal.sh deploy-package/
-        cp scripts/development/init-prisma.sh deploy-package/
-        cp scripts/maintenance/fix-nginx.sh deploy-package/
-        cp scripts/maintenance/fix-403.sh deploy-package/
-        # 复制配置文件（如果存在）
-        cp scripts/deployment/deploy.config.sh deploy-package/ 2>/dev/null || echo "# 配置文件" > deploy-package/deploy.config.sh
-        cp scripts/deployment/deploy.config.example.sh deploy-package/ 2>/dev/null || true
-        # 复制访客统计初始化脚本
-        cp scripts/init-visitor-stats.sh deploy-package/
-        cp scripts/update-visitor-stats.sql deploy-package/
-        # 复制端口冲突修复脚本
-        cp fix-port-conflict.sh deploy-package/
-
-        # 创建压缩包
-        tar -czf deploy-package.tar.gz deploy-package/
-
-    - name: Setup SSH
-      uses: webfactory/ssh-agent@v0.8.0
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-    - name: Upload deployment package
-      run: |
-        scp -o StrictHostKeyChecking=no deploy-package.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/
-
     - name: Deploy to server
-      run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
           set -e
+          cd /opt/lifetracker
 
-          # 进入项目目录
-          cd /opt/lifetracker || {
-            echo "创建项目目录..."
-            mkdir -p /opt/lifetracker
-            cd /opt/lifetracker
-          }
+          # 拉取最新代码
+          git pull origin main
 
-          # 备份现有部署
-          if [ -d "current" ]; then
-            echo "备份现有部署..."
-            rm -rf backup || true
-            mv current backup || true
-          fi
+          # 编译后端
+          cd /opt/lifetracker/backend
+          npm ci
+          npx prisma generate
+          npm run build
 
-          # 解压新的部署包
-          echo "解压部署包..."
-          mkdir -p current
-          cd current
-          tar -xzf /tmp/deploy-package.tar.gz --strip-components=1
-          rm -f /tmp/deploy-package.tar.gz
-          
-          # 创建SSL证书目录
-          mkdir -p nginx/ssl
-          
-          # 备份现有的.env文件（如果存在）
-          if [ -f "../backup/.env" ]; then
-            echo "📋 备份现有的.env文件..."
-            cp ../backup/.env .env.backup
-            echo "✅ 现有配置已备份"
-          fi
+          # 更新运行目录
+          rm -rf /opt/lifetracker/app/backend-dist
+          cp -r dist /opt/lifetracker/app/backend-dist
+          cp -r node_modules /opt/lifetracker/app/node_modules
+          cp -r prisma /opt/lifetracker/app/prisma
+          cp package.json /opt/lifetracker/app/
 
-          # 生成基础环境变量文件
-          echo "📝 生成基础环境变量..."
-          echo "DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}" > .env.base
-          echo "DB_NAME=lifetracker" >> .env.base
-          echo "DB_USER=lifetracker" >> .env.base
-          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env.base
-          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env.base
-          echo "NODE_ENV=production" >> .env.base
+          # 编译前端
+          cd /opt/lifetracker/frontend
+          npm ci
+          NEXT_PUBLIC_API_URL=https://${{ secrets.DOMAIN_NAME }}/api npm run build
 
-          # 合并配置文件
-          echo "🔄 合并配置文件..."
-          if [ -f ".env.backup" ]; then
-            echo "保留现有的自定义配置..."
-            # 先使用基础配置
-            cp .env.base .env
-            # 添加备份中的自定义配置（排除基础配置项）
-            echo "" >> .env
-            echo "# 以下是从备份恢复的自定义配置" >> .env
-            grep -v "^DOMAIN_NAME\|^DB_NAME\|^DB_USER\|^DB_PASSWORD\|^JWT_SECRET\|^NODE_ENV\|^#\|^$" .env.backup >> .env 2>/dev/null || true
-            echo "✅ 自定义配置已恢复"
+          # 更新前端静态文件
+          rm -rf /var/www/html/*
+          cp -r out/* /var/www/html/
 
-            # 显示恢复的配置
-            echo "📋 恢复的自定义配置："
-            grep -v "^DOMAIN_NAME\|^DB_NAME\|^DB_USER\|^DB_PASSWORD\|^JWT_SECRET\|^NODE_ENV\|^#\|^$" .env.backup 2>/dev/null || echo "  无自定义配置"
-          else
-            cp .env.base .env
-            echo "ℹ️ 使用默认配置，未找到备份文件"
-          fi
-
-          # 清理临时文件
-          rm -f .env.base .env.backup
-
-          echo "✅ 环境变量配置完成"
-          echo "📋 最终配置文件内容："
-          cat .env
-
-          # 尝试多种部署方案（从最简单到最复杂）
-          echo "🚀 尝试最小化部署..."
-          chmod +x deploy-minimal.sh
-          if ./deploy-minimal.sh; then
-            echo "✅ 最小化部署成功"
-            exit 0
-          else
-            echo "⚠️ 最小化部署失败，尝试简化原生部署..."
-            chmod +x deploy-simple-native.sh
-            if ./deploy-simple-native.sh; then
-              echo "✅ 简化原生部署成功"
-              exit 0
-            else
-              echo "⚠️ 简化部署失败，尝试完整原生部署..."
-              chmod +x deploy-native.sh
-              if ./deploy-native.sh; then
-                echo "✅ 完整原生部署成功"
-                exit 0
-              else
-                echo "⚠️ 原生部署失败，尝试修复Nginx..."
-                chmod +x fix-nginx.sh
-                if ./fix-nginx.sh ${{ secrets.DOMAIN_NAME }}; then
-                  echo "✅ Nginx修复成功"
-                else
-                  echo "⚠️ Nginx修复失败，尝试Docker部署..."
-                  chmod +x deploy-prod.sh
-                  ./deploy-prod.sh
-                fi
-              fi
-            fi
-          fi
-        EOF
-
-    - name: Verify deployment
-      run: |
-        # 等待服务完全启动
-        sleep 30
-
-        # 检查服务是否正常（跳过SSL验证）
-        if curl -f -k https://${{ secrets.DOMAIN_NAME }}/api/health; then
-          echo "✅ 部署成功！服务正常运行"
-        else
-          echo "⚠️ HTTPS健康检查失败，尝试HTTP..."
-          if curl -f http://${{ secrets.DOMAIN_NAME }}/api/health; then
-            echo "✅ 部署成功！HTTP服务正常运行"
-          else
-            echo "⚠️ API健康检查失败，尝试修复403错误..."
-            ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /opt/lifetracker/current && chmod +x fix-403.sh && ./fix-403.sh"
-
-            # 再次检查
-            sleep 10
-            if curl -f -k https://${{ secrets.DOMAIN_NAME }}/ || curl -f http://${{ secrets.DOMAIN_NAME }}/; then
-              echo "✅ 403错误修复成功！网站可访问"
-            else
-              echo "❌ 常规部署失败，尝试端口冲突修复..."
-              ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /opt/lifetracker/current && chmod +x fix-port-conflict.sh && ./fix-port-conflict.sh"
-
-              # 最终检查
-              sleep 10
-              if curl -f -k https://${{ secrets.DOMAIN_NAME }}/api/health; then
-                echo "✅ 端口冲突修复成功！"
-              else
-                echo "❌ 所有修复方案都失败了"
-                ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /opt/lifetracker/current && systemctl status nginx && curl -f http://localhost:3002/api/health"
-                exit 1
-              fi
-            fi
-          fi
-        fi
+          # 重启后端
+          systemctl restart lifetracker-backend
