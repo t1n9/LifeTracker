@@ -6,6 +6,7 @@
 
 - **[5分钟快速体验](./quick-start.md)** - 体验核心功能
 - **[完整安装指南](./installation.md)** - 详细的安装步骤
+- **[开发 vs 生产环境](./DEVELOPMENT_vs_PRODUCTION.md)** - 本地开发和生产环境分离配置
 
 ## 🔧 开发和部署
 
