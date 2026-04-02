@@ -1,15 +1,20 @@
 import { Controller, Get, Post, Delete, Body, Query, Param, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { StudyService } from './study.service';
+import { StudyAnalysisService } from './study-analysis.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateStudyRecordDto, CreatePomodoroSessionDto } from './dto/create-study.dto';
+import { AnalysisQueryDto } from './dto/study-analysis.dto';
 
 @ApiTags('学习')
 @Controller('study')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class StudyController {
-  constructor(private readonly studyService: StudyService) {}
+  constructor(
+    private readonly studyService: StudyService,
+    private readonly analysisService: StudyAnalysisService,
+  ) {}
 
   @Get('stats')
   @ApiOperation({ summary: '获取学习统计' })
@@ -63,5 +68,27 @@ export class StudyController {
   async getTodayStats(@Request() req) {
     const timezone = req.user.timezone || 'Asia/Shanghai';
     return this.studyService.getTodayStats(req.user.id, timezone);
+  }
+
+  @Post('analysis')
+  @ApiOperation({ summary: '分析学习情况' })
+  async analyzeStudy(@Request() req, @Body() query: AnalysisQueryDto) {
+    const analysis = await this.analysisService.analyzeStudyRecords(req.user.id, query);
+    await this.analysisService.saveAnalysisQuery(req.user.id, query, analysis);
+    return analysis;
+  }
+
+  @Get('analysis/history')
+  @ApiOperation({ summary: '获取分析历史记录' })
+  @ApiQuery({ name: 'limit', required: false, description: '限制数量' })
+  async getAnalysisHistory(@Request() req, @Query('limit') limit?: string) {
+    const limitNum = limit ? parseInt(limit) : 20;
+    return this.analysisService.getAnalysisHistory(req.user.id, limitNum);
+  }
+
+  @Delete('analysis/:id')
+  @ApiOperation({ summary: '删除分析记录' })
+  async deleteAnalysisQuery(@Request() req, @Param('id') id: string) {
+    return this.analysisService.deleteAnalysisQuery(req.user.id, id);
   }
 }
