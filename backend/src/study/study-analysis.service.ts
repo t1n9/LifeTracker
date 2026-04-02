@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnalysisQueryDto, StudyAnalysisResponse } from './dto/study-analysis.dto';
+import axios from 'axios';
 
 @Injectable()
 export class StudyAnalysisService {
@@ -114,28 +115,55 @@ export class StudyAnalysisService {
       subjectMap,
     );
 
-    // 生成洞察（基础版本，不依赖AI）
-    const insights = this.generateInsights(totalMinutes, totalSessions, bySubject, healthScore);
+    // 计算坚持度分数
+    const consistencyScore = this.calculateConsistencyScore(dailyBreakdown);
 
-    // 生成建议
-    const recommendations = this.generateRecommendations(
+    // 生成基础洞察
+    const basicInsights = this.generateInsights(totalMinutes, totalSessions, bySubject, healthScore);
+
+    // 生成基础建议
+    const basicRecommendations = this.generateRecommendations(
       avgSessionDuration,
       bySubject,
       healthScore,
     );
+
+    // 尝试获取AI增强的见解
+    let enhancedInsights = basicInsights;
+    let enhancedRecommendations = basicRecommendations;
+
+    try {
+      const aiEnhancement = await this.getAIEnhancedInsights({
+        totalMinutes,
+        totalSessions,
+        avgSessionDuration,
+        healthScore,
+        bySubject,
+        consistency: consistencyScore,
+        basicInsights,
+      });
+
+      if (aiEnhancement) {
+        enhancedInsights = aiEnhancement.insights || basicInsights;
+        enhancedRecommendations = aiEnhancement.recommendations || basicRecommendations;
+      }
+    } catch (error) {
+      // 如果AI调用失败，使用基础见解
+      // 不打印错误日志，静默降级
+    }
 
     return {
       summary: {
         totalMinutes,
         totalSessions,
         averageSessionDuration: avgSessionDuration,
-        consistencyScore: this.calculateConsistencyScore(dailyBreakdown),
+        consistencyScore,
       },
       bySubject,
       dailyBreakdown,
       healthScore,
-      insights,
-      recommendations,
+      insights: enhancedInsights,
+      recommendations: enhancedRecommendations,
     };
   }
 
@@ -286,5 +314,82 @@ export class StudyAnalysisService {
     return this.prisma.studyAnalysisQuery.delete({
       where: { id: queryId },
     });
+  }
+
+  private async getAIEnhancedInsights(analysisData: {
+    totalMinutes: number;
+    totalSessions: number;
+    avgSessionDuration: number;
+    healthScore: any;
+    bySubject: any[];
+    consistency: number;
+    basicInsights: string[];
+  }) {
+    const prompt = `基于以下学习数据，生成更深入的学习洞察和改进建议。
+
+学习数据：
+- 总学习时长：${Math.floor(analysisData.totalMinutes / 60)}小时${analysisData.totalMinutes % 60}分钟
+- 学习次数：${analysisData.totalSessions}次
+- 平均每次学习时长：${analysisData.avgSessionDuration}分钟
+- 学习健康分数：${analysisData.healthScore.score}分
+- 坚持度：${analysisData.consistency}%
+- 学习效率分数：${analysisData.healthScore.factors.efficiency}%
+- 主要学科：${analysisData.bySubject.length > 0 ? analysisData.bySubject[0].subject : '未知'}
+
+请生成3-4条深入的学习洞察和3-4条具体的改进建议。
+格式：每条洞察和建议单独成行。
+`;
+
+    try {
+      const response = await axios.post(
+        'https://llmapi.blsc.cn/v1/chat/completions',
+        {
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 500,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer sk-tbxuh_Ubr2fFl8-pdayQSQ`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        }
+      );
+
+      const content = response.data.choices?.[0]?.message?.content || '';
+      const lines = content.split('\n').filter((line) => line.trim());
+
+      // 分离洞察和建议
+      const insights: string[] = [];
+      const recommendations: string[] = [];
+      let isRecommendation = false;
+
+      for (const line of lines) {
+        const cleanLine = line.replace(/^[\d•\-*]\s*/, '').trim();
+        if (!cleanLine) continue;
+
+        if (cleanLine.includes('建议') || isRecommendation) {
+          isRecommendation = true;
+          recommendations.push(cleanLine);
+        } else {
+          insights.push(cleanLine);
+        }
+      }
+
+      return {
+        insights: insights.length > 0 ? insights : undefined,
+        recommendations: recommendations.length > 0 ? recommendations : undefined,
+      };
+    } catch (error) {
+      // 静默失败，返回undefined以使用基础见解
+      return null;
+    }
   }
 }
