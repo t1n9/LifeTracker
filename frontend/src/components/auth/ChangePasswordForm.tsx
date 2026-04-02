@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, Check, X } from 'lucide-react';
+import { api } from '@/lib/api';
 
 interface ChangePasswordFormProps {
   onClose: () => void;
@@ -47,21 +48,7 @@ export default function ChangePasswordForm({ onClose, onSuccess }: ChangePasswor
     setIsLoading(true);
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3002/api/auth/change-password', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || '修改密码失败');
-      }
+      const response = await api.put('/auth/change-password', formData);
 
       setSuccess('密码修改成功！');
       setTimeout(() => {
@@ -70,7 +57,8 @@ export default function ChangePasswordForm({ onClose, onSuccess }: ChangePasswor
       }, 1500);
 
     } catch (error: unknown) {
-      setError((error as Error).message || '修改密码失败，请重试');
+      const message = (error as any)?.response?.data?.message || '修改密码失败，请重试';
+      setError(message);
     } finally {
       setIsLoading(false);
     }

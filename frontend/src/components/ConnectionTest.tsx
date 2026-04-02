@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { api } from '@/lib/api';
 
 export default function ConnectionTest() {
   const [status, setStatus] = useState('未测试');
@@ -11,15 +12,11 @@ export default function ConnectionTest() {
     setStatus('测试中...');
 
     try {
-      const response = await fetch('http://localhost:3001/api/health');
-      if (response.ok) {
-        const data = await response.json();
-        setStatus(`✅ 连接成功: ${data.status}`);
-      } else {
-        setStatus(`❌ 连接失败: ${response.status}`);
-      }
+      const response = await api.get('/health');
+      setStatus(`✅ 连接成功: ${response.data.status}`);
     } catch (error) {
-      setStatus(`❌ 网络错误: ${error instanceof Error ? error.message : '未知错误'}`);
+      const message = (error as any)?.message || '未知错误';
+      setStatus(`❌ 网络错误: ${message}`);
     } finally {
       setLoading(false);
     }

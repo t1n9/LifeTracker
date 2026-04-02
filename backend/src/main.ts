@@ -19,13 +19,10 @@ async function bootstrap() {
   app.use(compression());
   app.use(cookieParser());
 
-  // CORS配置 - 支持多个域名
-  const allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'https://t1n9.xyz',
-    'https://www.t1n9.xyz'
-  ];
+  // CORS配置 - 从环境变量读取
+  const allowedOriginsEnv = process.env.CORS_ALLOWED_ORIGINS ||
+    'http://localhost:3000,http://localhost:3001,https://t1n9.xyz,https://www.t1n9.xyz';
+  const allowedOrigins = allowedOriginsEnv.split(',').map(origin => origin.trim());
 
   app.enableCors({
     origin: (origin, callback) => {

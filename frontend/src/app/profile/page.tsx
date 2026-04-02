@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Save, Edit, Activity, Settings, LogOut, Shield } from 'lucide-react';
-import { userAPI } from '@/lib/api';
+import { userAPI, api } from '@/lib/api';
 import '@/styles/theme.css';
 import { useAuthStore } from '@/store/auth';
 import SystemConfigPanel from '@/components/admin/SystemConfigPanel';
@@ -166,31 +166,18 @@ export default function ProfilePage() {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3002/api/auth/change-password', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(passwordData)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || '修改密码失败');
-      }
+      await api.put('/auth/change-password', passwordData);
 
       setSuccess('密码修改成功！');
       resetForms();
-      
+
       setTimeout(() => {
         setSuccess('');
       }, 3000);
 
     } catch (error: any) {
-      setError(error.message || '修改密码失败，请重试');
+      const message = error?.response?.data?.message || error.message || '修改密码失败，请重试';
+      setError(message);
     } finally {
       setIsLoading(false);
     }

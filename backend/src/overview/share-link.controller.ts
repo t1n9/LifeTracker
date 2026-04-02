@@ -21,10 +21,10 @@ export class ShareLinkController {
 
     const shareLink = await this.shareLinkService.createShareLink(userId);
 
-    const base = (req?.headers?.origin as string) || process.env.FRONTEND_URL || 'https://t1n9.xyz';
+    const base = (req?.headers?.origin as string) || process.env.FRONTEND_URL;
     return {
       shareCode: shareLink.shareCode,
-      shareUrl: `${base}/share/${shareLink.shareCode}`,
+      shareUrl: base ? `${base}/share/${shareLink.shareCode}` : `/share/${shareLink.shareCode}`,
       createdAt: shareLink.createdAt,
       updatedAt: shareLink.updatedAt,
     };
@@ -45,10 +45,10 @@ export class ShareLinkController {
       };
     }
 
-    const base = (req?.headers?.origin as string) || process.env.FRONTEND_URL || 'https://t1n9.xyz';
+    const base = (req?.headers?.origin as string) || process.env.FRONTEND_URL;
     return {
       shareCode: shareLink.shareCode,
-      shareUrl: `${base}/share/${shareLink.shareCode}`,
+      shareUrl: base ? `${base}/share/${shareLink.shareCode}` : `/share/${shareLink.shareCode}`,
       createdAt: shareLink.createdAt,
       updatedAt: shareLink.updatedAt,
     };

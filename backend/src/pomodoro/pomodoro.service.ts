@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StartPomodoroDto } from '../study/dto/create-study.dto';
 import { formatDateString, parseDateString } from '../common/utils/date.util';
@@ -25,6 +25,7 @@ export class PomodoroService {
   private activeSessions = new Map<string, ActiveSession>();
   private timers = new Map<string, NodeJS.Timeout>();
   private syncTimer: NodeJS.Timeout;
+  private logger = new Logger(PomodoroService.name);
 
   constructor(private prisma: PrismaService) {
     // 启动定期同步机制
@@ -200,9 +201,9 @@ export class PomodoroService {
 
       if (elapsedMinutes >= 5) {
         status = 'COMPLETED';
-        console.log(`✅ 正计时完成：${elapsedMinutes}分钟，标记为完成`);
+        this.logger.debug('Pomodoro', `✅ 正计时完成：${elapsedMinutes}分钟，标记为完成`);
       } else {
-        console.log(`❌ 正计时时间不足：${elapsedMinutes}分钟，标记为取消`);
+        this.logger.debug('Pomodoro', `❌ 正计时时间不足：${elapsedMinutes}分钟，标记为取消`);
       }
     } else {
       // 倒计时模式：检查已运行时间
@@ -212,9 +213,9 @@ export class PomodoroService {
 
       if (elapsedMinutes >= 5) {
         status = 'COMPLETED';
-        console.log(`✅ 倒计时提前结束：运行${elapsedMinutes}分钟，标记为完成`);
+        this.logger.debug('Pomodoro', `✅ 倒计时提前结束：运行${elapsedMinutes}分钟，标记为完成`);
       } else {
-        console.log(`❌ 倒计时提前结束：运行${elapsedMinutes}分钟，时间不足，标记为取消`);
+        this.logger.debug('Pomodoro', `❌ 倒计时提前结束：运行${elapsedMinutes}分钟，时间不足，标记为取消`);
       }
     }
 
@@ -262,14 +263,14 @@ export class PomodoroService {
         },
       });
 
-      console.log(`📚 创建学习记录: ${durationMinutes}分钟`);
+      this.logger.debug('Pomodoro', `📚 创建学习记录: ${durationMinutes}分钟`);
 
       // 更新每日数据汇总（正计时完成，增加番茄数量）
       await this.updateDailyData(session.userId, completedAt, durationMinutes, true);
 
       // 番茄数量通过统计pomodoroSessions动态计算，无需手动更新
       if (session.taskId) {
-        console.log(`🍅 任务完成番茄钟: ${session.taskId}`);
+        this.logger.debug('Pomodoro', `🍅 任务完成番茄钟: ${session.taskId}`);
       }
 
       return studyRecord;
@@ -297,13 +298,13 @@ export class PomodoroService {
         },
       });
 
-      console.log(`📚 创建倒计时学习记录: ${durationMinutes}分钟`);
+      this.logger.debug('Pomodoro', `📚 创建倒计时学习记录: ${durationMinutes}分钟`);
 
       // 更新每日数据汇总（倒计时提前结束但时间足够，增加番茄数量）
       await this.updateDailyData(session.userId, completedAt, durationMinutes, true);
 
       if (session.taskId) {
-        console.log(`🍅 任务完成番茄钟: ${session.taskId}`);
+        this.logger.debug('Pomodoro', `🍅 任务完成番茄钟: ${session.taskId}`);
       }
 
       return studyRecord;
@@ -359,7 +360,7 @@ export class PomodoroService {
           // 正计时模式：计算实际已用时间
           const actualCountUpTime = (dbSession.countUpTime || 0) + (dbSession.status === 'RUNNING' ? timeElapsed : 0);
 
-          console.log(`🔄 恢复正计时会话: 数据库countUpTime=${dbSession.countUpTime}, 新增时间=${timeElapsed}秒, 总计=${actualCountUpTime}秒`);
+          this.logger.debug('Pomodoro', `🔄 恢复正计时会话: 数据库countUpTime=${dbSession.countUpTime}, 新增时间=${timeElapsed}秒, 总计=${actualCountUpTime}秒`);
 
           const restoredSession: ActiveSession = {
             id: dbSession.id,
@@ -481,7 +482,7 @@ export class PomodoroService {
 
         // 检查是否达到3小时（10800秒），自动暂停
         if (newCountUpTime >= 10800) {
-          console.log('⏰ 服务器端：正计时达到3小时，自动暂停');
+          this.logger.debug('Pomodoro', '⏰ 服务器端：正计时达到3小时，自动暂停');
           session.isRunning = false;
           session.isPaused = true;
           session.countUpTime = 10800; // 锁定在3小时
@@ -551,7 +552,7 @@ export class PomodoroService {
     // 移除活跃会话
     this.activeSessions.delete(sessionId);
 
-    console.log(`🍅 番茄钟完成: ${sessionId}, 用户: ${session.userId}, 时长: ${session.duration}分钟`);
+    this.logger.debug('Pomodoro', `🍅 番茄钟完成: ${sessionId}, 用户: ${session.userId}, 时长: ${session.duration}分钟`);
   }
 
   // 更新每日数据汇总
@@ -591,7 +592,7 @@ export class PomodoroService {
       },
     });
 
-    console.log(`📊 更新每日数据: 用户${userId}, 日期${dateStr}, 增加${duration}分钟${incrementPomodoro ? ', 增加1个番茄' : ''}`);
+    this.logger.debug('Pomodoro', `📊 更新每日数据: 用户${userId}, 日期${dateStr}, 增加${duration}分钟${incrementPomodoro ? ', 增加1个番茄' : ''}`);
   }
 
   // 健康检查

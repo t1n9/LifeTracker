@@ -1,8 +1,10 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  private logger = new Logger(PrismaService.name);
+
   constructor() {
     super({
       log: ['query', 'info', 'warn', 'error'],
@@ -11,12 +13,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleInit() {
     await this.$connect();
-    console.log('✅ 数据库连接成功');
+    this.logger.log('✅ 数据库连接成功');
   }
 
   async onModuleDestroy() {
     await this.$disconnect();
-    console.log('🔌 数据库连接已关闭');
+    this.logger.log('🔌 数据库连接已关闭');
   }
 
   // 清理函数，用于优雅关闭

@@ -139,7 +139,7 @@
   padding: 1.5rem;
   box-shadow: var(--shadow);
   border: 1px solid var(--border-color);
-  transition: all 0.3s ease;
+  transition: box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
   min-width: 0; /* 防止内容撑开卡片 */
   overflow: hidden; /* 防止内容溢出 */
@@ -148,7 +148,7 @@
 
 .card:hover {
   box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
+  border-color: var(--accent-primary-alpha);
 }
 
 /* 主题切换按钮 */
@@ -167,13 +167,13 @@
   justify-content: center;
   cursor: pointer;
   box-shadow: var(--shadow);
-  transition: all 0.2s ease;
+  transition: box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 1.2rem;
 }
 
 .theme-toggle:hover {
   box-shadow: var(--shadow-lg);
-  transform: translateY(-1px);
+  border-color: var(--accent-primary);
 }
 
 /* 文字样式 */
