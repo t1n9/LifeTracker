@@ -38,7 +38,7 @@
 
 ### 前端
 
-- **框架**: Next.js 14 + TypeScript
+- **框架**: Next.js 15 + TypeScript
 - **UI库**: Chakra UI
 - **状态管理**: Zustand
 - **数据请求**: TanStack Query
@@ -47,207 +47,147 @@
 ### 后端
 
 - **框架**: NestJS + TypeScript
-- **数据库**: MySQL + Prisma ORM
-- **缓存**: Redis
+- **数据库**: PostgreSQL 12 + Prisma ORM
+- **缓存**: Redis 7
 - **认证**: JWT + Passport
 - **API文档**: Swagger
 
-### DevOps
+### 部署
 
-- **容器化**: Docker + Docker Compose
-- **CI/CD**: GitHub Actions
-- **代码质量**: ESLint + Prettier
-- **监控**: Sentry + Winston
+- **前端**: Next.js 静态导出 + Nginx
+- **后端**: Node.js + systemd 服务
+- **CI/CD**: GitHub Actions (自动部署)
+- **Web服务器**: Nginx 反向代理
+- **SSL**: Let's Encrypt 自动证书
 
-## 🚀 快速部署
+## 🚀 生产部署
 
-### 📋 系统要求
+### 部署方式
 
-- **操作系统**: Ubuntu 20.04+ / CentOS 8+ / macOS / Windows
-- **内存**: 2GB+ RAM
-- **存储**: 20GB+ 可用空间
-- **软件**: Docker & Docker Compose
+本项目使用 **GitHub Actions 自动部署** + **服务器直接编译运行**：
 
-### ⚡ 一键部署
-
-1. **克隆项目**
-
-   ```bash
-   git clone https://github.com/your-username/LifeTracker.git
-   cd LifeTracker
-   ```
-2. **配置部署参数**
-
-   ```bash
-   # 复制配置文件模板
-   cp deploy.config.example.sh deploy.config.sh
-
-   # 编辑配置文件
-   nano deploy.config.sh
-   ```
-3. **执行部署**
-
-   ```bash
-   # 一键部署
-   chmod +x deploy.sh
-   ./deploy.sh
-
-   # 或指定配置文件
-   ./deploy.sh --config my-config.sh
-   ```
-
-### 🐳 Docker 部署
-
-```bash
-# 使用 Docker Compose
-docker-compose up --build -d
-
-# 查看服务状态
-docker-compose ps
-
-# 查看日志
-docker-compose logs -f
 ```
+本地开发
+  ↓ git push main
+GitHub Actions
+  ↓ SSH 连接服务器
+服务器 git pull → npm build
+  ↓
+更新编译产物 + 重启服务
+```
+
+### ⚡ 自动部署流程
+
+1. **推送代码到 main 分支**
+   ```bash
+   git push origin main
+   ```
+
+2. **GitHub Actions 自动触发**
+   - SSH 连接到服务器
+   - git pull 拉取最新代码
+   - 后端：`npm ci` → `npm run build` → 更新运行目录
+   - 前端：`npm ci` → `npm run build` → 复制静态文件到 Nginx
+   - 重启后端 systemd 服务
+
+3. **验证部署**
+   ```bash
+   # 检查后端运行状态
+   systemctl status lifetracker-backend
+
+   # 测试 API
+   curl https://t1n9.xyz/api/health
+   ```
+
+### 📋 部署配置
+
+需要在 GitHub 仓库的 **Settings > Secrets and variables > Actions** 中配置：
+
+| Secret 名 | 说明 |
+|---|---|
+| `SERVER_HOST` | 服务器 IP 地址 |
+| `SERVER_USER` | SSH 用户名（通常 root） |
+| `SSH_PRIVATE_KEY` | SSH 私钥 |
+| `DOMAIN_NAME` | 域名 |
+
+环境变量（`DB_PASSWORD`、`JWT_SECRET` 等）**直接在服务器** `/opt/lifetracker/.env` 文件中管理，不需要在 GitHub Secrets 中配置。
+
+详见 [部署指南](./docs/HANDOFF.md)
 
 ## 📦 本地开发
 
 ### 🔧 环境要求
 
-- **Node.js**: >= 18.0.0 ([下载地址](https://nodejs.org/))
+- **Node.js**: >= 18.0.0 ([下载](https://nodejs.org/))
 - **npm**: >= 9.0.0
-- **PostgreSQL**: >= 12.0 或 Docker
-- **Git**: 用于版本控制
+- **PostgreSQL**: >= 12.0 (本地或 Docker)
+- **Git**: 版本控制
 
-### ⚡ 一键初始化
-
-```bash
-# Windows 用户
-scripts\init-project.bat
-
-# Linux/macOS 用户
-./scripts/init-project.sh
-```
-
-### 📋 手动安装
+### ⚡ 快速开始
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-username/LifeTracker.git
+git clone https://github.com/t1n9/LifeTracker.git
 cd LifeTracker
 
 # 2. 安装依赖
-npm run setup
+npm install
 
 # 3. 配置环境变量
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env.local
 
-# 4. 初始化数据库
+# 4. 启动数据库 (如果使用 Docker)
+docker run -d \
+  --name postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=lifetracker \
+  -p 5432:5432 \
+  postgres:12
+
+# 5. 初始化数据库
 cd backend
 npx prisma migrate dev
-npm run db:seed
-
-# 5. 启动开发服务器
 cd ..
+
+# 6. 启动开发服务器
 npm run dev
 ```
 
-### 环境配置
+### 访问应用
 
-```bash
-# 复制环境变量模板
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-
-# 编辑环境变量
-# 配置数据库连接、JWT密钥等
-```
-
-### 启动开发服务器
-
-```bash
-# 同时启动前后端开发服务器
-npm run dev
-
-# 或分别启动
-npm run dev:frontend  # 前端: http://localhost:3000
-npm run dev:backend   # 后端: http://localhost:3001
-```
-
-### 使用Docker (推荐)
-
-```bash
-# 构建并启动所有服务
-npm run docker:up
-
-# 查看日志
-npm run docker:logs
-
-# 停止服务
-npm run docker:down
-```
+- **前端**: http://localhost:3000
+- **后端**: http://localhost:3002
+- **API 文档**: http://localhost:3002/api/docs
 
 ## 📁 项目结构
 
 ```
 LifeTracker/
-├── frontend/          # Next.js 前端应用
-├── backend/           # NestJS 后端应用
-├── docker-compose.yml # Docker 编排文件
-├── package.json       # 根目录依赖管理
-└── README.md         # 项目说明
+├── frontend/              # Next.js 15 前端应用
+├── backend/               # NestJS 后端应用
+├── nginx/                 # Nginx 配置
+├── scripts/               # 部署和维护脚本
+├── docs/                  # 文档
+│   ├── HANDOFF.md        # 部署指南（必读！）
+│   ├── quick-start.md    # 5分钟快速开始
+│   ├── api.md            # API 文档
+│   └── ...
+├── .github/workflows/     # GitHub Actions CI/CD
+│   └── deploy.yml        # 自动部署脚本
+├── docker-compose.yml    # Docker Compose 配置
+├── package.json          # 根目录依赖管理
+└── README.md            # 项目说明
 ```
 
-## 🧪 测试
+## 📚 更多资源
 
-```bash
-# 运行所有测试
-npm test
+- ⚡ [快速开始 (5分钟体验)](./docs/quick-start.md)
+- 📖 [完整文档](./docs/)
+- 🔧 [故障排除](./docs/troubleshooting.md)
+- 📡 [API 文档](./docs/api.md)
+- 🏗️ [系统架构](./docs/architecture.md)
 
-# 运行前端测试
-npm run test:frontend
-
-# 运行后端测试
-npm run test:backend
-```
-
-## 📝 代码规范
-
-```bash
-# 代码检查
-npm run lint
-
-# 代码格式化
-npm run format
-```
-
-## 🚀 部署
-
-### 生产环境构建
-
-```bash
-npm run build
-```
-
-### Docker部署
-
-```bash
-# 生产环境部署
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-## 📖 文档
-
-- 📚 [完整文档](./docs/README.md) - 文档中心
-- ⚡ [快速开始](./docs/quick-start.md) - 5分钟快速体验
-- 📦 [安装指南](./docs/installation.md) - 详细安装步骤
-- 🔧 [故障排除](./docs/troubleshooting.md) - 常见问题解决
-- 📡 [API 文档](./docs/api.md) - 完整API说明
-- 🏗️ [系统架构](./docs/architecture.md) - 架构设计文档
-
-### 在线文档
-
-- **Swagger API**: http://localhost:3002/api/docs (启动后端后访问)
 
 ## 📸 截图
 
@@ -290,66 +230,6 @@ docker-compose -f docker-compose.prod.yml up -d
 - 项目链接: [https://github.com/your-username/LifeTracker](https://github.com/your-username/LifeTracker)
 - 问题反馈: [Issues](https://github.com/your-username/LifeTracker/issues)
 
-## 🚀 一键部署
-
-### 生产环境部署
-
-1. **服务器要求**
-
-   - Ubuntu 20.04+ / CentOS 8+
-   - Docker & Docker Compose
-   - 2GB+ RAM, 20GB+ 存储空间
-   - 域名和服务器（请配置您自己的服务器）
-2. **自动部署**
-
-   ```bash
-   # 推送代码到GitHub主分支即可自动部署
-   git push origin main
-   ```
-3. **手动部署**
-
-   ```bash
-   # 一键部署脚本
-   ./deploy.sh
-
-   # 或使用Docker Compose
-   docker-compose up --build -d
-   ```
-
-### 🔧 管理命令
-
-```bash
-# 查看服务状态
-docker-compose ps
-
-# 查看日志
-docker-compose logs -f [service_name]
-
-# 重启服务
-docker-compose restart [service_name]
-
-# 停止所有服务
-docker-compose down
-
-# 数据库操作
-docker-compose exec backend npx prisma db push
-```
-
-### 👤 初始账户
-
-首次部署后，请使用管理员账户登录：
-
-- **邮箱**: admin@example.com
-- **密码**: 请在首次启动时设置
-
-> ⚠️ 首次登录后请立即修改密码和邮箱
-
-### 📊 服务端口
-
-- **前端**: 3001
-- **后端**: 3002
-- **数据库**: 5432
-- **网站**: https://your-domain.com
 
 ## 🙏 致谢
 
