@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
 const inter = Inter({ subsets: ["latin"] });
+const notoSansSC = Noto_Sans_SC({
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-noto-sans-sc",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "LifeTracker - 生活记录系统",
@@ -24,8 +31,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
-      <body className={inter.className}>
+    <html lang="zh-CN" className={notoSansSC.variable}>
+      <body className={`${inter.className} font-sans`}>
         <Providers>
           {children}
         </Providers>

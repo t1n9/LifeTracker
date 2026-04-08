@@ -1,46 +1,75 @@
-/* 统一的主题系统 - 修复白色模式下的文字对比度问题 */
+/* LifeTracker 高级极简主题系统 - 冷调方案 (2026) */
 
 :root {
-  /* 浅色主题 - 提高文字对比度 */
-  --bg-primary: #f8f9fa;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f3f4;
-  --text-primary: #1a202c;        /* 更深的主要文字颜色 */
-  --text-secondary: #2d3748;      /* 更深的次要文字颜色 */
-  --text-muted: #4a5568;          /* 更深的弱化文字颜色 */
-  --border-color: #e2e8f0;
-  --accent-primary: #3182ce;      /* 稍微深一点的蓝色 */
-  --accent-primary-alpha: rgba(49, 130, 206, 0.2); /* 主色调透明版本 */
-  --accent-secondary: #4299e1;
-  --success-color: #38a169;       /* 稍微深一点的绿色 */
-  --warning-color: #d69e2e;       /* 稍微深一点的橙色 */
-  --error-color: #e53e3e;         /* 稍微深一点的红色 */
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.1);
-  
-  /* 字体设置 */
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  /* ========== 浅色主题（默认） - 冷调极简 ========== */
+  --bg-primary: #ffffff;          /* 纯白背景 */
+  --bg-secondary: #ffffff;        /* 卡片白色 */
+  --bg-tertiary: #f5f7fa;         /* 极浅灰蓝 */
+  --bg-navbar: rgba(255, 255, 255, 0.95);
+
+  /* 文字色系 - 高对比 */
+  --text-primary: #1a202c;        /* 深灰 */
+  --text-secondary: #4b5563;      /* 中灰 */
+  --text-muted: #8b92a9;          /* 浅灰 */
+
+  /* 单一强调色 - 深青绿 */
+  --accent-primary: #0f766e;      /* 深青绿 - 高级感 */
+  --accent-primary-alpha: rgba(15, 118, 110, 0.1);
+  --accent-secondary: #14b8a6;    /* 浅青绿 - 交互态 */
+
+  /* 反馈色 */
+  --success-color: #059669;
+  --warning-color: #d97706;
+  --error-color: #dc2626;
+
+  /* 精致阴影 - 最小化 */
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+  /* 边框 - 极浅 */
+  --border-color: #e5e7eb;
+
+  /* 圆角 - 现代但不过度 */
+  --border-radius-sm: 6px;
+  --border-radius: 8px;
+  --border-radius-lg: 12px;
+
+  /* 字体设置：Inter + Noto Sans SC */
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.6;
   font-weight: 400;
+
+  /* 字体渲染优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 [data-theme="dark"] {
-  /* 深色主题 - 保持原有的良好对比度 */
-  --bg-primary: #1a202c;
-  --bg-secondary: #2d3748;
-  --bg-tertiary: #4a5568;
-  --text-primary: #f7fafc;
-  --text-secondary: #e2e8f0;
-  --text-muted: #cbd5e0;
-  --border-color: #4a5568;
-  --accent-primary: #4299e1;
-  --accent-primary-alpha: rgba(66, 153, 225, 0.2); /* 主色调透明版本 */
-  --accent-secondary: #63b3ed;
-  --success-color: #48bb78;
-  --warning-color: #ed8936;
-  --error-color: #f56565;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.4);
+  /* ========== 深色主题 - 冷调极简深色 ========== */
+  --bg-primary: #0f172a;          /* 深蓝黑 */
+  --bg-secondary: #1e293b;        /* 深灰蓝卡片 */
+  --bg-tertiary: #334155;         /* 次深灰蓝 */
+  --bg-navbar: rgba(15, 23, 42, 0.95);
+
+  --text-primary: #f1f5f9;        /* 浅白 */
+  --text-secondary: #cbd5e1;      /* 中灰白 */
+  --text-muted: #94a3b8;          /* 浅灰 */
+
+  --accent-primary: #14b8a6;      /* 冰青绿 */
+  --accent-primary-alpha: rgba(20, 184, 166, 0.15);
+  --accent-secondary: #2dd4bf;
+
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.5);
+
+  --border-color: #334155;
 }
 
 /* 通用样式 */
@@ -135,20 +164,20 @@
 
 .card {
   background-color: var(--bg-secondary);
-  border-radius: 12px;
+  border-radius: var(--border-radius);
   padding: 1.5rem;
   box-shadow: var(--shadow);
   border: 1px solid var(--border-color);
-  transition: box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   width: 100%;
-  min-width: 0; /* 防止内容撑开卡片 */
-  overflow: hidden; /* 防止内容溢出 */
-  word-wrap: break-word; /* 长文本换行 */
+  min-width: 0;
+  overflow: hidden;
+  word-wrap: break-word;
 }
 
 .card:hover {
   box-shadow: var(--shadow-lg);
-  border-color: var(--accent-primary-alpha);
+  border-color: var(--accent-primary);
 }
 
 /* 主题切换按钮 */
@@ -306,18 +335,38 @@
   color: var(--error-color);
 }
 
+/* 排版规范 - 中英文混排 */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  line-height: 1.4;
+}
+
+h1 { font-size: 2.25rem; }
+h2 { font-size: 1.875rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1.125rem; }
+h6 { font-size: 1rem; }
+
+p {
+  line-height: 1.8;
+  letter-spacing: 0.3px;
+}
+
 /* 工具类样式 */
-.text-xs { font-size: 0.75rem; }
-.text-sm { font-size: 0.875rem; }
-.text-lg { font-size: 1.125rem; }
-.text-xl { font-size: 1.25rem; }
-.text-2xl { font-size: 1.5rem; }
-.text-3xl { font-size: 1.875rem; }
-.text-4xl { font-size: 2.25rem; }
+.text-xs { font-size: 0.75rem; line-height: 1.5; }
+.text-sm { font-size: 0.875rem; line-height: 1.5; }
+.text-lg { font-size: 1.125rem; line-height: 1.7; }
+.text-xl { font-size: 1.25rem; line-height: 1.7; }
+.text-2xl { font-size: 1.5rem; line-height: 1.6; }
+.text-3xl { font-size: 1.875rem; line-height: 1.5; }
+.text-4xl { font-size: 2.25rem; line-height: 1.4; }
 
 .font-bold { font-weight: 700; }
 .font-semibold { font-weight: 600; }
 .font-medium { font-weight: 500; }
+.font-normal { font-weight: 400; }
 
 .text-center { text-align: center; }
 .mb-2 { margin-bottom: 0.5rem; }

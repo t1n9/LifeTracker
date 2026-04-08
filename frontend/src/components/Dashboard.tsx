@@ -15,6 +15,7 @@ import ExpenseStats from './ExpenseStats';
 import ChangePasswordForm from './auth/ChangePasswordForm';
 import DayReflection from './daily/DayReflection';
 import SystemSuggestion from './SystemSuggestion';
+import Navbar from './layout/Navbar';
 
 
 // 导入统一的主题样式
@@ -383,6 +384,18 @@ export default function Dashboard() {
 
 
 
+  // 获取问候语
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 6) return '夜深了';
+    if (hour < 9) return 'Good morning';
+    if (hour < 12) return '上午好';
+    if (hour < 14) return '中午好';
+    if (hour < 17) return '下午好';
+    if (hour < 19) return '傍晚好';
+    return 'Good evening';
+  };
+
   // 时间格式化函数
   const formatCurrentTime = () => {
     return currentTime.toLocaleTimeString('zh-CN', { 
@@ -429,40 +442,80 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      
-      {/* 主题切换按钮 */}
-      <button
-        onClick={handleThemeToggle}
-        className="theme-toggle"
-        title={`切换到${theme === 'dark' ? '浅色' : '深色'}主题`}
-      >
-        {theme === 'dark' ? '🌙' : '☀️'}
-      </button>
+
+      {/* 顶部导航栏 */}
+      <Navbar
+        userName={user?.name || user?.email || 'User'}
+        theme={theme}
+        onThemeToggle={handleThemeToggle}
+      />
 
       <div className="container" style={{ paddingTop: '1.5rem', paddingBottom: '1.5rem' }}>
-        {/* 页面标题 */}
-        <header className="dashboard-header">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-              生活记录系统 <span className="text-2xl" style={{ color: 'var(--text-muted)' }}>{getVersionString()}</span>
-            </h1>
-            <p style={{ color: 'var(--text-muted)' }}>记录每一天的努力，见证成长的足迹</p>
-            
-            {/* 用户信息 */}
-            <div className="dashboard-user-info">
-              <span
-                className="user-welcome"
+        {/* Hero 区域 - 极简欢迎卡片 */}
+        <div className="card" style={{
+          background: 'var(--bg-secondary)',
+          marginBottom: '2rem',
+          padding: '2rem',
+          textAlign: 'center',
+          borderTop: '3px solid var(--accent-primary)'
+        }}>
+          <div style={{ marginBottom: '1rem' }}>
+            <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              {getGreeting()}, {user?.name || user?.email}
+            </h2>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+              {formatCurrentDate()}
+            </p>
+          </div>
+
+          <div style={{
+            height: '1px',
+            background: 'var(--border-color)',
+            margin: '1rem 0'
+          }} />
+
+          {/* 快捷功能按钮 */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '0.75rem',
+            flexWrap: 'wrap'
+          }}>
+            {[
+              { label: '🌅 开启今日', action: () => { setDayReflectionMode('start'); setIsDayReflectionOpen(true); } },
+              { label: '🌙 复盘', action: () => { setDayReflectionMode('reflection'); setIsDayReflectionOpen(true); } },
+              { label: '📊 历史', action: () => setIsHistoryOpen(true) },
+              { label: '📈 概况', action: () => router.push('/overview') }
+            ].map((btn) => (
+              <button
+                key={btn.label}
+                onClick={btn.action}
                 style={{
-                  color: 'var(--text-secondary)',
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '4px'
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  padding: '0.5rem 1rem',
+                  borderRadius: 'var(--border-radius)',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLElement).style.backgroundColor = 'var(--accent-primary)';
+                  (e.target as HTMLElement).style.color = '#ffffff';
+                  (e.target as HTMLElement).style.borderColor = 'var(--accent-primary)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLElement).style.backgroundColor = 'var(--bg-tertiary)';
+                  (e.target as HTMLElement).style.color = 'var(--text-primary)';
+                  (e.target as HTMLElement).style.borderColor = 'var(--border-color)';
                 }}
               >
-                欢迎，{user?.name || user?.email}
-              </span>
-            </div>
+                {btn.label}
+              </button>
+            ))}
           </div>
-        </header>
+        </div>
 
         {/* 三栏布局 */}
         <div className="dashboard-layout">

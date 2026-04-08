@@ -5,7 +5,51 @@ All notable changes to the LifeTracker project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.1.0] - 2026-04-08
+## [3.2.0] - 2026-04-08
+
+### Added
+- 🎨 **Complete UI/UX Redesign**: Premium minimal aesthetic with advanced color system
+  - Cold-tone color palette: Pure white (#ffffff) + Deep teal (#0f766e) accent
+  - Sophisticated shadow system for depth without visual clutter
+  - Professional typography: Inter (English) + Noto Sans SC (Chinese)
+  
+- 🧭 **Navigation Bar Component**: Modern sticky header with glass effect
+  - Brand logo with version display
+  - Theme toggle button (light/dark mode)
+  - User menu with password change and logout options
+  
+- 🎯 **Hero Welcome Section**: Redesigned dashboard header
+  - Modern minimalist card with teal top accent line
+  - Time-based greeting messages
+  - Quick action buttons for daily activities
+  - Optimized spacing and typography
+  
+- ✨ **Enhanced Card System**: Refined visual hierarchy
+  - Minimized shadow system (subtle depth)
+  - Smooth hover transitions with shadow enhancement
+  - High contrast borders for professional appearance
+  - Optimized padding and spacing
+
+- 🔤 **Typography Optimization**: Improved readability
+  - Inter font for English text (modern, professional)
+  - Noto Sans SC (思源黑体) for Chinese text (high quality)
+  - Optimized letter-spacing for mixed CJK/Latin content
+  - Enhanced line-height hierarchy for better readability
+  - Font smoothing and kerning for crisp rendering
+
+### Changed
+- Replaced blue-purple gradient with elegant neutral + teal color scheme
+- Redesigned topbar: removed floating button, added sticky Navbar
+- Updated card styling: removed glassmorphism, added refined shadows
+- Improved dark mode colors for better contrast and sophistication
+
+### Improved
+- Color contrast ratios now meet WCAG AA standards (4.5:1+)
+- Chinese-English text mixing now visually harmonious
+- Page spacing and rhythm for premium feel
+- Overall visual sophistication and professionalism
+
+## [3.1.0] - 2026-04-02
 
 ### Added
 - 🤖 **AI Toolbox**: Modular AI features container with tool selection menu

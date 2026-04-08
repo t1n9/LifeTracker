@@ -14,10 +14,21 @@
   }
 }
 
+/* 字体栈：Inter (英文) + Noto Sans SC (中文) */
+:root {
+  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-noto-sans-sc: 'Noto Sans SC', system-ui, sans-serif;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  /* 优先使用 Inter，中文自动降级到思源黑体 */
+  font-family: var(--font-inter);
+  font-feature-settings: "kern" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* 移除所有数字输入框的上下箭头 */
