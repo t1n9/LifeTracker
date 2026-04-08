@@ -44,7 +44,6 @@ model User {
   tasks               Task[]
   userGoals           UserGoal[]
   userSettings        UserSettings?
-  studyAnalysisQueries StudyAnalysisQuery[]
 
   @@map("users")
 }
@@ -383,23 +382,6 @@ model UserGoal {
   @@index([userId, isActive])
   @@index([userId, status])
   @@map("user_goals")
-}
-
-model StudyAnalysisQuery {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id")
-  queryType   String    @map("query_type")
-  period      String?
-  startDate   DateTime? @map("start_date") @db.Timestamptz(6)
-  endDate     DateTime? @map("end_date") @db.Timestamptz(6)
-  goalId      String?   @map("goal_id")
-  result      Json
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, createdAt])
-  @@index([userId, queryType])
-  @@map("study_analysis_queries")
 }
 
 enum ExerciseTypeEnum {

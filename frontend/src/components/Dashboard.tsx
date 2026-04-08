@@ -15,7 +15,6 @@ import ExpenseStats from './ExpenseStats';
 import ChangePasswordForm from './auth/ChangePasswordForm';
 import DayReflection from './daily/DayReflection';
 import SystemSuggestion from './SystemSuggestion';
-import { StudyAnalysisWidget } from './study-analysis/StudyAnalysisWidget';
 
 
 // 导入统一的主题样式
@@ -879,9 +878,6 @@ export default function Dashboard() {
           }}
         />
       )}
-
-      {/* 学习分析浮动窗口 */}
-      <StudyAnalysisWidget />
 
       {/* 系统建议浮动按钮 */}
       <SystemSuggestion />
