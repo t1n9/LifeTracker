@@ -115,6 +115,12 @@ dump.rdb
 tmp/
 temp/
 
+# Data exports
+data/exports/*.csv
+
+# Prisma migration scripts
+backend/scripts/migration/
+
 # SSL certificates (keep private)
 nginx/ssl/*.pem
 nginx/ssl/*.key

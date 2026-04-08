@@ -46,8 +46,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/LifeTracker.git"
+    "url": "https://github.com/t1n9/LifeTracker.git"
   },
+  "bugs": {
+    "url": "https://github.com/t1n9/LifeTracker/issues"
+  },
+  "homepage": "https://t1n9.xyz",
   "keywords": [
     "life-tracker",
     "study-planner",
@@ -56,9 +60,11 @@
     "student-tools",
     "nextjs",
     "nestjs",
-    "typescript"
+    "typescript",
+    "ai-analysis",
+    "learning-analytics"
   ],
-  "author": "Your Name",
+  "author": "TING WU",
   "license": "MIT",
   "dependencies": {
     "pg": "^8.16.3"
