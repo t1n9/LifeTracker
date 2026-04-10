@@ -190,7 +190,7 @@ export default function Navbar({ userName = 'User', theme, onThemeToggle }: Navb
                     (e.target as HTMLElement).style.backgroundColor = 'transparent';
                   }}
                 >
-                  修改密码
+                  设置
                 </button>
                 <button
                   onClick={handleLogout}

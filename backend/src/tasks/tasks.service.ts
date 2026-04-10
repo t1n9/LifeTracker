@@ -119,6 +119,26 @@ export class TasksService {
     });
   }
 
+  // 仅获取未完成的任务（供 Agent 使用）
+  async getPendingTasks(userId: string) {
+    const tasks = await this.prisma.task.findMany({
+      where: { userId, isCompleted: false },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { createdAt: 'desc' },
+      ],
+      select: {
+        id: true,
+        title: true,
+        subject: true,
+        priority: true,
+        estimatedHours: true,
+        createdAt: true,
+      },
+    });
+    return tasks;
+  }
+
   // 获取任务统计
   async getTaskStats(userId: string) {
     const [total, completed, pending] = await Promise.all([

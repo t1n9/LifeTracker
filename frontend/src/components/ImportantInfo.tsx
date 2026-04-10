@@ -105,6 +105,13 @@ const ImportantInfo: React.FC<ImportantInfoProps> = ({ theme = 'light' }) => {
     loadCurrentInfo();
   }, []);
 
+  // Agent 操作后刷新
+  useEffect(() => {
+    const handler = () => loadCurrentInfo();
+    window.addEventListener('agent:data-changed', handler);
+    return () => window.removeEventListener('agent:data-changed', handler);
+  }, []);
+
   // 格式化最后更新时间
   const formatLastUpdated = (date: Date | null) => {
     if (!date) return '';

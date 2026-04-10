@@ -15,6 +15,7 @@ import ExpenseStats from './ExpenseStats';
 import ChangePasswordForm from './auth/ChangePasswordForm';
 import DayReflection from './daily/DayReflection';
 import SystemSuggestion from './SystemSuggestion';
+import AgentChatPanel from './AgentChatPanel';
 import Navbar from './layout/Navbar';
 
 
@@ -272,6 +273,19 @@ export default function Dashboard() {
     loadTodayStats();
     loadTasks();
   }, []);
+
+  // 监听 Agent 数据变更，刷新所有相关面板
+  useEffect(() => {
+    const handleAgentDataChanged = () => {
+      loadTasks();
+      loadTodayStats();
+      loadCurrentGoal();
+      setTaskRefreshTrigger(prev => prev + 1);
+      pomodoroTimerRef.current?.refreshSession();
+    };
+    window.addEventListener('agent:data-changed', handleAgentDataChanged);
+    return () => window.removeEventListener('agent:data-changed', handleAgentDataChanged);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 实时时间更新
   useEffect(() => {
@@ -761,11 +775,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 底部导航 */}
+      {/* 底部备案信息 */}
       <footer style={{
         marginTop: '3rem',
-        padding: '2rem 0',
-        background: 'linear-gradient(to bottom, transparent, var(--bg-tertiary))',
+        padding: '1.5rem 0',
         borderTop: '1px solid var(--border-color)'
       }}>
         <div style={{
@@ -774,63 +787,6 @@ export default function Dashboard() {
           margin: '0 auto',
           padding: '0 2rem'
         }}>
-          <h4 className="text-lg font-semibold mb-6" style={{ color: 'var(--text-primary)' }}>
-            快速导航
-          </h4>
-          <div className="flex justify-center items-center gap-3 flex-wrap">
-            {[
-              { name: '🚢 启航', href: 'https://www.iqihang.com/ark/myCourse' },
-              { name: '🏫 内部网', href: 'https://www1.szu.edu.cn/' },
-              { name: '📋 公文通', href: 'https://www1.szu.edu.cn/board/' },
-              { name: '🏢 办事大厅', href: 'http://ehall.szu.edu.cn/new/index.html' },
-              { name: '🎓 研招网', href: 'https://yz.chsi.com.cn/' }
-            ].map((item) => (
-              <a
-                key={item.name}
-                href={item.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="footer-link"
-              >
-                {item.name}
-              </a>
-            ))}
-
-            {/* 功能按钮 */}
-            {[
-              { name: '🌅 开启', action: 'start' },
-              { name: '🌙 复盘', action: 'review' },
-              { name: '📊 历史', action: 'history' },
-              { name: '📈 概况', action: 'overview' },
-              { name: '⚙️ 配置', action: 'settings' }
-            ].map((item) => (
-              <button
-                key={item.name}
-                className="footer-action"
-                onClick={() => {
-                  if (item.action === 'history') {
-                    setIsHistoryOpen(true);
-                  } else if (item.action === 'settings') {
-                    router.push('/profile');
-                  } else if (item.action === 'overview') {
-                    router.push('/overview');
-                  } else if (item.action === 'start') {
-                    setDayReflectionMode('start');
-                    setIsDayReflectionOpen(true);
-                  } else if (item.action === 'review') {
-                    setDayReflectionMode('reflection');
-                    setIsDayReflectionOpen(true);
-                  } else {
-                    // 其他功能按钮的处理逻辑
-                    console.log(`点击了${item.action}`);
-                  }
-                }}
-              >
-                {item.name}
-              </button>
-            ))}
-          </div>
-
           {/* 备案信息 */}
           <div style={{
             marginTop: '2rem',
@@ -934,6 +890,9 @@ export default function Dashboard() {
 
       {/* 系统建议浮动按钮 */}
       <SystemSuggestion />
+
+      {/* AI 助手浮动聊天面板 */}
+      <AgentChatPanel />
 
     </div>
   );

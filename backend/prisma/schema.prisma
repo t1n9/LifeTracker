@@ -44,6 +44,7 @@ model User {
   tasks               Task[]
   userGoals           UserGoal[]
   userSettings        UserSettings?
+  agentMessages       AgentMessage[]
 
   @@map("users")
 }
@@ -412,4 +413,19 @@ enum DeviceType {
   DESKTOP
   MOBILE
   TABLET
+}
+
+model AgentMessage {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  role          String   // user, assistant, confirm, action_result
+  content       String
+  toolCalls     Json?    @map("tool_calls")
+  pendingAction Json?    @map("pending_action")
+  confirmed     Boolean?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("agent_messages")
 }

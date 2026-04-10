@@ -176,6 +176,13 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
     loadData();
   }, []);
 
+  // Agent 操作后刷新
+  useEffect(() => {
+    const handler = () => loadData();
+    window.addEventListener('agent:data-changed', handler);
+    return () => window.removeEventListener('agent:data-changed', handler);
+  }, []);
+
   const totalExpense = todayExpenses.totalMeal + todayExpenses.totalOther;
 
   return (

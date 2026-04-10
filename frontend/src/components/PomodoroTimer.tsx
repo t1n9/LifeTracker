@@ -26,6 +26,7 @@ export interface PomodoroTimerRef {
   completeCurrentSession: () => void;
   cancelCurrentSession: () => void;
   updateBoundTaskId: (oldId: string, newId: string) => void;
+  refreshSession: () => Promise<void>;
 }
 
 // interface ActiveSession {
@@ -489,8 +490,46 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
         setStartBoundTask(newId);
         console.log('✅ 番茄钟内部绑定任务ID已更新');
       }
-    }
-  }), [isRunning, isPaused, isCountUpMode, selectedMinutes, timeLeft, countUpTime, sessionId, serverConnected, onPomodoroComplete, startBoundTask]);
+    },
+    refreshSession: async () => {
+      try {
+        const response = await pomodoroAPI.getActiveSession();
+        const activeSession = response.data;
+        if (activeSession) {
+          setSessionId(activeSession.id);
+          setIsRunning(activeSession.isRunning);
+          setIsPaused(activeSession.isPaused);
+          setSelectedMinutes(activeSession.duration);
+          setStartBoundTask(activeSession.boundTaskId || null);
+          if (onTaskBind && activeSession.boundTaskId) {
+            onTaskBind(activeSession.boundTaskId);
+          }
+          if (activeSession.isCountUpMode) {
+            setIsCountUpMode(true);
+            setCountUpTime(activeSession.countUpTime || 0);
+            setTimeLeft(activeSession.duration * 60);
+          } else {
+            setIsCountUpMode(false);
+            setTimeLeft(activeSession.timeLeft);
+          }
+          if (activeSession.isRunning && !activeSession.isPaused) {
+            if (!activeSession.isCountUpMode) startLocalTimer();
+            startSync();
+          }
+        } else {
+          // 没有活跃会话，重置状态
+          setSessionId(null);
+          setIsRunning(false);
+          setIsPaused(false);
+          setStartBoundTask(null);
+          stopLocalTimer();
+          stopSync();
+        }
+      } catch (e) {
+        console.error('refreshSession failed', e);
+      }
+    },
+  }), [isRunning, isPaused, isCountUpMode, selectedMinutes, timeLeft, countUpTime, sessionId, serverConnected, onPomodoroComplete, startBoundTask, onTaskBind, startLocalTimer, startSync, stopLocalTimer, stopSync]);
 
   // 处理番茄时钟完成的副作用
   useEffect(() => {

@@ -206,6 +206,13 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
     loadData();
   }, []);
 
+  // Agent 操作后刷新
+  useEffect(() => {
+    const handler = () => loadData();
+    window.addEventListener('agent:data-changed', handler);
+    return () => window.removeEventListener('agent:data-changed', handler);
+  }, []);
+
   // 按类型分组运动（现在直接基于isActive字段，因为getExerciseTypes()只返回启用的）
   const countExercises = exerciseTypes.filter(e => e.type === 'COUNT');
   const distanceExercises = exerciseTypes.filter(e => e.type === 'DISTANCE');

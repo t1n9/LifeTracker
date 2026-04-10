@@ -22,6 +22,7 @@ import { VersionModule } from './version/version.module';
 import { VisitorModule } from './visitor/visitor.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
 import { GoalsModule } from './goals/goals.module';
+import { AgentModule } from './agent/agent.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TimeFormatInterceptor, TimeValidationInterceptor } from './common/interceptors/time-format.interceptor';
@@ -62,6 +63,7 @@ import { TimeFormatInterceptor, TimeValidationInterceptor } from './common/inter
     VisitorModule,
     SuggestionsModule,
     GoalsModule,
+    AgentModule,
   ],
   controllers: [AppController],
   providers: [
