@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
@@ -113,7 +114,7 @@ export default function AgentPage() {
         <div style={styles.loginPrompt}>
           <h2 style={{ margin: 0, color: 'var(--text-primary)' }}>Agent 测试页</h2>
           <p style={{ color: 'var(--text-secondary)' }}>请先在主页登录后再访问此页面</p>
-          <a href="/" style={styles.link}>返回主页登录</a>
+          <Link href="/" style={styles.link}>返回主页登录</Link>
         </div>
       </div>
     );
@@ -124,7 +125,7 @@ export default function AgentPage() {
       {/* Header */}
       <div style={styles.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <a href="/" style={styles.backBtn}>←</a>
+          <Link href="/" style={styles.backBtn}>←</Link>
           <div>
             <h1 style={styles.title}>LifeTracker Agent</h1>
             <span style={styles.badge}>TEST</span>
@@ -142,7 +143,7 @@ export default function AgentPage() {
               你好！我是 LifeTracker 助手
             </p>
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0 }}>
-              试试说："开启今天，今天要学习高数3小时" 或 "午餐花了15块"
+              试试说：&quot;开启今天，今天要学习高数3小时&quot; 或 &quot;午餐花了15块&quot;
             </p>
             <div style={styles.quickActions}>
               {['开启今天', '查看今日概况', '开个25分钟番茄钟', '查看任务列表'].map(text => (

@@ -2,10 +2,27 @@
 
 import React, { useState, useEffect } from 'react';
 import { importantInfoAPI } from '@/lib/api';
+import {
+  AGENT_DATA_CHANGED_EVENT,
+  eventAffectsDomains,
+} from '@/lib/agent-events';
 
 interface ImportantInfoProps {
   theme?: 'light' | 'dark';
 }
+
+const getErrorMessage = (error: unknown) => {
+  if (typeof error === 'object' && error !== null) {
+    const errorWithMessage = error as {
+      response?: { data?: { message?: string } };
+      message?: string;
+    };
+
+    return errorWithMessage.response?.data?.message || errorWithMessage.message || '未知错误';
+  }
+
+  return '未知错误';
+};
 
 const ImportantInfo: React.FC<ImportantInfoProps> = ({ theme = 'light' }) => {
   const [content, setContent] = useState('');
@@ -82,7 +99,7 @@ const ImportantInfo: React.FC<ImportantInfoProps> = ({ theme = 'light' }) => {
       setTempContent('');
     } catch (error) {
       console.error('保存重要信息失败:', error);
-      alert(`保存失败: ${error.response?.data?.message || error.message}`);
+      alert(`保存失败: ${getErrorMessage(error)}`);
     } finally {
       setLoading(false);
     }
@@ -107,9 +124,13 @@ const ImportantInfo: React.FC<ImportantInfoProps> = ({ theme = 'light' }) => {
 
   // Agent 操作后刷新
   useEffect(() => {
-    const handler = () => loadCurrentInfo();
-    window.addEventListener('agent:data-changed', handler);
-    return () => window.removeEventListener('agent:data-changed', handler);
+    const handler = (event: Event) => {
+      if (eventAffectsDomains(event, ['importantInfo'])) {
+        loadCurrentInfo();
+      }
+    };
+    window.addEventListener(AGENT_DATA_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(AGENT_DATA_CHANGED_EVENT, handler);
   }, []);
 
   // 格式化最后更新时间

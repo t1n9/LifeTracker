@@ -3,6 +3,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Bot, X, Send, Trash2, Check, ShieldCheck, ShieldOff } from 'lucide-react';
 import { api } from '@/lib/api';
+import {
+  dispatchAgentDataChanged,
+  getAgentChangedDomains,
+} from '@/lib/agent-events';
 
 interface AgentMessage {
   id: string;
@@ -37,7 +41,6 @@ const TOOL_LABELS: Record<string, string> = {
 const CONFIRM_MODE_KEY = 'agent_confirm_mode';
 
 // 数据变更事件，通知 Dashboard 刷新
-const DATA_CHANGED_EVENT = 'agent:data-changed';
 
 export default function AgentChatPanel() {
   const [isOpen, setIsOpen] = useState(false);
@@ -173,12 +176,7 @@ export default function AgentChatPanel() {
         };
         setMessages(prev => [...prev, assistantMsg]);
         // 自动模式执行了写操作，通知 Dashboard 刷新
-        const hasWrites = (data.toolResults || []).some(
-          (tr: any) => !['get_today_summary','get_tasks','get_pomodoro_status','get_today_expenses','get_exercise_types','get_today_exercise'].includes(tr.tool)
-        );
-        if (hasWrites) {
-          window.dispatchEvent(new CustomEvent(DATA_CHANGED_EVENT));
-        }
+        dispatchAgentDataChanged(getAgentChangedDomains(data.toolResults || []));
       }
     } catch (err: any) {
       const errorMsg: AgentMessage = {
@@ -209,7 +207,7 @@ export default function AgentChatPanel() {
       };
       setMessages(prev => [...prev, reply]);
       // 通知 Dashboard 刷新
-      window.dispatchEvent(new CustomEvent(DATA_CHANGED_EVENT));
+      dispatchAgentDataChanged(getAgentChangedDomains(data.toolResults || []));
     } catch (err: any) {
       // 回滚乐观更新
       setMessages(prev => prev.map(m => m.id === messageId ? { ...m, confirmed: null } : m));
@@ -325,7 +323,7 @@ export default function AgentChatPanel() {
                   你好！我是 LifeTracker 助手
                 </p>
                 <p style={{ color: 'var(--text-muted)', fontSize: 11, margin: 0 }}>
-                  试试："开启今天" 或 "午餐花了15块"
+                  试试：&quot;开启今天&quot; 或 &quot;午餐花了15块&quot;
                 </p>
               </div>
             )}

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import React, { useState, useEffect } from 'react';
 import { shareAPI } from '@/lib/api';
 import TaskHeatmap from '@/components/overview/TaskHeatmap';
@@ -215,9 +216,11 @@ export default function SharePageClient({ shareCode }: { shareCode: string }) {
 
           {/* 公安备案 */}
           <div className="flex items-center justify-center gap-1">
-            <img
+            <Image
               src="/beian-icon.png"
               alt="备案图标"
+              width={14}
+              height={14}
               className="w-3.5 h-3.5 opacity-60"
             />
             <a

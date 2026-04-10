@@ -218,7 +218,6 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
       stopLocalTimer();
       stopSync();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 开始正计时模式
@@ -940,10 +939,10 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
         badge: '/favicon.ico',
         tag: 'pomodoro-timer',
         requireInteraction: !isPageVisible, // 页面不可见时需要用户交互
-        silent: false,
-        vibrate: [200, 100, 200], // 振动模式（移动设备）
-        timestamp: Date.now()
+        silent: false
       });
+
+      navigator.vibrate?.([200, 100, 200]);
 
       // 点击通知时聚焦到窗口
       notification.onclick = () => {
@@ -959,7 +958,7 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
 
       // 如果页面不可见，尝试让浏览器标签页闪烁
       if (!isPageVisible) {
-        let originalTitle = document.title;
+        const originalTitle = document.title;
         let flashCount = 0;
         const flashInterval = setInterval(() => {
           document.title = flashCount % 2 === 0 ? '🍅 番茄钟提醒！' : originalTitle;

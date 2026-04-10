@@ -1,28 +1,22 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import { Noto_Sans_SC } from "next/font/google";
-import "./globals.css";
-import { Providers } from "./providers";
-
-const inter = Inter({ subsets: ["latin"] });
-const notoSansSC = Noto_Sans_SC({
-  subsets: ["latin", "cyrillic"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-noto-sans-sc",
-  display: "swap",
-});
+import type { Metadata, Viewport } from 'next';
+import './globals.css';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: "LifeTracker - 生活记录系统",
-  description: "一个为考研学生设计的全栈Web应用，集成倒计时、学习计划、时间管理功能",
-  keywords: ["生活记录", "学习管理", "番茄钟", "考研", "时间管理"],
-  authors: [{ name: "LifeTracker Team" }],
-  viewport: "width=device-width, initial-scale=1",
+  title: 'LifeTracker - 生活记录系统',
+  description: '一个为考研学生设计的全栈 Web 应用，集成学习计划、时间管理与生活记录功能。',
+  keywords: ['生活记录', '学习管理', '番茄钟', '考研', '时间管理'],
+  authors: [{ name: 'LifeTracker Team' }],
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',
     apple: '/favicon.ico',
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -31,11 +25,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" className={notoSansSC.variable}>
-      <body className={`${inter.className} font-sans`}>
-        <Providers>
-          {children}
-        </Providers>
+    <html lang="zh-CN">
+      <body>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

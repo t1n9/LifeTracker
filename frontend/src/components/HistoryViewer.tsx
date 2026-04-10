@@ -97,6 +97,25 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
 
   if (!isOpen) return null;
 
+  const studyData: NonNullable<DayData['study']> = dayData?.study ?? {
+    totalMinutes: 0,
+    pomodoroCount: 0
+  };
+  const exerciseData: NonNullable<DayData['exercise']> = dayData?.exercise ?? {
+    exercises: [],
+    feeling: ''
+  };
+  const expensesData: NonNullable<DayData['expenses']> = dayData?.expenses ?? {
+    total: 0,
+    breakfast: 0,
+    lunch: 0,
+    dinner: 0,
+    customCategories: {},
+    other: []
+  };
+  const customExpenseCategories = expensesData.customCategories ?? {};
+  const otherExpenses = Array.isArray(expensesData.other) ? expensesData.other : [];
+
   return (
     <div style={{
       position: 'fixed',
@@ -339,7 +358,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                         color: 'var(--accent-primary)',
                         marginBottom: '0.25rem'
                       }}>
-                        {formatStudyTime(dayData.study.totalMinutes)}
+                        {formatStudyTime(studyData.totalMinutes)}
                       </div>
                       <div style={{
                         fontSize: '0.75rem',
@@ -355,7 +374,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                         color: 'var(--success-color)',
                         marginBottom: '0.25rem'
                       }}>
-                        {dayData.study.pomodoroCount}
+                        {studyData.pomodoroCount}
                       </div>
                       <div style={{
                         fontSize: '0.75rem',
@@ -498,14 +517,14 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                   }}>
                     🏃 运动记录
                   </h5>
-                  {dayData.exercise.exercises && dayData.exercise.exercises.length > 0 ? (
+                  {exerciseData.exercises.length > 0 ? (
                     <div style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
                       gap: '0.5rem',
                       marginBottom: '0.75rem'
                     }}>
-                      {dayData.exercise.exercises.map((exercise, index) => (
+                      {exerciseData.exercises.map((exercise, index) => (
                         <div key={exercise.id || index} style={{ textAlign: 'center' }}>
                           <div style={{
                             fontSize: '1.125rem',
@@ -531,7 +550,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                       今日无运动记录
                     </div>
                   )}
-                  {dayData.exercise.feeling && (
+                  {exerciseData.feeling && (
                     <div style={{
                       padding: '0.5rem',
                       backgroundColor: 'var(--bg-secondary)',
@@ -542,7 +561,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                         fontSize: '0.75rem',
                         color: 'var(--text-secondary)'
                       }}>
-                        感受: {dayData.exercise.feeling}
+                        感受: {exerciseData.feeling}
                       </span>
                     </div>
                   )}
@@ -578,7 +597,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                       color: 'var(--accent-primary)',
                       marginBottom: '0.25rem'
                     }}>
-                      ¥{(dayData.expenses.total || 0).toFixed(2)}
+                      ¥{(expensesData.total || 0).toFixed(2)}
                     </div>
                     <div style={{
                       fontSize: '0.75rem',
@@ -597,26 +616,26 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                   }}>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: '1rem', fontWeight: 'bold', color: 'var(--warning-color)', marginBottom: '0.25rem' }}>
-                        ¥{(dayData.expenses.breakfast || 0).toFixed(2)}
+                        ¥{(expensesData.breakfast || 0).toFixed(2)}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>早餐</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: '1rem', fontWeight: 'bold', color: 'var(--success-color)', marginBottom: '0.25rem' }}>
-                        ¥{(dayData.expenses.lunch || 0).toFixed(2)}
+                        ¥{(expensesData.lunch || 0).toFixed(2)}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>午餐</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: '1rem', fontWeight: 'bold', color: 'var(--accent-primary)', marginBottom: '0.25rem' }}>
-                        ¥{(dayData.expenses.dinner || 0).toFixed(2)}
+                        ¥{(expensesData.dinner || 0).toFixed(2)}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>晚餐</div>
                     </div>
                   </div>
 
                   {/* 自定义消费类别 */}
-                  {dayData.expenses.customCategories && Object.keys(dayData.expenses.customCategories).length > 0 && (
+                  {customExpenseCategories && Object.keys(customExpenseCategories).length > 0 && (
                     <div style={{ marginBottom: '0.75rem' }}>
                       <div style={{
                         fontSize: '0.75rem',
@@ -631,7 +650,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                         gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))',
                         gap: '0.5rem'
                       }}>
-                        {Object.entries(dayData.expenses.customCategories).map(([categoryId, amount]) => (
+                        {Object.entries(customExpenseCategories).map(([categoryId, amount]) => (
                           <div key={categoryId} style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '0.875rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
                               ¥{Number(amount || 0).toFixed(2)}
@@ -646,7 +665,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                   )}
 
                   {/* 其他消费项目 */}
-                  {dayData.expenses.other && Array.isArray(dayData.expenses.other) && dayData.expenses.other.length > 0 && (
+                  {otherExpenses && Array.isArray(otherExpenses) && otherExpenses.length > 0 && (
                     <div>
                       <div style={{
                         fontSize: '0.75rem',
@@ -660,7 +679,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                         maxHeight: '100px',
                         overflowY: 'auto'
                       }}>
-                        {dayData.expenses.other.map((item, index) => (
+                        {otherExpenses.map((item, index) => (
                           <div key={index} style={{
                             display: 'flex',
                             justifyContent: 'space-between',

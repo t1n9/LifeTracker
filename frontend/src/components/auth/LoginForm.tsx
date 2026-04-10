@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth';
 import { authAPI, systemConfigAPI, emailAPI } from '@/lib/api';
@@ -488,12 +489,12 @@ export default function LoginForm() {
             alignItems: 'center',
             gap: '4px'
           }}>
-            <img
+            <Image
               src="/beian-icon.png"
               alt="备案图标"
+              width={12}
+              height={12}
               style={{
-                width: '12px',
-                height: '12px',
                 opacity: 0.6
               }}
             />

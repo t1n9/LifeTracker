@@ -299,6 +299,8 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   const [newTaskText, setNewTaskText] = useState('');
   const [showInput, setShowInput] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [updatingTasks, setUpdatingTasks] = useState<Record<string, boolean>>({});
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [dayStart, setDayStart] = useState<string | null>(null);
@@ -379,9 +381,15 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   };
 
   // 加载今日任务列表
-  const loadTasks = async () => {
+  const loadTasks = async ({ silent = false }: { silent?: boolean } = {}) => {
+    const useSilentRefresh = silent && hasLoadedOnce;
+
     try {
-      setLoading(true);
+      if (useSilentRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const response = await taskAPI.getTodayTasks();
       const loadedTasks = response.data || [];
       // 前端按sortOrder重新排序
@@ -402,7 +410,12 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     } catch (error) {
       console.error('加载今日任务失败:', error);
     } finally {
-      setLoading(false);
+      if (useSilentRefresh) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+        setHasLoadedOnce(true);
+      }
     }
   };
 
@@ -432,7 +445,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   // 当番茄钟完成刷新触发器变化时，重新加载任务列表
   useEffect(() => {
     if (pomodoroCompleteRefreshTrigger !== undefined && pomodoroCompleteRefreshTrigger > 0) {
-      loadTasks();
+      loadTasks({ silent: true });
     }
   }, [pomodoroCompleteRefreshTrigger]);
 
@@ -440,7 +453,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   useEffect(() => {
     if (taskRefreshTrigger !== undefined && taskRefreshTrigger > 0) {
       console.log('🔄 任务刷新触发器变化，重新加载任务列表');
-      loadTasks();
+      loadTasks({ silent: true });
     }
   }, [taskRefreshTrigger]);
 
@@ -685,6 +698,11 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <CheckSquare size={20} style={{ color: 'var(--success-color)' }} />
+          {refreshing && (
+            <span className="text-xs opacity-60" style={{ color: 'var(--text-muted)' }}>
+              同步中...
+            </span>
+          )}
           <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>今日任务</h3>
         </div>
         <div className="text-sm" style={{ color: 'var(--text-muted)' }}>

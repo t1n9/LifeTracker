@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { VERSION_INFO } from './common/version';
 
 @Injectable()
 export class AppService {
   getAppInfo() {
     return {
       name: 'LifeTracker API',
-      version: '1.0.0',
+      version: VERSION_INFO.version,
       description: '生活记录应用后端API',
       author: 'LifeTracker Team',
       timestamp: new Date().toISOString(),

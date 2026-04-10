@@ -1,7 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { expenseAPI } from '@/lib/api';
+import {
+  AGENT_DATA_CHANGED_EVENT,
+  eventAffectsDomains,
+} from '@/lib/agent-events';
 
 interface MealExpenses {
   breakfast: number;
@@ -34,15 +38,23 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
     totalMeal: 0,
     totalOther: 0,
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedOnceRef = useRef(false);
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
   const [mealValues, setMealValues] = useState<MealExpenses>({ breakfast: 0, lunch: 0, dinner: 0 });
   const [otherForm, setOtherForm] = useState({ description: '', amount: '' });
 
   // 加载今日消费数据
-  const loadData = async () => {
+  const loadData = async ({ silent = false }: { silent?: boolean } = {}) => {
+    const useSilentRefresh = silent && hasLoadedOnceRef.current;
+
     try {
-      setLoading(true);
+      if (useSilentRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const response = await expenseAPI.getTodayExpenses();
       const data = response.data.data;
       
@@ -51,7 +63,12 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
     } catch (error) {
       console.error('加载消费数据失败:', error);
     } finally {
-      setLoading(false);
+      if (useSilentRefresh) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+        hasLoadedOnceRef.current = true;
+      }
     }
   };
 
@@ -141,7 +158,7 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
     } catch (error) {
       console.error('删除消费记录失败:', error);
       alert('删除消费记录失败');
-      await loadData();
+      await loadData({ silent: true });
     }
   };
 
@@ -178,9 +195,13 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
 
   // Agent 操作后刷新
   useEffect(() => {
-    const handler = () => loadData();
-    window.addEventListener('agent:data-changed', handler);
-    return () => window.removeEventListener('agent:data-changed', handler);
+    const handler = (event: Event) => {
+      if (eventAffectsDomains(event, ['expenses'])) {
+        loadData({ silent: true });
+      }
+    };
+    window.addEventListener(AGENT_DATA_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(AGENT_DATA_CHANGED_EVENT, handler);
   }, []);
 
   const totalExpense = todayExpenses.totalMeal + todayExpenses.totalOther;
@@ -192,6 +213,11 @@ const ExpenseStats: React.FC<ExpenseStatsProps> = ({ theme = 'light' }) => {
         <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
           消费统计
         </h3>
+        {refreshing && (
+          <span className="text-xs opacity-60" style={{ color: 'var(--text-muted)' }}>
+            同步中...
+          </span>
+        )}
         <div className="expense-total">
           今日总计: ¥{totalExpense.toFixed(2)}
         </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getVersionString } from '@/lib/version';
@@ -64,7 +65,6 @@ export default function Navbar({ userName = 'User', theme, onThemeToggle }: Navb
 
   const logoVersionStyle: React.CSSProperties = {
     fontSize: '0.75rem',
-    color: 'var(--text-muted)',
     background: 'var(--accent-primary)',
     color: 'white',
     padding: '0.125rem 0.5rem',
@@ -139,10 +139,10 @@ export default function Navbar({ userName = 'User', theme, onThemeToggle }: Navb
     <nav style={navbarStyle}>
       <div style={navbarContentStyle}>
         {/* Logo */}
-        <a href="/" style={logoStyle}>
+        <Link href="/" style={logoStyle}>
           <span style={logoTextStyle}>LifeTracker</span>
           <span style={logoVersionStyle}>{getVersionString()}</span>
-        </a>
+        </Link>
 
         {/* Right actions */}
         <div style={rightActionsStyle}>

@@ -51,7 +51,7 @@ async function initSystem() {
     const systemConfigs = [
       {
         key: 'registration_enabled',
-        value: 'true',
+        value: 'false',
         description: '是否允许用户注册',
         isPublic: true,
       },
@@ -108,7 +108,7 @@ async function initSystem() {
     console.log('🔑 密码: admin123456');
     console.log('');
     console.log('🚀 系统功能状态:');
-    console.log('✅ 用户注册: 已开启');
+    console.log('✅ 用户注册: 默认关闭');
     console.log('✅ 管理员权限: 已配置');
     console.log('✅ 基础设置: 已初始化');
     console.log('');

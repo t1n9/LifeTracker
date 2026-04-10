@@ -1,9 +1,14 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { userAPI, studyAPI, taskAPI, api } from '@/lib/api';
+import {
+  AGENT_DATA_CHANGED_EVENT,
+  eventAffectsDomains,
+} from '@/lib/agent-events';
 import { goalService, UserGoal } from '../services/goalService';
 import { getVersionString } from '@/lib/version';
 import HistoryViewer from './HistoryViewer';
@@ -276,16 +281,27 @@ export default function Dashboard() {
 
   // 监听 Agent 数据变更，刷新所有相关面板
   useEffect(() => {
-    const handleAgentDataChanged = () => {
-      loadTasks();
-      loadTodayStats();
-      loadCurrentGoal();
-      setTaskRefreshTrigger(prev => prev + 1);
-      pomodoroTimerRef.current?.refreshSession();
+    const handleAgentDataChanged = (event: Event) => {
+      if (eventAffectsDomains(event, ['tasks'])) {
+        loadTasks();
+        setTaskRefreshTrigger(prev => prev + 1);
+      }
+
+      if (eventAffectsDomains(event, ['dayStart'])) {
+        setDayStartRefreshTrigger(prev => prev + 1);
+      }
+
+      if (eventAffectsDomains(event, ['study'])) {
+        loadTodayStats();
+      }
+
+      if (eventAffectsDomains(event, ['pomodoro'])) {
+        pomodoroTimerRef.current?.refreshSession();
+      }
     };
-    window.addEventListener('agent:data-changed', handleAgentDataChanged);
-    return () => window.removeEventListener('agent:data-changed', handleAgentDataChanged);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    window.addEventListener(AGENT_DATA_CHANGED_EVENT, handleAgentDataChanged);
+    return () => window.removeEventListener(AGENT_DATA_CHANGED_EVENT, handleAgentDataChanged);
+  }, []);
 
   // 实时时间更新
   useEffect(() => {
@@ -437,8 +453,8 @@ export default function Dashboard() {
       const goalName = currentGoal.goalName;
 
       let finalDate = null;
-      let displayName = goalName || '';
-      let hasTarget = true;
+      const displayName = goalName || '';
+      const hasTarget = true;
 
       if (targetDate) {
         finalDate = new Date(targetDate);
@@ -826,12 +842,12 @@ export default function Dashboard() {
               justifyContent: 'center',
               gap: '0.25rem'
             }}>
-              <img
+              <Image
                 src="/beian-icon.png"
                 alt="备案图标"
+                width={14}
+                height={14}
                 style={{
-                  width: '14px',
-                  height: '14px',
                   opacity: 0.6
                 }}
               />

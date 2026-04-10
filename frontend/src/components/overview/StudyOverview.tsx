@@ -7,7 +7,6 @@ import RecentActivities from './RecentActivities';
 import StudyChart from './StudyChart';
 import VisitorStats from '../VisitorStats';
 import { overviewAPI, shareLinkAPI } from '@/lib/api';
-import { useAuthStore } from '@/store/auth';
 
 // 模拟数据生成函数
 const generateMockHeatmapData = () => {
@@ -105,7 +104,6 @@ interface StudyOverviewProps {
 }
 
 const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }) => {
-  const { user } = useAuthStore();
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
@@ -189,29 +187,24 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }
       setChartData(data.chartData || []);
       setStats(data.stats || {});
     } catch (error) {
-      console.error('加载概况数据失败，使用模拟数据:', error);
-      setError('加载数据失败，显示模拟数据');
+      console.error('加载概况数据失败:', error);
+      setError('加载数据失败，请稍后重试');
 
       // 如果API失败，使用模拟数据
-      setHeatmapData(generateMockHeatmapData());
-      setActivities(generateMockActivities());
-      setChartData(generateMockChartData());
-      setStats({
-        totalTasks: 156,
-        activeDays: 89,
-        avgTasksPerDay: '1.8',
-        currentStreak: 7,
-      });
+      setHeatmapData([]);
+      setActivities([]);
+      setChartData([]);
+      setStats({});
     } finally {
       setLoading(false);
     }
   };
 
   // 使用API返回的统计数据，如果没有则从热力图数据计算
-  const totalTasks = stats.totalTasks || heatmapData.reduce((sum, day) => sum + day.count, 0);
-  const activeDays = stats.activeDays || heatmapData.filter(day => day.count > 0).length;
-  const avgTasksPerDay = stats.avgTasksPerDay || (activeDays > 0 ? (totalTasks / activeDays).toFixed(1) : '0');
-  const currentStreak = stats.currentStreak || (() => {
+  const totalTasks = stats.totalTasks ?? heatmapData.reduce((sum, day) => sum + day.count, 0);
+  const activeDays = stats.activeDays ?? heatmapData.filter(day => day.count > 0).length;
+  const avgTasksPerDay = stats.avgTasksPerDay ?? (activeDays > 0 ? (totalTasks / activeDays).toFixed(1) : '0');
+  const currentStreak = stats.currentStreak ?? (() => {
     let streak = 0;
     for (let i = heatmapData.length - 1; i >= 0; i--) {
       if (heatmapData[i].count > 0) {
