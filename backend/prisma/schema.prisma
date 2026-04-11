@@ -45,6 +45,7 @@ model User {
   userGoals           UserGoal[]
   userSettings        UserSettings?
   agentMessages       AgentMessage[]
+  captures            Capture[]
 
   @@map("users")
 }
@@ -428,4 +429,26 @@ model AgentMessage {
 
   @@index([userId, createdAt])
   @@map("agent_messages")
+}
+
+model Capture {
+  id         String        @id @default(uuid())
+  userId     String        @map("user_id")
+  rawContent String        @map("raw_content")
+  status     CaptureStatus @default(RAW)
+  analysis   Json?
+  analyzedAt DateTime?     @map("analyzed_at") @db.Timestamptz(6)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, status, createdAt])
+  @@map("captures")
+}
+
+enum CaptureStatus {
+  RAW
+  ANALYZED
+  ARCHIVED
 }

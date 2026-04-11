@@ -263,6 +263,12 @@ export const suggestionsAPI = {
 };
 
 // 分享链接管理API（需要认证）
+export const captureAPI = {
+  getCaptures: (limit = 20) => api.get('/captures', { params: { limit } }),
+  createCapture: (data: { content: string }) => api.post('/captures', data),
+  analyzeCapture: (id: string) => api.post(`/captures/${id}/analyze`),
+};
+
 export const shareLinkAPI = {
   // 创建或更新分享链接
   createShareLink: (data: Record<string, never> = {}) =>
