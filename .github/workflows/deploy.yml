@@ -2,47 +2,32 @@ name: Deploy LifeTracker
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-    - name: Deploy to server
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          set -e
-          cd /opt/lifetracker
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -Eeuo pipefail
 
-          # 拉取最新代码
-          git pull origin main
+            cd /opt/lifetracker
+            REMOTE_URL="$(git remote get-url origin)"
+            RELEASE_DIR="/tmp/lifetracker-deploy-${{ github.sha }}"
+            trap 'rm -rf "$RELEASE_DIR"' EXIT
 
-          # 编译后端
-          cd /opt/lifetracker/backend
-          npm ci
-          npx prisma generate
-          npm run build
+            rm -rf "$RELEASE_DIR"
+            git clone --depth 1 --branch main "$REMOTE_URL" "$RELEASE_DIR"
 
-          # 更新运行目录
-          rm -rf /opt/lifetracker/app/backend-dist
-          cp -r dist /opt/lifetracker/app/backend-dist
-          cp -r node_modules /opt/lifetracker/app/node_modules
-          cp -r prisma /opt/lifetracker/app/prisma
-          cp package.json /opt/lifetracker/app/
+            cd "$RELEASE_DIR"
+            git checkout "${{ github.sha }}"
 
-          # 编译前端
-          cd /opt/lifetracker/frontend
-          npm ci
-          NEXT_PUBLIC_API_URL=https://${{ secrets.DOMAIN_NAME }}/api npm run build
-
-          # 更新前端静态文件
-          rm -rf /var/www/html/*
-          cp -r out/* /var/www/html/
-
-          # 重启后端
-          systemctl restart lifetracker-backend
+            bash scripts/deployment/deploy-server.sh
