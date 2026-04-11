@@ -16,8 +16,9 @@ export interface AgentDataChangedDetail {
 const TOOL_DOMAIN_MAP: Record<string, AgentRefreshDomain[]> = {
   start_day: ['dayStart'],
   create_task: ['tasks'],
+  create_tasks: ['tasks'],
   complete_task: ['tasks'],
-  start_pomodoro: ['pomodoro'],
+  start_pomodoro: ['pomodoro', 'tasks'],
   stop_pomodoro: ['pomodoro', 'study', 'tasks'],
   record_meal_expense: ['expenses'],
   record_other_expense: ['expenses'],

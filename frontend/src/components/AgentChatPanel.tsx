@@ -22,6 +22,7 @@ const TOOL_LABELS: Record<string, string> = {
   get_today_summary: '查看今日概况',
   start_day: '开启今日',
   create_task: '创建任务',
+  create_tasks: '批量创建任务',
   complete_task: '完成任务',
   get_tasks: '获取任务列表',
   start_pomodoro: '开启番茄钟',

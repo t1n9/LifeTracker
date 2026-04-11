@@ -226,7 +226,7 @@ export const systemConfigAPI = {
 export const dailyAPI = {
   getDailyData: (date?: string) => api.get('/daily', { params: { date } }),
   getTodayStatus: () => api.get('/daily/status'),
-  updateDayStart: (data: { dayStart: string; date?: string }) => api.put('/daily/start', data),
+  updateDayStart: (data: { dayStart?: string; wakeUpTime?: string; date?: string }) => api.put('/daily/start', data),
   updateDayReflection: (data: { dayReflection: string; reflectionTime?: string; phoneUsage?: number; date?: string }) =>
     api.put('/daily/reflection', data),
   clearDayStart: (date?: string) => api.delete('/daily/start', { params: { date } }),

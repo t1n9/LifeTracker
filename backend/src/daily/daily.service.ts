@@ -43,6 +43,20 @@ export class DailyService {
       ? parseDateString(updateDayStartDto.date)
       : parseDateString(formatDateString(getTodayStart(timezone), timezone));
 
+    const updateData = {
+      ...(updateDayStartDto.dayStart !== undefined ? { dayStart: updateDayStartDto.dayStart } : {}),
+      ...(updateDayStartDto.wakeUpTime ? { wakeUpTime: updateDayStartDto.wakeUpTime } : {}),
+    };
+
+    const createData = {
+      userId,
+      date: targetDate,
+      ...(updateDayStartDto.dayStart !== undefined ? { dayStart: updateDayStartDto.dayStart } : {}),
+      ...(updateDayStartDto.wakeUpTime ? { wakeUpTime: updateDayStartDto.wakeUpTime } : {}),
+      totalMinutes: 0,
+      pomodoroCount: 0,
+    };
+
     const dailyData = await this.prisma.dailyData.upsert({
       where: {
         userId_date: {
@@ -50,18 +64,8 @@ export class DailyService {
           date: targetDate,
         },
       },
-      update: {
-        dayStart: updateDayStartDto.dayStart,
-        ...(updateDayStartDto.wakeUpTime && { wakeUpTime: updateDayStartDto.wakeUpTime }),
-      },
-      create: {
-        userId,
-        date: targetDate,
-        dayStart: updateDayStartDto.dayStart,
-        ...(updateDayStartDto.wakeUpTime && { wakeUpTime: updateDayStartDto.wakeUpTime }),
-        totalMinutes: 0,
-        pomodoroCount: 0,
-      },
+      update: updateData,
+      create: createData,
     });
 
     return dailyData;

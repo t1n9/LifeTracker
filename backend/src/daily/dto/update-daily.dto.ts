@@ -2,9 +2,10 @@ import { IsString, IsOptional, IsDateString, IsNumber, Min, Max } from 'class-va
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateDayStartDto {
-  @ApiProperty({ description: '开启内容' })
+  @ApiProperty({ description: '开启内容', required: false })
+  @IsOptional()
   @IsString()
-  dayStart: string;
+  dayStart?: string;
 
   @ApiProperty({ description: '起床时间', required: false })
   @IsOptional()
