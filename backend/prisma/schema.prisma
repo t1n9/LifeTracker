@@ -435,6 +435,7 @@ model Capture {
   id         String        @id @default(uuid())
   userId     String        @map("user_id")
   rawContent String        @map("raw_content")
+  sourceHint String?       @map("source_hint")
   status     CaptureStatus @default(RAW)
   analysis   Json?
   analyzedAt DateTime?     @map("analyzed_at") @db.Timestamptz(6)
