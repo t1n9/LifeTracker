@@ -14,6 +14,7 @@ interface Message {
 }
 
 const TOOL_LABELS: Record<string, string> = {
+  get_today_tasks: '今日任务',
   get_today_summary: '查看今日概况',
   start_day: '开启今日',
   create_task: '创建任务',

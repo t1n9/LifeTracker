@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgentToolsService, AGENT_TOOLS } from './agent-tools.service';
-import { extractAgentMessageHints } from './agent-intent.utils';
+import { AgentMessageHints, extractAgentMessageHints } from './agent-intent.utils';
 
 interface LLMMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -15,6 +15,7 @@ interface LLMMessage {
 // 只读工具，不需要确认
 const READ_ONLY_TOOLS = new Set([
   'get_today_summary',
+  'get_today_tasks',
   'get_tasks',
   'get_pomodoro_status',
   'get_today_expenses',
@@ -84,6 +85,8 @@ const SYSTEM_PROMPT = `你是 LifeTracker 的专属助手，只服务于本网�
 11. 今日复盘：仅在用户明确说"写复盘"、"总结今天"时才调用 update_day_reflection
 12. 记录花费时，注意区分餐饮（早餐/午餐/晚餐用 record_meal_expense）和其他花费（用 record_other_expense）
 13. 番茄钟默认25分钟，用户可以指定时长
+14. 任务完成要走工具：用户说"资料分析任务完成"、"25.9福建事业单位完成了"、"这个任务做完了"这类话时，应调用 complete_task，不要把内部上下文或 UUID 原样回复给用户
+15. 永远不要向用户展示内部上下文标记，例如"【已执行操作】"、"最近工具结果"这类文字
 
 【关键示例】
 - "今天早上7:30起床，今天任务是套卷+下午公差+晚上毕设"
@@ -92,6 +95,8 @@ const SYSTEM_PROMPT = `你是 LifeTracker 的专属助手，只服务于本网�
   应先匹配未完成任务；如果没匹配到，就用 start_pomodoro({ duration: 120, taskTitle: "福建事业单位试卷", createTaskIfMissing: true })
 - "今天跑了3公里，状态非常棒。现在想做一套福建事业单位的试卷，帮我开启2小时的番茄"
   应先记录运动，再记录运动感受，再为番茄准备任务并开启番茄
+- "资料分析任务完成"
+  应匹配现有未完成任务后调用 complete_task({ taskTitle: "资料分析" }) 或 complete_task({ taskId: "..." })
 `;
 
 @Injectable()
@@ -113,11 +118,11 @@ export class AgentService {
       where.createdAt = { lt: (await this.prisma.agentMessage.findUnique({ where: { id: cursor } }))?.createdAt };
     }
 
-    const messages = await this.prisma.agentMessage.findMany({
+    const messages = (await this.prisma.agentMessage.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: limit,
-    });
+    })).filter(message => !this.isInternalExecutionEcho(message.role, message.content, message.toolCalls));
 
     return {
       messages: messages.reverse(), // 返回时正序
@@ -145,8 +150,9 @@ export class AgentService {
     }
 
     // 从 DB 加载最近的对话作为 LLM 上下文
+    const messageHints = extractAgentMessageHints(message);
     const llmContext = await this.buildLLMContext(userId);
-    const structuredGuidance = await this.buildStructuredGuidance(userId, message);
+    const structuredGuidance = await this.buildStructuredGuidance(userId, message, messageHints);
     const llmMessages: LLMMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },
       ...(structuredGuidance ? [{ role: 'system' as const, content: structuredGuidance }] : []),
@@ -177,6 +183,28 @@ export class AgentService {
         // 确认模式下如果有待确认操作，忽略最终文字回复，直接返回确认列表
         if (confirmMode && pendingWriteOps.length > 0) {
           break;
+        }
+        const todayTasksFallback = await this.handleTodayTasksFallback(
+          userId,
+          message,
+          messageHints,
+          toolResults,
+        );
+        if (todayTasksFallback) {
+          return todayTasksFallback;
+        }
+        const completionFallback = await this.handleDirectCompletionFallback(
+          userId,
+          message,
+          confirmMode,
+          messageHints,
+          toolResults,
+        );
+        if (completionFallback) {
+          return completionFallback;
+        }
+        if (this.shouldSuppressAutoReply(confirmMode, toolResults)) {
+          return { type: 'auto_write_applied', toolResults };
         }
         const saved = await this.prisma.agentMessage.create({
           data: {
@@ -229,7 +257,7 @@ export class AgentService {
       const confirms: Array<{ id: string; summary: string; action: any }> = [];
       for (const op of pendingWriteOps) {
         const label = TOOL_LABELS[op.name] || op.name;
-        const detail = this.formatToolArgs(op.name, op.args);
+        const detail = await this.formatToolArgs(userId, op.name, op.args);
         const summary = `${label}：${detail}`;
 
         const saved = await this.prisma.agentMessage.create({
@@ -244,6 +272,10 @@ export class AgentService {
         confirms.push({ id: saved.id, summary, action: op });
       }
       return { type: 'confirms', confirms };
+    }
+
+    if (this.shouldSuppressAutoReply(confirmMode, toolResults)) {
+      return { type: 'auto_write_applied', toolResults };
     }
 
     const saved = await this.prisma.agentMessage.create({
@@ -274,20 +306,36 @@ export class AgentService {
       result = { error: error.message || 'Tool execution failed' };
     }
 
-    // 标记为已确认
+    const toolResults = [{ tool: call.name, args: call.args, result }];
+    if (result?.error) {
+      return {
+        type: 'confirm_error',
+        messageId,
+        error: result.error,
+      };
+    }
+
+    const label = TOOL_LABELS[call.name] || call.name;
+    const detail = await this.formatToolArgs(userId, call.name, call.args, result);
+    const summary = `${label}：${detail}`;
+
     await this.prisma.agentMessage.update({
       where: { id: messageId },
-      data: { confirmed: true },
+      data: {
+        confirmed: true,
+        content: summary,
+        toolCalls: toolResults,
+      },
     });
 
-    const toolResults = [{ tool: call.name, args: call.args, result }];
-    const label = TOOL_LABELS[call.name] || call.name;
-    const reply = result.error ? `执行失败：${result.error}` : `已完成：${label}`;
-
-    const saved = await this.prisma.agentMessage.create({
-      data: { userId, role: 'assistant', content: reply, toolCalls: toolResults },
-    });
-    return { id: saved.id, reply, toolResults, type: 'reply' };
+    return {
+      id: messageId,
+      messageId,
+      summary,
+      toolResults,
+      confirmed: true,
+      type: 'confirm_updated',
+    };
   }
 
   /**
@@ -301,40 +349,50 @@ export class AgentService {
       throw new Error('没有找到待确认的操作');
     }
 
-    const pending = msg.pendingAction as any;
-    const call = pending?.toolCall;
-    const label = call ? (TOOL_LABELS[call.name] || call.name) : '操作';
-
     await this.prisma.agentMessage.update({
       where: { id: messageId },
       data: { confirmed: false },
     });
 
-    const saved = await this.prisma.agentMessage.create({
-      data: { userId, role: 'assistant', content: `已取消：${label}` },
-    });
-
-    return { id: saved.id, reply: `已取消：${label}`, type: 'reply' };
+    return {
+      id: messageId,
+      messageId,
+      summary: msg.content,
+      confirmed: false,
+      type: 'confirm_updated',
+    };
   }
 
   /**
    * 从 DB 加载最近的对话构建 LLM 上下文
    */
   private async buildLLMContext(userId: string): Promise<LLMMessage[]> {
-    const recentMessages = await this.prisma.agentMessage.findMany({
+    const recentMessages = (await this.prisma.agentMessage.findMany({
       where: {
         userId,
-        role: { in: ['user', 'assistant'] },
+        OR: [
+          { role: { in: ['user', 'assistant'] } },
+          { role: 'confirm', confirmed: true },
+        ],
       },
       orderBy: { createdAt: 'desc' },
       take: 20,
-    });
+    })).filter(message => !this.isInternalExecutionEcho(message.role, message.content, message.toolCalls));
 
     return recentMessages.reverse().flatMap((message) => {
-      const contextMessages: LLMMessage[] = [{
-        role: message.role as 'user' | 'assistant',
-        content: message.content,
-      }];
+      const contextMessages: LLMMessage[] = [];
+
+      if (message.role === 'user') {
+        contextMessages.push({
+          role: 'user',
+          content: message.content,
+        });
+      } else if (message.role === 'assistant') {
+        contextMessages.push({
+          role: 'assistant',
+          content: message.content,
+        });
+      }
 
       const toolSummary = this.summarizeToolCallsForContext(message.toolCalls as Array<{ tool?: string; args?: any; result?: any }> | undefined);
       if (toolSummary) {
@@ -348,12 +406,199 @@ export class AgentService {
     });
   }
 
-  private async buildStructuredGuidance(userId: string, message: string) {
-    const hints = extractAgentMessageHints(message);
+  private async handleTodayTasksFallback(
+    userId: string,
+    message: string,
+    hints: AgentMessageHints,
+    toolResults: Array<{ tool: string; args?: any; result?: any }>,
+  ) {
+    if (!this.isSimpleTodayTasksQuery(message, hints)) {
+      return null;
+    }
+
+    if (toolResults.some(({ tool, result }) => (
+      (tool === 'get_today_tasks' || tool === 'get_today_summary') && !result?.error
+    ))) {
+      return null;
+    }
+
+    if (toolResults.some(({ tool }) => !['get_tasks', 'get_today_tasks', 'get_today_summary'].includes(tool))) {
+      return null;
+    }
+
+    let result: any;
+    try {
+      result = await this.agentToolsService.executeTool(userId, 'get_today_tasks', {});
+    } catch (error) {
+      result = { error: error.message || 'Tool execution failed' };
+    }
+
+    const nextToolResults = [{ tool: 'get_today_tasks', args: {}, result }];
+    if (result?.error) {
+      return this.createAssistantReply(userId, result.error, nextToolResults);
+    }
+
+    return this.createAssistantReply(userId, this.formatTodayTasksReply(result), nextToolResults);
+  }
+
+  private isSimpleTodayTasksQuery(message: string, hints: AgentMessageHints) {
+    if (
+      hints.wakeUpTime
+      || hints.explicitTaskTitles.length > 0
+      || hints.completionTaskTitle
+      || hints.pomodoro
+      || hints.exerciseRecord
+      || hints.exerciseFeeling
+    ) {
+      return false;
+    }
+
+    const normalized = message.replace(/\s+/gu, '');
+    return /^(?:帮我|给我|麻烦|请)?(?:看|查|列出|展示|告诉我)?(?:一下|一眼)?(?:今天|今日)(?:的)?(?:任务|待办|安排|计划)(?:列表|情况)?$/u.test(normalized)
+      || /^(?:今天|今日)(?:有什么|有啥|有哪些)(?:任务|待办|安排|计划)$/u.test(normalized);
+  }
+
+  private formatTodayTasksReply(tasks: Array<{ title?: string; isCompleted?: boolean }>) {
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+      return '今天还没有有效任务。';
+    }
+
+    const pendingCount = tasks.filter(task => !task?.isCompleted).length;
+    const completedCount = tasks.length - pendingCount;
+    const lines = tasks.map((task, index) => (
+      `${index + 1}. [${task?.isCompleted ? '已完成' : '未完成'}] ${task?.title || '未命名任务'}`
+    ));
+
+    return `今天共有${tasks.length}个有效任务，${pendingCount}个未完成，${completedCount}个已完成。\n${lines.join('\n')}`;
+  }
+
+  private async handleDirectCompletionFallback(
+    userId: string,
+    message: string,
+    confirmMode: boolean,
+    hints: AgentMessageHints,
+    toolResults: Array<{ tool: string; args?: any; result?: any }>,
+  ) {
+    if (!this.isSimpleCompletionMessage(message, hints)) {
+      return null;
+    }
+
+    if (toolResults.some(({ tool, result }) => tool === 'complete_task' && !result?.error)) {
+      return null;
+    }
+
+    const preview = await this.agentToolsService.previewCompleteTask(userId, {
+      taskTitle: hints.completionTaskTitle,
+    });
+
+    if (preview.error) {
+      return this.createAssistantReply(userId, preview.error, toolResults);
+    }
+
+    const taskTitle = preview.taskTitle || hints.completionTaskTitle;
+    if (preview.alreadyCompleted) {
+      return this.createAssistantReply(userId, `任务“${taskTitle}”已经是完成状态。`, toolResults);
+    }
+
+    if (!preview.taskId || !taskTitle) {
+      return null;
+    }
+
+    const action = {
+      id: `fallback-complete-${Date.now()}`,
+      name: 'complete_task',
+      args: {
+        taskId: preview.taskId,
+        taskTitle,
+      },
+    };
+
+    if (confirmMode) {
+      const summary = `完成任务："${taskTitle}"`;
+      const saved = await this.prisma.agentMessage.create({
+        data: {
+          userId,
+          role: 'confirm',
+          content: summary,
+          pendingAction: { toolCall: action },
+          confirmed: null,
+        },
+      });
+
+      return {
+        type: 'confirms',
+        confirms: [{ id: saved.id, summary, action }],
+      };
+    }
+
+    let result: any;
+    try {
+      result = await this.agentToolsService.executeTool(userId, 'complete_task', action.args);
+    } catch (error) {
+      result = { error: error.message || 'Tool execution failed' };
+    }
+
+    const nextToolResults = [...toolResults, { tool: 'complete_task', args: action.args, result }];
+    if (result?.error) {
+      return this.createAssistantReply(userId, result.error, nextToolResults);
+    }
+
+    return { type: 'auto_write_applied', toolResults: nextToolResults };
+  }
+
+  private isSimpleCompletionMessage(message: string, hints: AgentMessageHints) {
+    if (
+      !hints.completionTaskTitle
+      || hints.wakeUpTime
+      || hints.explicitTaskTitles.length > 0
+      || hints.pomodoro
+      || hints.exerciseRecord
+      || hints.exerciseFeeling
+    ) {
+      return false;
+    }
+
+    const normalized = message
+      .replace(/\s+/gu, '')
+      .replace(/[，,。！？!?；;：:“”"'`]/gu, '');
+    const escapedTaskTitle = this.escapeRegExp(hints.completionTaskTitle.replace(/\s+/gu, ''));
+
+    return new RegExp(
+      `^(?:好(?:的)?|嗯|那|现在|已经|我把|把)?${escapedTaskTitle}(?:任务|待办)?(?:完成了|完成|做完了|搞定了|结束了)$`,
+      'u',
+    ).test(normalized);
+  }
+
+  private escapeRegExp(value: string) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private async createAssistantReply(
+    userId: string,
+    reply: string,
+    toolResults: Array<{ tool: string; args?: any; result?: any }> = [],
+  ) {
+    const saved = await this.prisma.agentMessage.create({
+      data: {
+        userId,
+        role: 'assistant',
+        content: reply,
+        toolCalls: toolResults.length > 0 ? toolResults : undefined,
+      },
+    });
+
+    return { id: saved.id, reply, toolResults, type: 'reply' as const };
+  }
+
+  private async buildStructuredGuidance(userId: string, message: string, hints: AgentMessageHints = extractAgentMessageHints(message)) {
     const notes: string[] = [];
 
     if (hints.wakeUpTime) {
       notes.push(`检测到起床时间 ${hints.wakeUpTime}。调用 start_day 时必须把 wakeUpTime 设为这个值，不要把起床时间原文写进 dayStart。`);
+    }
+
+    if (this.isSimpleTodayTasksQuery(message, hints)) {
+      notes.push('用户在查询今天的任务，应优先调用 get_today_tasks。get_tasks 只用于查询全部未完成任务或为其他操作匹配任务，不要把 get_tasks 的结果说成“今天的任务”。');
     }
 
     if (hints.explicitTaskTitles.length > 0) {
@@ -381,6 +626,17 @@ export class AgentService {
       }
       if (missingTaskTitles.length > 0) {
         notes.push(`需要创建的新任务：${missingTaskTitles.join('、')}。优先使用 create_tasks。`);
+      }
+    }
+
+    if (hints.completionTaskTitle) {
+      const matched = await this.agentToolsService.resolvePendingTask(userId, hints.completionTaskTitle);
+      if (matched.status === 'matched' && matched.match) {
+        notes.push(`检测到任务完成意图："${hints.completionTaskTitle}"。应调用 complete_task，并优先传 taskId="${matched.match.taskId}"。`);
+      } else if (matched.status === 'ambiguous') {
+        notes.push(`完成任务目标 "${hints.completionTaskTitle}" 存在歧义，候选有：${matched.candidates.map(candidate => `"${candidate.taskTitle}"`).join('、')}。不要猜测完成哪一个，先让用户澄清。`);
+      } else {
+        notes.push(`检测到任务完成意图："${hints.completionTaskTitle}"。如果没有找到匹配的未完成任务，不要假装已完成，应明确告知用户未匹配到任务。`);
       }
     }
 
@@ -427,12 +683,16 @@ export class AgentService {
 
     return toolCalls.map((toolCall) => {
       switch (toolCall.tool) {
+        case 'get_today_tasks':
+          return `- get_today_tasks: count=${Array.isArray(toolCall.result) ? toolCall.result.length : 0}`;
         case 'start_day':
           return `- start_day: dayStart="${toolCall.result?.dayStart ?? toolCall.args?.dayStart ?? ''}" wakeUpTime="${toolCall.result?.wakeUpTime ?? toolCall.args?.wakeUpTime ?? ''}"`;
         case 'create_task':
           return `- create_task: "${toolCall.result?.title ?? toolCall.args?.title ?? ''}"`;
         case 'create_tasks':
           return `- create_tasks: created=${(toolCall.result?.created ?? []).map((task: any) => task.title).join('、') || '无'} skipped=${(toolCall.result?.skipped ?? []).map((task: any) => task.title).join('、') || '无'}`;
+        case 'complete_task':
+          return `- complete_task: "${toolCall.result?.title ?? toolCall.args?.taskId ?? ''}"`;
         case 'start_pomodoro':
           return `- start_pomodoro: duration=${toolCall.args?.duration || toolCall.result?.session?.duration || 25} task="${toolCall.result?.boundTaskTitle ?? toolCall.args?.taskTitle ?? toolCall.args?.taskName ?? ''}" taskId="${toolCall.result?.boundTaskId ?? toolCall.args?.taskId ?? ''}"`;
         case 'record_exercise':
@@ -448,7 +708,12 @@ export class AgentService {
   /**
    * 格式化工具参数为人类可读文本
    */
-  private formatToolArgs(toolName: string, args: Record<string, any>): string {
+  private async formatToolArgs(
+    userId: string,
+    toolName: string,
+    args: Record<string, any>,
+    result?: any,
+  ): Promise<string> {
     switch (toolName) {
       case 'start_day':
         if (args.dayStart && args.wakeUpTime) {
@@ -462,10 +727,16 @@ export class AgentService {
         return `"${args.title}"${args.subject ? ` [${args.subject}]` : ''}${args.estimatedHours ? ` 预估${args.estimatedHours}h` : ''}`;
       case 'create_tasks':
         return Array.isArray(args.titles) ? args.titles.map((title: string) => `"${title}"`).join('、') : '{}';
-      case 'complete_task':
-        return `任务ID ${args.taskId}`;
+      case 'complete_task': {
+        const taskTitle =
+          result?.title ||
+          (typeof args.taskId === 'string' && args.taskId
+            ? (await this.agentToolsService.getTaskById(userId, args.taskId))?.title
+            : undefined);
+        return taskTitle ? `"${taskTitle}"` : `任务ID ${args.taskId}`;
+      }
       case 'start_pomodoro':
-        return `${args.duration || 25}分钟${args.taskId ? ` (任务ID: ${args.taskId})` : ''}${args.taskTitle ? ` (任务: ${args.taskTitle})` : ''}${args.taskName ? ` (任务: ${args.taskName})` : ''}${args.createTaskIfMissing ? ' (不存在则自动创建)' : ''}`;
+        return `${args.duration || 25}分钟${await this.formatTaskReference(userId, args, result)}${args.createTaskIfMissing ? ' (不存在则自动创建)' : ''}`;
       case 'stop_pomodoro':
         return '停止当前番茄钟';
       case 'record_meal_expense': {
@@ -487,6 +758,55 @@ export class AgentService {
       default:
         return JSON.stringify(args);
     }
+  }
+
+  private async formatTaskReference(userId: string, args: Record<string, any>, result?: any) {
+    const taskTitle =
+      result?.boundTaskTitle ||
+      result?.taskTitle ||
+      (typeof args.taskTitle === 'string' ? args.taskTitle : '') ||
+      (typeof args.taskName === 'string' ? args.taskName : '');
+
+    if (taskTitle) {
+      return ` (任务: ${taskTitle})`;
+    }
+
+    if (typeof args.taskId === 'string' && args.taskId) {
+      const task = await this.agentToolsService.getTaskById(userId, args.taskId);
+      return task?.title ? ` (任务: ${task.title})` : ` (任务ID: ${args.taskId})`;
+    }
+
+    return '';
+  }
+
+  private shouldSuppressAutoReply(confirmMode: boolean, toolResults: Array<{ tool: string; result?: any }>) {
+    if (confirmMode) {
+      return false;
+    }
+
+    const hasSuccessfulWrite = toolResults.some(({ tool, result }) => (
+      !READ_ONLY_TOOLS.has(tool) && !result?.error
+    ));
+    if (!hasSuccessfulWrite) {
+      return false;
+    }
+
+    const hasAnyError = toolResults.some(({ result }) => Boolean(result?.error));
+    return !hasAnyError;
+  }
+
+  private isInternalExecutionEcho(role: string, content: string, toolCalls?: unknown) {
+    if (role !== 'assistant') {
+      return false;
+    }
+
+    if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+      return false;
+    }
+
+    const normalizedContent = String(content || '').trim();
+    return /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu.test(normalizedContent)
+      && /[\r\n]/u.test(normalizedContent);
   }
 
   /**

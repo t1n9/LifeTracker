@@ -29,6 +29,14 @@ export const AGENT_TOOLS = [
   {
     type: 'function' as const,
     function: {
+      name: 'get_today_tasks',
+      description: '获取今日有效任务列表。包括今天创建、今天到期、今天完成，或今天有学习/番茄记录的任务，返回时要区分已完成和未完成状态',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'start_day',
       description: '开启今日，设置今日开启语/计划，也可以只记录起床时间。用户说"开启今天"、"新的一天"、"7:30起床"等时调用',
       parameters: {
@@ -80,13 +88,15 @@ export const AGENT_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'complete_task',
-      description: '将一个任务标记为已完成。需要先调用 get_tasks 获取任务列表找到任务ID',
+      description: '将一个任务标记为已完成。优先传 taskId；如果只有任务标题，也可传 taskTitle 或 taskName，工具会自动匹配现有未完成任务。若同时匹配多个未完成任务，会返回歧义错误，不会自动猜测',
       parameters: {
         type: 'object',
         properties: {
-          taskId: { type: 'string', description: '任务ID' },
+          taskId: { type: 'string', description: '任务ID，优先使用这个字段' },
+          taskTitle: { type: 'string', description: '任务标题；当没有 taskId 时用于匹配现有未完成任务' },
+          taskName: { type: 'string', description: '兼容旧参数，等同于 taskTitle' },
         },
-        required: ['taskId'],
+        required: [],
       },
     },
   },
@@ -94,7 +104,7 @@ export const AGENT_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'get_tasks',
-      description: '获取当前所有未完成任务列表，用于查找可关联的任务ID',
+      description: '获取当前所有未完成任务列表，用于查找可关联的任务ID。这不是今日任务列表',
       parameters: { type: 'object', properties: {}, required: [] },
     },
   },
@@ -274,6 +284,8 @@ export class AgentToolsService {
     switch (toolName) {
       case 'get_today_summary':
         return this.getTodaySummary(userId);
+      case 'get_today_tasks':
+        return this.tasksService.getTodayEffectiveTasks(userId);
       case 'start_day':
         return this.dailyService.updateDayStart(userId, { dayStart: args.dayStart, wakeUpTime: args.wakeUpTime });
       case 'create_task':
@@ -286,7 +298,7 @@ export class AgentToolsService {
       case 'create_tasks':
         return this.createTasks(userId, args.titles);
       case 'complete_task':
-        return this.tasksService.update(userId, args.taskId, { isCompleted: true });
+        return this.completeTask(userId, args);
       case 'get_tasks':
         return this.tasksService.getPendingTasks(userId);
       case 'start_pomodoro':
@@ -322,15 +334,23 @@ export class AgentToolsService {
     return this.tasksService.getPendingTasks(userId);
   }
 
+  async getTaskById(userId: string, taskId: string) {
+    return this.tasksService.findOne(userId, taskId);
+  }
+
   async resolvePendingTask(userId: string, taskTitle: string) {
     const tasks = await this.tasksService.getPendingTasks(userId);
     return resolveTaskMatch(taskTitle, tasks as AgentTaskCandidate[]);
   }
 
+  async previewCompleteTask(userId: string, args: Record<string, any>) {
+    return this.resolveCompletionTaskReference(userId, args);
+  }
+
   private async getTodaySummary(userId: string) {
     const [dailyData, todayTasks, todayExpenses, todayExercise, activePomodoro] = await Promise.all([
       this.dailyService.getTodayStatus(userId),
-      this.tasksService.getTodayTasks(userId),
+      this.tasksService.getTodayEffectiveTasks(userId),
       this.expenseService.getTodayExpenses(userId),
       this.exerciseService.getTodayRecords(userId),
       this.pomodoroService.getActiveSession(userId),
@@ -385,6 +405,91 @@ export class AgentToolsService {
       created,
       skipped,
       requestedCount: titles.length,
+    };
+  }
+
+  private async completeTask(userId: string, args: Record<string, any>) {
+    const taskRef = await this.resolveCompletionTaskReference(userId, args);
+    if (taskRef.error) {
+      return { error: taskRef.error };
+    }
+
+    if (!taskRef.taskId) {
+      return { error: '未提供有效的任务ID或任务标题' };
+    }
+
+    if (!taskRef.alreadyCompleted) {
+      await this.tasksService.update(userId, taskRef.taskId, { isCompleted: true });
+    }
+
+    const updatedTask = await this.tasksService.findOne(userId, taskRef.taskId);
+    if (!updatedTask?.isCompleted) {
+      return { error: `任务"${taskRef.taskTitle || updatedTask?.title || taskRef.taskId}"完成失败，请稍后重试` };
+    }
+
+    return {
+      taskId: updatedTask.id,
+      title: updatedTask.title,
+      isCompleted: updatedTask.isCompleted,
+      alreadyCompleted: taskRef.alreadyCompleted || false,
+    };
+  }
+
+  private async resolveCompletionTaskReference(userId: string, args: Record<string, any>) {
+    const taskId = typeof args.taskId === 'string' ? args.taskId.trim() : '';
+    const rawTaskTitle =
+      typeof args.taskTitle === 'string'
+        ? args.taskTitle.trim()
+        : typeof args.taskName === 'string'
+          ? args.taskName.trim()
+          : '';
+    const taskTitle = sanitizeTaskTitle(rawTaskTitle);
+
+    if (taskId) {
+      const existingTask = await this.tasksService.findOne(userId, taskId);
+      if (!existingTask) {
+        return { error: `找不到任务ID "${taskId}"` };
+      }
+
+      return {
+        taskId: existingTask.id,
+        taskTitle: existingTask.title,
+        alreadyCompleted: existingTask.isCompleted,
+      };
+    }
+
+    if (!taskTitle) {
+      return { error: 'taskId 不能为空' };
+    }
+
+    const matched = await this.resolvePendingTask(userId, taskTitle);
+    if (matched.status === 'matched' && matched.match) {
+      return {
+        taskId: matched.match.taskId,
+        taskTitle: matched.match.taskTitle,
+        alreadyCompleted: false,
+      };
+    }
+
+    if (matched.status === 'ambiguous') {
+      return {
+        error: this.formatAmbiguousTaskError(taskTitle, matched, 'complete_task'),
+      };
+    }
+
+    const existingTask = (await this.tasksService.findAll(userId))
+      .find((task: any) => task.id && toTaskMatchKey(task.title) === toTaskMatchKey(taskTitle));
+
+    if (existingTask?.isCompleted) {
+      return {
+        taskId: existingTask.id,
+        taskTitle: existingTask.title,
+        alreadyCompleted: true,
+      };
+    }
+
+    return {
+      error: `找不到待完成任务"${taskTitle}"。请说得更具体一些，或先确认任务名称后再完成`,
     };
   }
 
@@ -453,7 +558,7 @@ export class AgentToolsService {
 
     if (matched.status === 'ambiguous') {
       return {
-        error: this.formatAmbiguousTaskError(taskTitle, matched),
+        error: this.formatAmbiguousTaskError(taskTitle, matched, 'start_pomodoro'),
       };
     }
 
@@ -472,9 +577,14 @@ export class AgentToolsService {
     };
   }
 
-  private formatAmbiguousTaskError(taskTitle: string, resolution: TaskMatchResolution) {
-    const candidates = resolution.candidates.map(candidate => `"${candidate.taskTitle}"`).join('、');
-    return `任务"${taskTitle}"匹配到多个未完成任务：${candidates}。请说得更具体一些，或先选择准确任务后再开启番茄钟`;
+  private formatAmbiguousTaskError(
+    taskTitle: string,
+    resolution: TaskMatchResolution,
+    action: 'complete_task' | 'start_pomodoro',
+  ) {
+    const candidateLabels = resolution.candidates.map(candidate => `"${candidate.taskTitle}"`).join('、');
+    const normalizedActionLabel = action === 'complete_task' ? '完成任务' : '开启番茄钟';
+    return `任务"${taskTitle}"匹配到多个未完成任务：${candidateLabels}。请说得更具体一些，或先选择准确任务后再${normalizedActionLabel}`;
   }
 
   private async recordExerciseByName(userId: string, exerciseName: string, value: number, notes?: string) {

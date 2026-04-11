@@ -19,6 +19,7 @@ interface AgentMessage {
 }
 
 const TOOL_LABELS: Record<string, string> = {
+  get_today_tasks: '今日任务',
   get_today_summary: '查看今日概况',
   start_day: '开启今日',
   create_task: '创建任务',
@@ -166,6 +167,8 @@ export default function AgentChatPanel() {
           createdAt: new Date().toISOString(),
         };
         setMessages(prev => [...prev, confirmMsg]);
+      } else if (data.type === 'auto_write_applied') {
+        dispatchAgentDataChanged(getAgentChangedDomains(data.toolResults || []));
       } else {
         // 普通回复
         const assistantMsg: AgentMessage = {
@@ -199,6 +202,34 @@ export default function AgentChatPanel() {
 
     try {
       const { data } = await api.post('/agent/confirm', { messageId });
+
+      if (data.type === 'confirm_error' || data.error) {
+        setMessages(prev => prev.map(m => m.id === messageId ? { ...m, confirmed: null } : m));
+        const errorMsg: AgentMessage = {
+          id: `err-${Date.now()}`,
+          role: 'assistant',
+          content: `执行失败: ${data.error || '未知错误'}`,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, errorMsg]);
+        return;
+      }
+
+      if (data.type === 'confirm_updated') {
+        setMessages(prev => prev.map(m => (
+          m.id === messageId
+            ? {
+                ...m,
+                confirmed: data.confirmed,
+                content: data.summary || m.content,
+                toolCalls: data.toolResults || m.toolCalls,
+              }
+            : m
+        )));
+        dispatchAgentDataChanged(getAgentChangedDomains(data.toolResults || []));
+        return;
+      }
+
       const reply: AgentMessage = {
         id: data.id,
         role: 'assistant',
@@ -207,7 +238,6 @@ export default function AgentChatPanel() {
         createdAt: new Date().toISOString(),
       };
       setMessages(prev => [...prev, reply]);
-      // 通知 Dashboard 刷新
       dispatchAgentDataChanged(getAgentChangedDomains(data.toolResults || []));
     } catch (err: any) {
       // 回滚乐观更新
@@ -226,6 +256,20 @@ export default function AgentChatPanel() {
     setMessages(prev => prev.map(m => m.id === messageId ? { ...m, confirmed: false } : m));
     try {
       const { data } = await api.post('/agent/reject', { messageId });
+
+      if (data.type === 'confirm_updated') {
+        setMessages(prev => prev.map(m => (
+          m.id === messageId
+            ? {
+                ...m,
+                confirmed: data.confirmed,
+                content: data.summary || m.content,
+              }
+            : m
+        )));
+        return;
+      }
+
       const reply: AgentMessage = {
         id: data.id,
         role: 'assistant',

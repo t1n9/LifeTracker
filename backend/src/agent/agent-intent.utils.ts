@@ -31,6 +31,7 @@ export type AgentExerciseFeelingHint = 'excellent' | 'good' | 'normal' | 'tired'
 export interface AgentMessageHints {
   wakeUpTime?: string;
   explicitTaskTitles: string[];
+  completionTaskTitle?: string;
   pomodoro?: AgentPomodoroHint;
   exerciseRecord?: AgentExerciseRecordHint;
   exerciseFeeling?: AgentExerciseFeelingHint;
@@ -43,6 +44,10 @@ const TASK_ACTION_PATTERN =
 const TASK_LIST_PATTERNS = [
   /(?:今天任务|今日任务|今天待办|今日待办|待办清单|任务清单|今天安排|今日安排|今天计划|今日计划)(?:是|有|为|:|：)?([\s\S]+)/u,
   /(?:任务是|待办是|安排是|计划是)([\s\S]+)/u,
+];
+const TASK_COMPLETION_PATTERNS = [
+  /(?:把|将)?([^，,。；;！？?\n]+?)(?:任务|待办)?(?:完成了|完成啦|完成)$/u,
+  /(?:把|将)?([^，,。；;！？?\n]+?)(?:任务|待办)?(?:做完了|搞定了|结束了)$/u,
 ];
 const EXERCISE_RECORD_PATTERNS: Array<{ exerciseName: string; pattern: RegExp }> = [
   { exerciseName: '跑步', pattern: /(?:跑步|跑了?|去跑)\s*([零一二两三四五六七八九十\d]+(?:\.\d+)?)\s*(?:公里|km)/u },
@@ -231,6 +236,22 @@ export function extractExplicitTaskTitles(message: string) {
   return [];
 }
 
+export function extractCompletionTaskTitle(message: string) {
+  for (const pattern of TASK_COMPLETION_PATTERNS) {
+    const match = message.match(pattern);
+    if (!match?.[1]) {
+      continue;
+    }
+
+    const cleaned = sanitizeTaskTitle(match[1]);
+    if (isLikelyTaskTitle(cleaned)) {
+      return cleaned;
+    }
+  }
+
+  return undefined;
+}
+
 export function extractPomodoroTaskTitle(message: string, explicitTaskTitles: string[] = []) {
   if (!POMODORO_KEYWORDS.test(message)) {
     return undefined;
@@ -313,6 +334,7 @@ export function extractExerciseFeeling(
 
 export function extractAgentMessageHints(message: string): AgentMessageHints {
   const explicitTaskTitles = extractExplicitTaskTitles(message);
+  const completionTaskTitle = extractCompletionTaskTitle(message);
   const taskTitle = extractPomodoroTaskTitle(message, explicitTaskTitles);
   const durationMinutes = POMODORO_KEYWORDS.test(message) ? extractDurationMinutes(message) : undefined;
   const exerciseRecord = extractExerciseRecord(message);
@@ -321,6 +343,7 @@ export function extractAgentMessageHints(message: string): AgentMessageHints {
   return {
     wakeUpTime: extractWakeUpTime(message),
     explicitTaskTitles,
+    completionTaskTitle,
     pomodoro: taskTitle || durationMinutes
       ? {
           durationMinutes,

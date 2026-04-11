@@ -156,10 +156,10 @@ export class TasksService {
   }
 
   // 获取今日任务（只显示今天创建的任务）
-  async getTodayTasks(userId: string, timezone: string = 'Asia/Shanghai') {
-    // 获取用户时区的今天开始和结束时间
-    const todayStart = getTodayStart(timezone);
-    const todayEnd = getTodayEnd(timezone);
+  async getTodayTasks(userId: string, timezone?: string) {
+    const resolvedTimezone = await this.resolveTimezone(userId, timezone);
+    const todayStart = getTodayStart(resolvedTimezone);
+    const todayEnd = getTodayEnd(resolvedTimezone);
 
     // 获取今天创建的任务
     const tasks = await this.prisma.task.findMany({
@@ -189,11 +189,118 @@ export class TasksService {
       },
     });
 
-    // 返回任务列表，使用_count.pomodoroSessions作为番茄数量
-    return tasks.map(task => ({
-      ...task,
-      pomodoroCount: task._count.pomodoroSessions || 0,
-    }));
+    return this.mapTasksWithPomodoroCount(tasks);
+  }
+
+  // 获取今日有效任务：今天创建、今天到期、今天完成，或今天有学习/番茄记录的任务
+  async getTodayEffectiveTasks(userId: string, timezone?: string) {
+    const resolvedTimezone = await this.resolveTimezone(userId, timezone);
+    const todayStart = getTodayStart(resolvedTimezone);
+    const todayEnd = getTodayEnd(resolvedTimezone);
+
+    const tasks = await this.prisma.task.findMany({
+      where: {
+        userId,
+        OR: [
+          {
+            createdAt: {
+              gte: todayStart,
+              lt: todayEnd,
+            },
+          },
+          {
+            dueDate: {
+              gte: todayStart,
+              lt: todayEnd,
+            },
+          },
+          {
+            AND: [
+              { isCompleted: true },
+              {
+                updatedAt: {
+                  gte: todayStart,
+                  lt: todayEnd,
+                },
+              },
+            ],
+          },
+          {
+            studyRecords: {
+              some: {
+                OR: [
+                  {
+                    startedAt: {
+                      gte: todayStart,
+                      lt: todayEnd,
+                    },
+                  },
+                  {
+                    completedAt: {
+                      gte: todayStart,
+                      lt: todayEnd,
+                    },
+                  },
+                  {
+                    createdAt: {
+                      gte: todayStart,
+                      lt: todayEnd,
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          {
+            pomodoroSessions: {
+              some: {
+                status: { not: 'CANCELLED' as any },
+                OR: [
+                  {
+                    startedAt: {
+                      gte: todayStart,
+                      lt: todayEnd,
+                    },
+                  },
+                  {
+                    completedAt: {
+                      gte: todayStart,
+                      lt: todayEnd,
+                    },
+                  },
+                  {
+                    createdAt: {
+                      gte: todayStart,
+                      lt: todayEnd,
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+      orderBy: [
+        { isCompleted: 'asc' },
+        { priority: 'desc' },
+        { updatedAt: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      include: {
+        _count: {
+          select: {
+            studyRecords: true,
+            pomodoroSessions: {
+              where: {
+                status: 'COMPLETED',
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return this.mapTasksWithPomodoroCount(tasks);
   }
 
   // 批量更新任务排序
@@ -209,5 +316,25 @@ export class TasksService {
     );
 
     return Promise.all(updatePromises);
+  }
+
+  private async resolveTimezone(userId: string, timezone?: string) {
+    if (timezone) {
+      return timezone;
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { timezone: true },
+    });
+
+    return user?.timezone || 'Asia/Shanghai';
+  }
+
+  private mapTasksWithPomodoroCount(tasks: any[]) {
+    return tasks.map(task => ({
+      ...task,
+      pomodoroCount: task._count?.pomodoroSessions || 0,
+    }));
   }
 }
