@@ -29,11 +29,15 @@ const TOOL_DOMAIN_MAP: Record<string, AgentRefreshDomain[]> = {
 };
 
 export function getAgentChangedDomains(
-  toolResults: Array<{ tool?: string }> = [],
+  toolResults: Array<{ tool?: string; result?: { error?: unknown } }> = [],
 ): AgentRefreshDomain[] {
   const domains = new Set<AgentRefreshDomain>();
 
   for (const toolResult of toolResults) {
+    if (toolResult.result?.error) {
+      continue;
+    }
+
     const mappedDomains = TOOL_DOMAIN_MAP[toolResult.tool ?? ''] ?? [];
     for (const domain of mappedDomains) {
       domains.add(domain);

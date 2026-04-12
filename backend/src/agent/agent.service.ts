@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgentToolsService, AGENT_TOOLS } from './agent-tools.service';
-import { AgentMessageHints, extractAgentMessageHints } from './agent-intent.utils';
+import { AgentMessageHints, extractAgentMessageHints, toTaskMatchKey } from './agent-intent.utils';
 
 interface LLMMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -27,6 +27,7 @@ const TOOL_LABELS: Record<string, string> = {
   start_day: '开启今日',
   create_task: '创建任务',
   create_tasks: '批量创建任务',
+  create_and_complete_task: '创建并完成任务',
   complete_task: '完成任务',
   start_pomodoro: '开启番茄钟',
   stop_pomodoro: '停止番茄钟',
@@ -113,7 +114,12 @@ export class AgentService {
    * 获取历史消息（分页，往上翻加载更多）
    */
   async getMessages(userId: string, cursor?: string, limit = 30) {
-    const where: any = { userId };
+    const where: any = {
+      userId,
+      role: {
+        in: ['user', 'assistant', 'confirm'],
+      },
+    };
     if (cursor) {
       where.createdAt = { lt: (await this.prisma.agentMessage.findUnique({ where: { id: cursor } }))?.createdAt };
     }
@@ -203,8 +209,18 @@ export class AgentService {
         if (completionFallback) {
           return completionFallback;
         }
+        const createAndCompleteFallback = await this.handleCreateAndCompleteFallback(
+          userId,
+          message,
+          confirmMode,
+          messageHints,
+          toolResults,
+        );
+        if (createAndCompleteFallback) {
+          return createAndCompleteFallback;
+        }
         if (this.shouldSuppressAutoReply(confirmMode, toolResults)) {
-          return { type: 'auto_write_applied', toolResults };
+          return this.createAutoWriteApplied(userId, toolResults);
         }
         const saved = await this.prisma.agentMessage.create({
           data: {
@@ -254,8 +270,9 @@ export class AgentService {
 
     // 确认模式：为每个写操作创建独立的确认消息
     if (confirmMode && pendingWriteOps.length > 0) {
+      const normalizedPendingWriteOps = this.normalizePendingWriteOps(messageHints, pendingWriteOps);
       const confirms: Array<{ id: string; summary: string; action: any }> = [];
-      for (const op of pendingWriteOps) {
+      for (const op of normalizedPendingWriteOps) {
         const label = TOOL_LABELS[op.name] || op.name;
         const detail = await this.formatToolArgs(userId, op.name, op.args);
         const summary = `${label}：${detail}`;
@@ -275,7 +292,7 @@ export class AgentService {
     }
 
     if (this.shouldSuppressAutoReply(confirmMode, toolResults)) {
-      return { type: 'auto_write_applied', toolResults };
+      return this.createAutoWriteApplied(userId, toolResults);
     }
 
     const saved = await this.prisma.agentMessage.create({
@@ -299,25 +316,19 @@ export class AgentService {
     const call = pending.toolCall;
 
     this.logger.log(`Confirmed executing: ${call.name} args: ${JSON.stringify(call.args)}`);
-    let result: any;
-    try {
-      result = await this.agentToolsService.executeTool(userId, call.name, call.args);
-    } catch (error) {
-      result = { error: error.message || 'Tool execution failed' };
-    }
+    const toolResults = await this.executePendingAction(userId, call);
+    const hasSuccessfulWrite = toolResults.some(({ result }) => !result?.error);
+    const firstError = toolResults.find(({ result }) => Boolean(result?.error))?.result?.error;
 
-    const toolResults = [{ tool: call.name, args: call.args, result }];
-    if (result?.error) {
+    if (firstError && !hasSuccessfulWrite) {
       return {
         type: 'confirm_error',
         messageId,
-        error: result.error,
+        error: firstError,
       };
     }
 
-    const label = TOOL_LABELS[call.name] || call.name;
-    const detail = await this.formatToolArgs(userId, call.name, call.args, result);
-    const summary = `${label}：${detail}`;
+    const summary = await this.formatExecutedActionSummary(userId, call, toolResults);
 
     await this.prisma.agentMessage.update({
       where: { id: messageId },
@@ -363,6 +374,251 @@ export class AgentService {
     };
   }
 
+  private normalizePendingWriteOps(
+    hints: AgentMessageHints,
+    pendingWriteOps: Array<{ id: string; name: string; args: any }>,
+  ) {
+    const taskTitle = hints.createAndCompleteTaskTitle;
+    if (!taskTitle) {
+      return pendingWriteOps;
+    }
+
+    const titleKey = toTaskMatchKey(taskTitle);
+    const matchingCreateTask = pendingWriteOps.find((op) => (
+      op.name === 'create_task' && this.matchesTaskTitleKey(op.args?.title, titleKey)
+    ));
+    const matchingCreateTasks = pendingWriteOps.find((op) => (
+      op.name === 'create_tasks'
+      && Array.isArray(op.args?.titles)
+      && op.args.titles.length === 1
+      && this.matchesTaskTitleKey(op.args.titles[0], titleKey)
+    ));
+    const hasMatchingComplete = pendingWriteOps.some((op) => (
+      op.name === 'complete_task'
+      && this.matchesTaskTitleKey(op.args?.taskTitle ?? op.args?.taskName, titleKey)
+    ));
+
+    if (pendingWriteOps.some((op) => op.name === 'create_and_complete_task')) {
+      return pendingWriteOps;
+    }
+
+    const sourceCreateOp = matchingCreateTask || matchingCreateTasks;
+    if (sourceCreateOp) {
+      return pendingWriteOps.flatMap((op) => {
+        if (op === sourceCreateOp) {
+          const createArgs = sourceCreateOp.name === 'create_tasks'
+            ? { title: taskTitle }
+            : {
+                ...sourceCreateOp.args,
+                title: sourceCreateOp.args?.title || taskTitle,
+              };
+
+          return [{
+            id: op.id,
+            name: 'create_and_complete_task',
+            args: {
+              title: taskTitle,
+              createArgs,
+            },
+          }];
+        }
+
+        if (op.name === 'complete_task' && this.matchesTaskTitleKey(op.args?.taskTitle ?? op.args?.taskName, titleKey)) {
+          return [];
+        }
+
+        return [op];
+      });
+    }
+
+    if (!hasMatchingComplete) {
+      return [
+        {
+          id: `fallback-create-complete-${Date.now()}`,
+          name: 'create_and_complete_task',
+          args: {
+            title: taskTitle,
+            createArgs: { title: taskTitle },
+          },
+        },
+        ...pendingWriteOps,
+      ];
+    }
+
+    return pendingWriteOps;
+  }
+
+  private async executePendingAction(
+    userId: string,
+    action: { name: string; args: Record<string, any> },
+  ) {
+    if (action.name === 'create_and_complete_task') {
+      const createArgs = {
+        ...(action.args?.createArgs || {}),
+        title: action.args?.createArgs?.title || action.args?.title,
+      };
+
+      const createResult = await this.executeToolSafely(userId, 'create_task', createArgs);
+      const toolResults = [createResult];
+      if (createResult.result?.error) {
+        return toolResults;
+      }
+
+      const completeArgs = {
+        taskId: createResult.result?.id,
+        taskTitle: createResult.result?.title || action.args?.title,
+      };
+      const completeResult = await this.executeToolSafely(userId, 'complete_task', completeArgs);
+      toolResults.push(completeResult);
+      return toolResults;
+    }
+
+    return [await this.executeToolSafely(userId, action.name, action.args)];
+  }
+
+  private async executeToolSafely(userId: string, tool: string, args: Record<string, any>) {
+    let result: any;
+    try {
+      result = await this.agentToolsService.executeTool(userId, tool, args);
+    } catch (error) {
+      result = { error: error.message || 'Tool execution failed' };
+    }
+
+    return { tool, args, result };
+  }
+
+  private async formatExecutedActionSummary(
+    userId: string,
+    action: { name: string; args: Record<string, any> },
+    toolResults: Array<{ tool: string; args?: any; result?: any }>,
+  ) {
+    if (action.name === 'create_and_complete_task') {
+      const createResult = toolResults.find(({ tool }) => tool === 'create_task');
+      const completeResult = toolResults.find(({ tool }) => tool === 'complete_task');
+      const title =
+        completeResult?.result?.title
+        || createResult?.result?.title
+        || action.args?.title
+        || '未命名任务';
+
+      if (createResult?.result?.error) {
+        return `创建并完成任务失败：${createResult.result.error}`;
+      }
+
+      if (completeResult?.result?.error) {
+        return `已创建任务“${title}”，但标记完成失败：${completeResult.result.error}`;
+      }
+
+      return `已创建任务“${title}”并标记为已完成。`;
+    }
+
+    const label = TOOL_LABELS[action.name] || action.name;
+    const detail = await this.formatToolArgs(
+      userId,
+      action.name,
+      action.args,
+      toolResults[toolResults.length - 1]?.result,
+    );
+    return `${label}：${detail}`;
+  }
+
+  private async createAutoWriteApplied(
+    userId: string,
+    toolResults: Array<{ tool: string; args?: any; result?: any }>,
+  ) {
+    const summary = await this.buildActionResultSummary(userId, toolResults);
+    if (summary) {
+      await this.prisma.agentMessage.create({
+        data: {
+          userId,
+          role: 'action_result',
+          content: summary,
+          toolCalls: toolResults,
+        },
+      });
+    }
+
+    return { type: 'auto_write_applied', toolResults };
+  }
+
+  private async buildActionResultSummary(
+    userId: string,
+    toolResults: Array<{ tool: string; args?: any; result?: any }>,
+  ) {
+    const lines: string[] = [];
+
+    for (const toolResult of toolResults) {
+      if (toolResult.result?.error || READ_ONLY_TOOLS.has(toolResult.tool)) {
+        continue;
+      }
+
+      switch (toolResult.tool) {
+        case 'create_task': {
+          const title = toolResult.result?.title || toolResult.args?.title;
+          if (title) {
+            lines.push(`已创建任务“${title}”。`);
+          }
+          break;
+        }
+        case 'create_tasks': {
+          const createdTitles = (toolResult.result?.created ?? []).map((task: any) => task.title).filter(Boolean);
+          const skippedTitles = (toolResult.result?.skipped ?? []).map((task: any) => task.title).filter(Boolean);
+          if (createdTitles.length > 0) {
+            lines.push(`已创建任务：${createdTitles.join('、')}。`);
+          }
+          if (skippedTitles.length > 0) {
+            lines.push(`已跳过已有任务：${skippedTitles.join('、')}。`);
+          }
+          break;
+        }
+        case 'complete_task': {
+          const title =
+            toolResult.result?.title
+            || (typeof toolResult.args?.taskId === 'string' && toolResult.args.taskId
+              ? (await this.agentToolsService.getTaskById(userId, toolResult.args.taskId))?.title
+              : toolResult.args?.taskTitle);
+          if (title) {
+            lines.push(`已将任务“${title}”标记为完成。`);
+          }
+          break;
+        }
+        case 'start_day':
+          if (toolResult.result?.dayStart || toolResult.args?.dayStart) {
+            lines.push(`已更新今日计划。`);
+          }
+          break;
+        case 'start_pomodoro': {
+          const taskTitle = toolResult.result?.boundTaskTitle || toolResult.args?.taskTitle || '';
+          lines.push(taskTitle ? `已开启番茄钟，关联任务“${taskTitle}”。` : '已开启番茄钟。');
+          break;
+        }
+        case 'stop_pomodoro':
+          lines.push('已停止当前番茄钟。');
+          break;
+        case 'record_exercise':
+          lines.push('已记录运动数据。');
+          break;
+        case 'set_exercise_feeling':
+          lines.push('已记录运动感受。');
+          break;
+        case 'record_meal_expense':
+        case 'record_other_expense':
+          lines.push('已记录花费。');
+          break;
+        case 'update_important_info':
+          lines.push('已更新重要信息。');
+          break;
+        case 'update_day_reflection':
+          lines.push('已更新今日复盘。');
+          break;
+        default:
+          break;
+      }
+    }
+
+    return lines.join('\n');
+  }
+
   /**
    * 从 DB 加载最近的对话构建 LLM 上下文
    */
@@ -371,7 +627,7 @@ export class AgentService {
       where: {
         userId,
         OR: [
-          { role: { in: ['user', 'assistant'] } },
+          { role: { in: ['user', 'assistant', 'action_result'] } },
           { role: 'confirm', confirmed: true },
         ],
       },
@@ -387,18 +643,10 @@ export class AgentService {
           role: 'user',
           content: message.content,
         });
-      } else if (message.role === 'assistant') {
+      } else if (message.role === 'assistant' || message.role === 'action_result' || message.role === 'confirm') {
         contextMessages.push({
           role: 'assistant',
           content: message.content,
-        });
-      }
-
-      const toolSummary = this.summarizeToolCallsForContext(message.toolCalls as Array<{ tool?: string; args?: any; result?: any }> | undefined);
-      if (toolSummary) {
-        contextMessages.push({
-          role: 'assistant',
-          content: `【最近工具结果】\n${toolSummary}`,
         });
       }
 
@@ -543,12 +791,113 @@ export class AgentService {
       return this.createAssistantReply(userId, result.error, nextToolResults);
     }
 
-    return { type: 'auto_write_applied', toolResults: nextToolResults };
+    return this.createAutoWriteApplied(userId, nextToolResults);
+  }
+
+  private async handleCreateAndCompleteFallback(
+    userId: string,
+    message: string,
+    confirmMode: boolean,
+    hints: AgentMessageHints,
+    toolResults: Array<{ tool: string; args?: any; result?: any }>,
+  ) {
+    const taskTitle = hints.createAndCompleteTaskTitle;
+    if (!taskTitle) {
+      return null;
+    }
+
+    if (
+      hints.wakeUpTime
+      || hints.explicitTaskTitles.length > 0
+      || hints.pomodoro
+      || hints.exerciseRecord
+      || hints.exerciseFeeling
+    ) {
+      return null;
+    }
+
+    if (toolResults.some(({ tool, result, args }) => (
+      tool === 'complete_task'
+      && !result?.error
+      && this.matchesTaskTitleKey(result?.title ?? args?.taskTitle ?? args?.taskName, toTaskMatchKey(taskTitle))
+    ))) {
+      return null;
+    }
+
+    const createdTask = this.findCreatedTaskFromToolResults(toolResults, taskTitle);
+    if (!createdTask) {
+      const failedCreate = toolResults.find(({ tool, result, args }) => (
+        tool === 'create_task'
+        && Boolean(result?.error)
+        && this.matchesTaskTitleKey(result?.title ?? args?.title, toTaskMatchKey(taskTitle))
+      ));
+      if (failedCreate?.result?.error) {
+        return this.createAssistantReply(userId, failedCreate.result.error, toolResults);
+      }
+    }
+
+    if (confirmMode) {
+      const summary = `创建并完成任务："${taskTitle}"`;
+      const action = {
+        id: `fallback-create-complete-${Date.now()}`,
+        name: 'create_and_complete_task',
+        args: {
+          title: taskTitle,
+          createArgs: { title: taskTitle },
+        },
+      };
+
+      const saved = await this.prisma.agentMessage.create({
+        data: {
+          userId,
+          role: 'confirm',
+          content: summary,
+          pendingAction: { toolCall: action },
+          confirmed: null,
+        },
+      });
+
+      return {
+        type: 'confirms',
+        confirms: [{ id: saved.id, summary, action }],
+      };
+    }
+
+    const nextToolResults = [...toolResults];
+    let taskId = createdTask?.id;
+    let createdTitle = createdTask?.title || taskTitle;
+
+    if (!taskId) {
+      const createResult = await this.executeToolSafely(userId, 'create_task', { title: taskTitle });
+      nextToolResults.push(createResult);
+      if (createResult.result?.error) {
+        return this.createAssistantReply(userId, createResult.result.error, nextToolResults);
+      }
+      taskId = createResult.result?.id;
+      createdTitle = createResult.result?.title || taskTitle;
+    }
+
+    const completeResult = await this.executeToolSafely(userId, 'complete_task', {
+      taskId,
+      taskTitle: createdTitle,
+    });
+    nextToolResults.push(completeResult);
+
+    if (completeResult.result?.error) {
+      return this.createAssistantReply(
+        userId,
+        `任务“${createdTitle}”已创建，但标记完成失败：${completeResult.result.error}`,
+        nextToolResults,
+      );
+    }
+
+    return this.createAutoWriteApplied(userId, nextToolResults);
   }
 
   private isSimpleCompletionMessage(message: string, hints: AgentMessageHints) {
     if (
       !hints.completionTaskTitle
+      || hints.createAndCompleteTaskTitle
       || hints.wakeUpTime
       || hints.explicitTaskTitles.length > 0
       || hints.pomodoro
@@ -571,6 +920,50 @@ export class AgentService {
 
   private escapeRegExp(value: string) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private matchesTaskTitleKey(value: unknown, expectedKey: string) {
+    if (!expectedKey || typeof value !== 'string') {
+      return false;
+    }
+
+    return toTaskMatchKey(value) === expectedKey;
+  }
+
+  private findCreatedTaskFromToolResults(
+    toolResults: Array<{ tool: string; args?: any; result?: any }>,
+    taskTitle: string,
+  ) {
+    const expectedKey = toTaskMatchKey(taskTitle);
+
+    for (const toolResult of toolResults) {
+      if (toolResult.result?.error) {
+        continue;
+      }
+
+      if (toolResult.tool === 'create_task') {
+        const title = toolResult.result?.title || toolResult.args?.title;
+        if (this.matchesTaskTitleKey(title, expectedKey)) {
+          return {
+            id: toolResult.result?.id,
+            title: toolResult.result?.title || toolResult.args?.title || taskTitle,
+          };
+        }
+      }
+
+      if (toolResult.tool === 'create_tasks') {
+        const created = Array.isArray(toolResult.result?.created) ? toolResult.result.created : [];
+        const matched = created.find((task: any) => this.matchesTaskTitleKey(task?.title, expectedKey));
+        if (matched) {
+          return {
+            id: matched.id,
+            title: matched.title,
+          };
+        }
+      }
+    }
+
+    return null;
   }
 
   private async createAssistantReply(
@@ -627,6 +1020,10 @@ export class AgentService {
       if (missingTaskTitles.length > 0) {
         notes.push(`需要创建的新任务：${missingTaskTitles.join('、')}。优先使用 create_tasks。`);
       }
+    }
+
+    if (hints.createAndCompleteTaskTitle) {
+      notes.push(`检测到链式任务意图：先创建任务"${hints.createAndCompleteTaskTitle}"，再立刻标记为完成。不要只创建不完成；如果 create_task 成功，应继续调用 complete_task，并优先使用新任务返回的 taskId。`);
     }
 
     if (hints.completionTaskTitle) {
@@ -724,7 +1121,9 @@ export class AgentService {
         }
         return args.wakeUpTime ? `起床 ${args.wakeUpTime}` : '{}';
       case 'create_task':
-        return `"${args.title}"${args.subject ? ` [${args.subject}]` : ''}${args.estimatedHours ? ` 预估${args.estimatedHours}h` : ''}`;
+        return `"${result?.title || args.title}"${args.subject ? ` [${args.subject}]` : ''}${args.estimatedHours ? ` 预估${args.estimatedHours}h` : ''}`;
+      case 'create_and_complete_task':
+        return `"${result?.title || args.title}"`;
       case 'create_tasks':
         return Array.isArray(args.titles) ? args.titles.map((title: string) => `"${title}"`).join('、') : '{}';
       case 'complete_task': {

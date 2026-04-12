@@ -32,6 +32,7 @@ export interface AgentMessageHints {
   wakeUpTime?: string;
   explicitTaskTitles: string[];
   completionTaskTitle?: string;
+  createAndCompleteTaskTitle?: string;
   pomodoro?: AgentPomodoroHint;
   exerciseRecord?: AgentExerciseRecordHint;
   exerciseFeeling?: AgentExerciseFeelingHint;
@@ -48,6 +49,10 @@ const TASK_LIST_PATTERNS = [
 const TASK_COMPLETION_PATTERNS = [
   /(?:把|将)?([^，,。；;！？?\n]+?)(?:任务|待办)?(?:完成了|完成啦|完成)$/u,
   /(?:把|将)?([^，,。；;！？?\n]+?)(?:任务|待办)?(?:做完了|搞定了|结束了)$/u,
+];
+const TASK_CREATE_AND_COMPLETE_PATTERNS = [
+  /(?:创建|新建|添加|建(?:个|一个)?)([^，,。；;！？?\n]+?)(?:的)?(?:任务|待办)?(?:后|之后|然后|再|并|并且)?(?:标记(?:为)?完成|标记已完成|设为完成|直接完成|完成)$/u,
+  /(?:创建|新建|添加|建(?:个|一个)?)([^，,。；;！？?\n]+?)(?:的)?(?:任务|待办)?(?:并|并且)(?:把它|将它|其)?(?:标记(?:为)?完成|标记已完成|设为完成|完成)$/u,
 ];
 const EXERCISE_RECORD_PATTERNS: Array<{ exerciseName: string; pattern: RegExp }> = [
   { exerciseName: '跑步', pattern: /(?:跑步|跑了?|去跑)\s*([零一二两三四五六七八九十\d]+(?:\.\d+)?)\s*(?:公里|km)/u },
@@ -252,6 +257,22 @@ export function extractCompletionTaskTitle(message: string) {
   return undefined;
 }
 
+export function extractCreateAndCompleteTaskTitle(message: string) {
+  for (const pattern of TASK_CREATE_AND_COMPLETE_PATTERNS) {
+    const match = message.match(pattern);
+    if (!match?.[1]) {
+      continue;
+    }
+
+    const cleaned = sanitizeTaskTitle(match[1].replace(/的$/u, ''));
+    if (isLikelyTaskTitle(cleaned)) {
+      return cleaned;
+    }
+  }
+
+  return undefined;
+}
+
 export function extractPomodoroTaskTitle(message: string, explicitTaskTitles: string[] = []) {
   if (!POMODORO_KEYWORDS.test(message)) {
     return undefined;
@@ -335,6 +356,7 @@ export function extractExerciseFeeling(
 export function extractAgentMessageHints(message: string): AgentMessageHints {
   const explicitTaskTitles = extractExplicitTaskTitles(message);
   const completionTaskTitle = extractCompletionTaskTitle(message);
+  const createAndCompleteTaskTitle = extractCreateAndCompleteTaskTitle(message);
   const taskTitle = extractPomodoroTaskTitle(message, explicitTaskTitles);
   const durationMinutes = POMODORO_KEYWORDS.test(message) ? extractDurationMinutes(message) : undefined;
   const exerciseRecord = extractExerciseRecord(message);
@@ -344,6 +366,7 @@ export function extractAgentMessageHints(message: string): AgentMessageHints {
     wakeUpTime: extractWakeUpTime(message),
     explicitTaskTitles,
     completionTaskTitle,
+    createAndCompleteTaskTitle,
     pomodoro: taskTitle || durationMinutes
       ? {
           durationMinutes,
