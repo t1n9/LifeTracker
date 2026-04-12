@@ -435,6 +435,8 @@ model Capture {
   id         String        @id @default(uuid())
   userId     String        @map("user_id")
   rawContent String        @map("raw_content")
+  sourceType String?       @map("source_type")
+  sourceName String?       @map("source_name")
   sourceHint String?       @map("source_hint")
   status     CaptureStatus @default(RAW)
   analysis   Json?

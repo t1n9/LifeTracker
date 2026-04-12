@@ -265,8 +265,10 @@ export const suggestionsAPI = {
 // 分享链接管理API（需要认证）
 export const captureAPI = {
   getCaptures: (limit = 20) => api.get('/captures', { params: { limit } }),
-  createCapture: (data: { content: string }) => api.post('/captures', data),
+  createCapture: (data: { content: string; sourceType?: string; sourceName?: string }) => api.post('/captures', data),
   analyzeCapture: (id: string) => api.post(`/captures/${id}/analyze`),
+  updateCapture: (id: string, data: { content?: string; sourceType?: string; sourceName?: string }) =>
+    api.patch(`/captures/${id}`, data),
 };
 
 export const shareLinkAPI = {

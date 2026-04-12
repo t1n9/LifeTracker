@@ -17,7 +17,20 @@ interface CaptureAnalysis {
   insight: string;
   actionSuggestion: string;
   tags: string[];
-  sourceGuess: string;
+  sourceType: string;
+  sourceName: string;
+}
+
+interface CreateCaptureInput {
+  content: string;
+  sourceType?: string;
+  sourceName?: string;
+}
+
+interface UpdateCaptureInput {
+  content?: string;
+  sourceType?: string;
+  sourceName?: string;
 }
 
 const ANALYSIS_CATEGORIES = new Set<CaptureCategory>([
@@ -36,7 +49,9 @@ const CAPTURE_ANALYSIS_SYSTEM_PROMPT = `你是 LifeTracker 的知识整理助手
 2. 不要改写或覆盖原文，原文会单独保存。
 3. 仅返回 JSON，不要返回 Markdown，不要添加解释文字。
 4. tags 给 2 到 5 个短标签；如果不够明确，可以少于 5 个。
-5. sourceGuess 只有在原文明确提到来源时才填写，否则返回空字符串。
+5. 只有在原文明确提到来源时才填写来源相关字段，否则返回空字符串。
+6. sourceType 表示来源类型，不是内容类型。常见值如：播客、电影、书、文章、视频、访谈、梦境、生活。
+7. 如果这条记录本身是在描述做梦、梦见、梦到、梦里发生的内容，sourceType 填写“梦境”。
 
 返回 JSON 结构：
 {
@@ -45,7 +60,8 @@ const CAPTURE_ANALYSIS_SYSTEM_PROMPT = `你是 LifeTracker 的知识整理助手
   "insight": "这条记录最有价值的洞察",
   "actionSuggestion": "如果能转成行动，给出一个具体建议；否则返回空字符串",
   "tags": ["标签1", "标签2"],
-  "sourceGuess": "来源猜测或空字符串"
+  "sourceType": "来源类型，如播客/电影/书/文章；不明确则空字符串",
+  "sourceName": "具体来源名称；不明确则空字符串"
 }`;
 
 @Injectable()
@@ -75,21 +91,19 @@ export class CapturesService {
     });
   }
 
-  async create(userId: string, content: string) {
+  async create(userId: string, input: CreateCaptureInput) {
     return this.withTableGuard(async () => {
-      const rawContent = content.trim();
-      if (!rawContent) {
-        throw new BadRequestException('记录内容不能为空');
-      }
+      const rawContent = this.normalizeRawContent(input.content);
 
-      if (rawContent.length > 4000) {
-        throw new BadRequestException('单条记录请控制在 4000 字以内');
-      }
+      const sourceType = this.normalizeSourceType(input.sourceType) || null;
+      const sourceName = this.normalizeSourceName(input.sourceName) || null;
 
       const capture = await this.prisma.capture.create({
         data: {
           userId,
           rawContent,
+          sourceType,
+          sourceName,
         },
       });
 
@@ -111,14 +125,91 @@ export class CapturesService {
       }
 
       const analysis = await this.requestAnalysis(capture.rawContent);
+      const inferredSourceType = this.inferSourceTypeFromRawContent(capture.rawContent);
+      const sourceType = this.normalizeSourceType(capture.sourceType) || analysis.sourceType || inferredSourceType || null;
+      const sourceName = this.normalizeSourceName(capture.sourceName) || analysis.sourceName || null;
+      const storedAnalysis = this.buildStoredAnalysis(analysis, {
+        sourceType,
+        sourceName,
+      });
 
       const updated = await this.prisma.capture.update({
         where: { id: capture.id },
         data: {
           status: CaptureStatus.ANALYZED,
-          analysis: analysis as unknown as Prisma.InputJsonObject,
+          analysis: storedAnalysis as unknown as Prisma.InputJsonObject,
           analyzedAt: new Date(),
+          sourceType,
+          sourceName,
         },
+      });
+
+      return this.serializeCapture(updated);
+    });
+  }
+
+  async update(userId: string, captureId: string, input: UpdateCaptureInput) {
+    return this.withTableGuard(async () => {
+      const capture = await this.prisma.capture.findFirst({
+        where: {
+          id: captureId,
+          userId,
+        },
+      });
+
+      if (!capture) {
+        throw new NotFoundException('记录不存在');
+      }
+
+      const hasContent = Object.prototype.hasOwnProperty.call(input, 'content');
+      const hasSourceType = Object.prototype.hasOwnProperty.call(input, 'sourceType');
+      const hasSourceName = Object.prototype.hasOwnProperty.call(input, 'sourceName');
+
+      if (!hasContent && !hasSourceType && !hasSourceName) {
+        throw new BadRequestException('没有可更新的内容');
+      }
+
+      const data: Prisma.CaptureUpdateInput = {};
+      let rawContentChanged = false;
+
+      if (hasContent) {
+        const rawContent = this.normalizeRawContent(input.content);
+        rawContentChanged = rawContent !== capture.rawContent;
+        data.rawContent = rawContent;
+      }
+
+      if (hasSourceType) {
+        data.sourceType = this.normalizeSourceType(input.sourceType) || null;
+      }
+
+      if (hasSourceName) {
+        data.sourceName = this.normalizeSourceName(input.sourceName) || null;
+      }
+
+      if (rawContentChanged) {
+        data.status = CaptureStatus.RAW;
+        data.analysis = Prisma.DbNull;
+        data.analyzedAt = null;
+      } else if (capture.analysis && (hasSourceType || hasSourceName)) {
+        const analysis = this.normalizeStoredAnalysis(capture.analysis);
+        if (analysis) {
+          const nextSourceType = hasSourceType
+            ? (this.normalizeSourceType(input.sourceType) || null)
+            : (capture.sourceType || null);
+          const nextSourceName = hasSourceName
+            ? (this.normalizeSourceName(input.sourceName) || null)
+            : (capture.sourceName || null);
+
+          data.analysis = this.buildStoredAnalysis(analysis, {
+            sourceType: nextSourceType,
+            sourceName: nextSourceName,
+          }) as unknown as Prisma.InputJsonObject;
+        }
+      }
+
+      const updated = await this.prisma.capture.update({
+        where: { id: capture.id },
+        data,
       });
 
       return this.serializeCapture(updated);
@@ -129,15 +220,30 @@ export class CapturesService {
     id: string;
     userId: string;
     rawContent: string;
+    sourceType: string | null;
+    sourceName: string | null;
+    sourceHint?: string | null;
     status: CaptureStatus;
     analysis: Prisma.JsonValue | null;
     analyzedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
   }) {
+    const { sourceHint, ...rest } = capture;
+    void sourceHint;
+    const analysis = this.normalizeStoredAnalysis(capture.analysis);
+    const inferredSourceType = this.inferSourceTypeFromRawContent(capture.rawContent);
+    const sourceType = this.normalizeSourceType(capture.sourceType) || analysis?.sourceType || inferredSourceType || null;
+    const sourceName = this.normalizeSourceName(capture.sourceName)
+      || analysis?.sourceName
+      || this.normalizeSourceName(capture.sourceHint)
+      || null;
+
     return {
-      ...capture,
-      analysis: this.normalizeStoredAnalysis(capture.analysis),
+      ...rest,
+      sourceType,
+      sourceName,
+      analysis,
     };
   }
 
@@ -190,7 +296,8 @@ export class CapturesService {
         insight: '',
         actionSuggestion: '',
         tags: [],
-        sourceGuess: '',
+        sourceType: '',
+        sourceName: '',
       };
     }
 
@@ -229,7 +336,8 @@ export class CapturesService {
 
     const insight = this.normalizeString(value.insight, 240);
     const actionSuggestion = this.normalizeString(value.actionSuggestion, 240);
-    const sourceGuess = this.normalizeString(value.sourceGuess, 80);
+    const sourceType = this.normalizeSourceType(value.sourceType);
+    const sourceName = this.normalizeSourceName(value.sourceName ?? value.sourceGuess);
     const tags = Array.isArray(value.tags)
       ? Array.from(new Set(
           value.tags
@@ -244,7 +352,19 @@ export class CapturesService {
       insight,
       actionSuggestion,
       tags,
-      sourceGuess,
+      sourceType,
+      sourceName,
+    };
+  }
+
+  private buildStoredAnalysis(
+    analysis: CaptureAnalysis,
+    source: { sourceType: string | null; sourceName: string | null },
+  ): CaptureAnalysis {
+    return {
+      ...analysis,
+      sourceType: source.sourceType || '',
+      sourceName: source.sourceName || '',
     };
   }
 
@@ -256,8 +376,47 @@ export class CapturesService {
     return this.truncate(value.trim(), maxLength);
   }
 
+  private normalizeRawContent(value: unknown) {
+    const rawContent = this.normalizeString(value, 4000);
+    if (!rawContent) {
+      throw new BadRequestException('记录内容不能为空');
+    }
+
+    return rawContent;
+  }
+
+  private normalizeSourceType(value: unknown) {
+    const normalized = this.normalizeString(value, 40);
+    if (!normalized) {
+      return '';
+    }
+
+    if (/梦境|做梦|梦见|梦到|梦里/.test(normalized)) {
+      return '梦境';
+    }
+
+    return normalized;
+  }
+
+  private normalizeSourceName(value: unknown) {
+    return this.normalizeString(value, 120);
+  }
+
   private truncate(value: string, maxLength: number) {
     return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+  }
+
+  private inferSourceTypeFromRawContent(rawContent: string) {
+    const content = rawContent.trim();
+    if (!content) {
+      return '';
+    }
+
+    if (/梦见|做梦|梦到|梦里/.test(content)) {
+      return '梦境';
+    }
+
+    return '';
   }
 
   private async withTableGuard<T>(operation: () => Promise<T>): Promise<T> {
@@ -266,7 +425,7 @@ export class CapturesService {
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError
-        && error.code === 'P2021'
+        && (error.code === 'P2021' || error.code === 'P2022')
       ) {
         throw new ServiceUnavailableException('记录功能的数据表尚未同步，请先执行数据库同步');
       }

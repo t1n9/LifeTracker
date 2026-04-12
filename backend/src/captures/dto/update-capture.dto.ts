@@ -1,10 +1,10 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
-export class CreateCaptureDto {
+export class UpdateCaptureDto {
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(4000)
-  content: string;
+  content?: string;
 
   @IsOptional()
   @IsString()

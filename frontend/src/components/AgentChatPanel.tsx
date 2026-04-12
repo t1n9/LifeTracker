@@ -9,7 +9,7 @@ import {
   type KeyboardEvent,
   type UIEvent,
 } from 'react';
-import { Bot, Check, Send, ShieldCheck, ShieldOff, Trash2, X } from 'lucide-react';
+import { Bot, Check, Pencil, Save, Send, ShieldCheck, ShieldOff, Trash2, X } from 'lucide-react';
 import { api, captureAPI } from '@/lib/api';
 import { dispatchAgentDataChanged, getAgentChangedDomains } from '@/lib/agent-events';
 
@@ -31,17 +31,31 @@ interface CaptureAnalysis {
   insight: string;
   actionSuggestion: string;
   tags: string[];
-  sourceGuess: string;
+  sourceType: string;
+  sourceName: string;
 }
 
 interface CaptureItem {
   id: string;
   rawContent: string;
+  sourceType: string | null;
+  sourceName: string | null;
   status: 'RAW' | 'ANALYZED' | 'ARCHIVED';
   analysis: CaptureAnalysis | null;
   analyzedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface CaptureSourceSelection {
+  sourceType: string | null;
+  sourceName: string;
+}
+
+interface CaptureEditDraft {
+  content: string;
+  sourceType: string;
+  sourceName: string;
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -94,6 +108,10 @@ export default function AgentChatPanel() {
   const [captureMessage, setCaptureMessage] = useState('');
   const [captureError, setCaptureError] = useState('');
   const [analyzingIds, setAnalyzingIds] = useState<string[]>([]);
+  const [selectedSource, setSelectedSource] = useState<CaptureSourceSelection | null>(null);
+  const [editingCaptureId, setEditingCaptureId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<CaptureEditDraft | null>(null);
+  const [savingCaptureId, setSavingCaptureId] = useState<string | null>(null);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -162,6 +180,72 @@ export default function AgentChatPanel() {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, panelMode]);
+
+  const getCaptureSourceType = useCallback(
+    (capture: CaptureItem) => capture.sourceType || capture.analysis?.sourceType || null,
+    [],
+  );
+
+  const getCaptureSourceName = useCallback(
+    (capture: CaptureItem) => capture.sourceName || capture.analysis?.sourceName || null,
+    [],
+  );
+
+  const getCaptureSource = useCallback((capture: CaptureItem): CaptureSourceSelection | null => {
+    const sourceName = getCaptureSourceName(capture);
+    if (!sourceName) {
+      return null;
+    }
+
+    return {
+      sourceType: getCaptureSourceType(capture),
+      sourceName,
+    };
+  }, [getCaptureSourceName, getCaptureSourceType]);
+
+  const buildSourceSelection = useCallback((sourceType: string, sourceName: string): CaptureSourceSelection | null => {
+    const trimmedSourceName = sourceName.trim();
+    if (!trimmedSourceName) {
+      return null;
+    }
+
+    const trimmedSourceType = sourceType.trim();
+    return {
+      sourceType: trimmedSourceType || null,
+      sourceName: trimmedSourceName,
+    };
+  }, []);
+
+  const getEditDraftFromCapture = useCallback((capture: CaptureItem): CaptureEditDraft => ({
+    content: capture.rawContent,
+    sourceType: getCaptureSourceType(capture) || '',
+    sourceName: getCaptureSourceName(capture) || '',
+  }), [getCaptureSourceName, getCaptureSourceType]);
+
+  const isSameSource = useCallback(
+    (left: CaptureSourceSelection | null, right: CaptureSourceSelection | null) => {
+      if (!left || !right) {
+        return false;
+      }
+
+      return (
+        left.sourceName === right.sourceName
+        && (left.sourceType || '') === (right.sourceType || '')
+      );
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!selectedSource) {
+      return;
+    }
+
+    const stillExists = captures.some((capture) => isSameSource(getCaptureSource(capture), selectedSource));
+    if (!stillExists) {
+      setSelectedSource(null);
+    }
+  }, [captures, getCaptureSource, isSameSource, selectedSource]);
 
   const changePanelMode = (mode: PanelMode) => {
     setPanelMode(mode);
@@ -251,11 +335,19 @@ export default function AgentChatPanel() {
     setCaptureMessage('');
     setCaptureError('');
     try {
-      const { data } = await captureAPI.createCapture({ content: text });
+      const { data } = await captureAPI.createCapture({
+        content: text,
+        sourceType: selectedSource?.sourceType || undefined,
+        sourceName: selectedSource?.sourceName,
+      });
       setCaptures((prev) => [data, ...prev]);
       setCapturesLoaded(true);
       setInput('');
-      setCaptureMessage('已保存原文，可继续记录或点“整理这条”。');
+      setCaptureMessage(
+        selectedSource
+          ? `已保存原文，并沿用了来源“${selectedSource.sourceName}”。`
+          : '已保存原文，可继续记录或点“整理这条”。',
+      );
     } catch (err: any) {
       setCaptureError(err.response?.data?.message || err.message || '保存记录失败');
     } finally {
@@ -350,6 +442,60 @@ export default function AgentChatPanel() {
       setCaptureError(err.response?.data?.message || err.message || '整理记录失败');
     } finally {
       setAnalyzingIds((prev) => prev.filter((id) => id !== captureId));
+    }
+  };
+
+  const toggleSourceSelection = (source: CaptureSourceSelection) => {
+    setSelectedSource((current) => (isSameSource(current, source) ? null : source));
+    setCaptureMessage('');
+    setCaptureError('');
+  };
+
+  const startCaptureEdit = (capture: CaptureItem) => {
+    setEditingCaptureId(capture.id);
+    setEditDraft(getEditDraftFromCapture(capture));
+    setCaptureMessage('');
+    setCaptureError('');
+  };
+
+  const cancelCaptureEdit = () => {
+    setEditingCaptureId(null);
+    setEditDraft(null);
+    setSavingCaptureId(null);
+  };
+
+  const saveCaptureEdit = async (capture: CaptureItem) => {
+    if (!editDraft || savingCaptureId === capture.id) {
+      return;
+    }
+
+    const previousSelectedSource = getCaptureSource(capture);
+    const contentChanged = editDraft.content.trim() !== capture.rawContent.trim();
+
+    setSavingCaptureId(capture.id);
+    setCaptureMessage('');
+    setCaptureError('');
+
+    try {
+      const { data } = await captureAPI.updateCapture(capture.id, {
+        content: editDraft.content,
+        sourceType: editDraft.sourceType,
+        sourceName: editDraft.sourceName,
+      });
+
+      setCaptures((prev) => prev.map((item) => (item.id === capture.id ? data : item)));
+
+      if (previousSelectedSource && isSameSource(previousSelectedSource, selectedSource)) {
+        setSelectedSource(buildSourceSelection(data.sourceType || '', data.sourceName || ''));
+      }
+
+      setEditingCaptureId(null);
+      setEditDraft(null);
+      setCaptureMessage(contentChanged ? '原始内容已更新，旧整理结果已清空，请重新整理。' : '记录已更新。');
+    } catch (err: any) {
+      setCaptureError(err.response?.data?.message || err.message || '更新记录失败');
+    } finally {
+      setSavingCaptureId(null);
     }
   };
 
@@ -454,6 +600,12 @@ export default function AgentChatPanel() {
       {captures.map((capture) => {
         const hasAnalysis = Boolean(capture.analysis);
         const analyzing = analyzingIds.includes(capture.id);
+        const editing = editingCaptureId === capture.id && editDraft !== null;
+        const savingEdit = savingCaptureId === capture.id;
+        const sourceType = getCaptureSourceType(capture);
+        const source = getCaptureSource(capture);
+        const sourceSelected = isSameSource(source, selectedSource);
+
         return (
           <div key={capture.id} style={styles.captureCard}>
             <div style={styles.captureTop}>
@@ -463,28 +615,131 @@ export default function AgentChatPanel() {
                   {hasAnalysis ? '已整理' : '原文'}
                 </span>
               </div>
-              <button
-                onClick={() => handleAnalyzeCapture(capture.id)}
-                disabled={analyzing}
-                style={{ ...styles.smallBtn, opacity: analyzing ? 0.6 : 1, cursor: analyzing ? 'default' : 'pointer' }}
-              >
-                {analyzing ? '整理中...' : hasAnalysis ? '重新整理' : '整理这条'}
-              </button>
+              <div style={styles.captureActions}>
+                <button
+                  onClick={() => handleAnalyzeCapture(capture.id)}
+                  disabled={analyzing || editing || savingEdit}
+                  style={{ ...styles.smallBtn, opacity: analyzing || editing || savingEdit ? 0.6 : 1, cursor: analyzing || editing || savingEdit ? 'default' : 'pointer' }}
+                >
+                  {analyzing ? '整理中...' : hasAnalysis ? '重新整理' : '整理这条'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => startCaptureEdit(capture)}
+                  disabled={editing || savingEdit}
+                  style={{ ...styles.iconBtnSecondary, opacity: editing || savingEdit ? 0.5 : 1, cursor: editing || savingEdit ? 'default' : 'pointer' }}
+                  title="修改记录"
+                >
+                  <Pencil size={14} />
+                </button>
+              </div>
             </div>
-            <div style={styles.captureText}>{capture.rawContent}</div>
-            {capture.analysis && (
-              <div style={styles.analysisBox}>
-                <div style={styles.analysisRow}><span style={styles.analysisLabel}>类型</span><span>{CAPTURE_CATEGORY_LABELS[capture.analysis.category]}</span></div>
-                <div><div style={styles.analysisLabel}>摘要</div><div style={styles.analysisText}>{capture.analysis.summary}</div></div>
-                {capture.analysis.insight && <div><div style={styles.analysisLabel}>洞察</div><div style={styles.analysisText}>{capture.analysis.insight}</div></div>}
-                {capture.analysis.actionSuggestion && <div><div style={styles.analysisLabel}>行动</div><div style={styles.analysisText}>{capture.analysis.actionSuggestion}</div></div>}
-                {capture.analysis.sourceGuess && <div style={styles.analysisRow}><span style={styles.analysisLabel}>来源猜测</span><span>{capture.analysis.sourceGuess}</span></div>}
-                {capture.analysis.tags.length > 0 && (
-                  <div style={styles.tagWrap}>
-                    {capture.analysis.tags.map((tag) => <span key={`${capture.id}-${tag}`} style={styles.tag}>{tag}</span>)}
+            {editing && editDraft ? (
+              <div style={styles.editCard}>
+                <div>
+                  <div style={styles.sectionHeader}>
+                    <span style={styles.analysisLabel}>原始内容</span>
+                  </div>
+                  <textarea
+                    value={editDraft.content}
+                    onChange={(event) => setEditDraft((prev) => (prev ? { ...prev, content: event.target.value } : prev))}
+                    rows={4}
+                    disabled={savingEdit}
+                    style={styles.editTextarea}
+                  />
+                </div>
+                <div style={styles.editGrid}>
+                  <div>
+                    <div style={styles.analysisLabel}>来源类型</div>
+                    <input
+                      value={editDraft.sourceType}
+                      onChange={(event) => setEditDraft((prev) => (prev ? { ...prev, sourceType: event.target.value } : prev))}
+                      disabled={savingEdit}
+                      placeholder="如：播客、梦境、电影"
+                      style={styles.editInput}
+                    />
+                  </div>
+                  <div>
+                    <div style={styles.analysisLabel}>来源</div>
+                    <input
+                      value={editDraft.sourceName}
+                      onChange={(event) => setEditDraft((prev) => (prev ? { ...prev, sourceName: event.target.value } : prev))}
+                      disabled={savingEdit}
+                      placeholder="如：鲁豫播客对话窦文涛"
+                      style={styles.editInput}
+                    />
+                  </div>
+                </div>
+                <div style={styles.editHint}>
+                  修改原始内容后，这条记录会回到“原文”状态，旧摘要会被清空，需要重新整理。
+                </div>
+                <div style={styles.editActions}>
+                  <button
+                    type="button"
+                    onClick={() => void saveCaptureEdit(capture)}
+                    disabled={!editDraft.content.trim() || savingEdit}
+                    style={{ ...styles.confirmBtn, flex: 'unset', minWidth: '88px', opacity: !editDraft.content.trim() || savingEdit ? 0.5 : 1 }}
+                  >
+                    <Save size={12} />
+                    {savingEdit ? '保存中...' : '保存'}
+                  </button>
+                  <button type="button" onClick={cancelCaptureEdit} disabled={savingEdit} style={styles.rejectBtn}>
+                    <X size={12} />
+                    取消
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <div style={styles.sectionHeader}>
+                    <span style={styles.analysisLabel}>原始内容</span>
+                  </div>
+                  <div style={styles.captureText}>{capture.rawContent}</div>
+                </div>
+                {(sourceType || source) && (
+                  <div style={styles.sourceSection}>
+                    {sourceType && (
+                      <div style={styles.analysisRow}>
+                        <span style={styles.analysisLabel}>来源类型</span>
+                        <span>{sourceType}</span>
+                      </div>
+                    )}
+                    <div>
+                      <div style={styles.sectionHeader}>
+                        <span style={styles.analysisLabel}>来源</span>
+                      </div>
+                      {source ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleSourceSelection(source)}
+                          style={{
+                            ...styles.sourceChip,
+                            ...(sourceSelected ? styles.sourceChipActive : null),
+                          }}
+                        >
+                          {source.sourceName}
+                        </button>
+                      ) : (
+                        <div style={styles.emptySourceText}>未填写来源</div>
+                      )}
+                    </div>
                   </div>
                 )}
-              </div>
+                {capture.analysis && (
+                  <div style={styles.analysisBox}>
+                    <div style={styles.analysisRow}><span style={styles.analysisLabel}>内容类型</span><span>{CAPTURE_CATEGORY_LABELS[capture.analysis.category]}</span></div>
+                    <div><div style={styles.analysisLabel}>摘要</div><div style={styles.analysisText}>{capture.analysis.summary}</div></div>
+                    {capture.analysis.insight && <div><div style={styles.analysisLabel}>洞察</div><div style={styles.analysisText}>{capture.analysis.insight}</div></div>}
+                    {capture.analysis.actionSuggestion && <div><div style={styles.analysisLabel}>行动</div><div style={styles.analysisText}>{capture.analysis.actionSuggestion}</div></div>}
+                    {capture.analysis.tags.length > 0 && (
+                      <div style={styles.tagWrap}>
+                        {capture.analysis.tags.map((tag) => <span key={`${capture.id}-${tag}`} style={styles.tag}>{tag}</span>)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         );
@@ -526,6 +781,16 @@ export default function AgentChatPanel() {
             {panelMode === 'chat' ? (confirmMode ? '确认模式：写操作会先询问你。' : '自动模式：写操作会直接执行。') : '记录模式：先保存原文，整理需手动触发。'}
           </div>
           {panelMode === 'chat' ? renderChat() : renderCapture()}
+          {panelMode === 'capture' && selectedSource && (
+            <div style={styles.selectedSourceBar}>
+              <span style={styles.selectedSourceLabel}>当前沿用来源</span>
+              {selectedSource.sourceType && <span style={styles.selectedSourceType}>{selectedSource.sourceType}</span>}
+              <span style={styles.selectedSourceText}>{selectedSource.sourceName}</span>
+              <button type="button" onClick={() => setSelectedSource(null)} style={styles.clearSourceBtn}>
+                清除
+              </button>
+            </div>
+          )}
           <div style={styles.inputBar}>
             <textarea
               ref={inputRef}
@@ -561,6 +826,7 @@ const styles: Record<string, CSSProperties> = {
   headerTitle: { fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' },
   headerActions: { display: 'flex', alignItems: 'center', gap: '4px' },
   iconBtn: { width: '28px', height: '28px', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  iconBtnSecondary: { width: '28px', height: '28px', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-color)', background: 'var(--bg-secondary)', cursor: 'pointer', color: 'var(--text-secondary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   switchBar: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', padding: '10px 16px 8px', borderBottom: '1px solid var(--border-color)' },
   switchBtn: { border: '1px solid var(--border-color)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', borderRadius: '999px', padding: '8px 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' },
   switchBtnActive: { background: 'var(--accent-primary)', color: '#fff', border: '1px solid var(--accent-primary)' },
@@ -585,15 +851,50 @@ const styles: Record<string, CSSProperties> = {
   notice: { padding: '8px 10px', borderRadius: '10px', fontSize: '12px', lineHeight: 1.5 },
   captureCard: { padding: '12px', borderRadius: '14px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '10px' },
   captureTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' },
+  captureActions: { display: 'flex', alignItems: 'center', gap: '8px' },
   captureMeta: { display: 'flex', alignItems: 'center', gap: '8px' },
   captureTime: { fontSize: '11px', color: 'var(--text-muted)' },
   captureBadge: { fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', border: '1px solid var(--border-color)' },
   smallBtn: { border: 'none', background: 'var(--accent-primary)', color: '#fff', borderRadius: '999px', padding: '6px 10px', fontSize: '11px', fontWeight: 600, flexShrink: 0 },
+  sectionHeader: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' },
   captureText: { whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--text-primary)', fontSize: '13px', lineHeight: 1.6 },
+  editCard: { display: 'flex', flexDirection: 'column', gap: '10px', padding: '10px 12px', borderRadius: '12px', background: 'rgba(37,99,235,.05)', border: '1px solid rgba(37,99,235,.14)' },
+  editGrid: { display: 'grid', gridTemplateColumns: '1fr', gap: '10px' },
+  editInput: { width: '100%', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-color)', outline: 'none', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '12px', lineHeight: 1.5, padding: '8px 10px', borderRadius: '10px', fontFamily: 'inherit' },
+  editTextarea: { width: '100%', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-color)', outline: 'none', resize: 'vertical', minHeight: '96px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px', lineHeight: 1.6, padding: '10px 12px', borderRadius: '10px', fontFamily: 'inherit' },
+  editHint: { fontSize: '11px', lineHeight: 1.6, color: 'var(--text-muted)' },
+  editActions: { display: 'flex', alignItems: 'center', gap: '8px' },
+  sourceSection: { padding: '10px 12px', borderRadius: '12px', background: 'rgba(15,118,110,.06)', display: 'flex', flexDirection: 'column', gap: '8px' },
+  sourceChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    padding: '6px 10px',
+    borderRadius: '999px',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: 'var(--border-color)',
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
+    fontSize: '12px',
+    cursor: 'pointer',
+  },
+  sourceChipActive: {
+    borderColor: 'var(--accent-primary)',
+    background: 'var(--accent-primary-alpha)',
+    color: 'var(--accent-primary)',
+    fontWeight: 600,
+  },
+  emptySourceText: { fontSize: '12px', color: 'var(--text-muted)' },
   analysisBox: { borderTop: '1px solid var(--border-color)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' },
   analysisRow: { display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '12px', color: 'var(--text-secondary)' },
   analysisLabel: { fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' },
   analysisText: { fontSize: '12px', lineHeight: 1.6, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
+  selectedSourceBar: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', padding: '8px 12px', borderTop: '1px solid var(--border-color)', background: 'rgba(15,118,110,.04)' },
+  selectedSourceLabel: { fontSize: '11px', color: 'var(--text-muted)' },
+  selectedSourceType: { padding: '2px 8px', borderRadius: '999px', background: 'var(--accent-primary-alpha)', color: 'var(--accent-primary)', fontSize: '10px', fontWeight: 600 },
+  selectedSourceText: { fontSize: '12px', color: 'var(--text-primary)', fontWeight: 600 },
+  clearSourceBtn: { marginLeft: 'auto', border: 'none', background: 'transparent', color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer' },
   inputBar: { display: 'flex', alignItems: 'flex-end', gap: '8px', padding: '10px 12px 12px', borderTop: '1px solid var(--border-color)' },
   textarea: { flex: 1, border: '1px solid var(--border-color)', outline: 'none', resize: 'none', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '13px', lineHeight: 1.5, maxHeight: '100px', padding: '8px 12px', borderRadius: 'var(--border-radius)', fontFamily: 'inherit' },
   sendBtn: { width: '36px', height: '36px', borderRadius: '50%', border: 'none', background: 'var(--accent-primary)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
