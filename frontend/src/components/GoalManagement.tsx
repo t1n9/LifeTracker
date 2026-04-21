@@ -1,19 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { goalService, UserGoal, StartGoalData, UpdateGoalData } from '../services/goalService';
-import { Edit, Trash2, Plus, Check } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Check, Edit, Plus, Trash2 } from 'lucide-react';
+import { goalService, StartGoalData, UpdateGoalData, UserGoal } from '../services/goalService';
 
 interface GoalManagementProps {
   onGoalChange?: () => void;
 }
 
-const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
-  const getTodayDate = () => new Date().toISOString().split('T')[0];
-  const getOffsetDate = (days: number) => {
-    const date = new Date();
-    date.setDate(date.getDate() + days);
-    return date.toISOString().split('T')[0];
-  };
+type GoalForm = StartGoalData & { startDate?: string };
 
+const CARD_STYLE: React.CSSProperties = {
+  border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+  background: 'color-mix(in srgb, var(--bg-secondary) 97%, #eef2ef 3%)',
+  boxShadow: '0 14px 28px rgba(15, 23, 42, 0.045)',
+  borderRadius: '16px',
+  padding: '1.25rem',
+};
+
+const BLOCK_STYLE: React.CSSProperties = {
+  border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
+  background: 'color-mix(in srgb, var(--bg-tertiary) 90%, var(--bg-secondary) 10%)',
+  borderRadius: '14px',
+  padding: '1rem',
+};
+
+const INPUT_STYLE: React.CSSProperties = {
+  width: '100%',
+  border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
+  borderRadius: '8px',
+  background: 'color-mix(in srgb, var(--bg-secondary) 96%, #e7ece9 4%)',
+  color: 'var(--text-primary)',
+  padding: '0.55rem 0.7rem',
+};
+
+export default function GoalManagement({ onGoalChange }: GoalManagementProps) {
   const [currentGoal, setCurrentGoal] = useState<UserGoal | null>(null);
   const [goalHistory, setGoalHistory] = useState<UserGoal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,33 +40,45 @@ const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
   const [editingGoal, setEditingGoal] = useState<UserGoal | null>(null);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [formData, setFormData] = useState<StartGoalData & { startDate?: string }>({
+  const [formData, setFormData] = useState<GoalForm>({
     goalName: '',
     targetDate: '',
     description: '',
     startDate: '',
   });
 
+  const getTodayDate = () => new Date().toISOString().split('T')[0];
+  const getOffsetDate = (days: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return date.toISOString().split('T')[0];
+  };
+
+  const resetForm = () => {
+    setFormData({ goalName: '', targetDate: '', description: '', startDate: '' });
+  };
+
   const updateDateField = (field: 'startDate' | 'targetDate', value: string) => {
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
       const start = next.startDate || '';
       const target = next.targetDate || '';
-
-      if (field === 'startDate' && start) {
-        if (target && target < start) {
-          next.targetDate = start;
-        }
+      if (field === 'startDate' && start && target && target < start) {
+        next.targetDate = start;
       }
-
       return next;
     });
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '未设置';
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '无效日期';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}年${month}月${day}日`;
+  };
 
   const loadData = async () => {
     try {
@@ -57,7 +88,6 @@ const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
         goalService.getGoalHistory(),
       ]);
       setCurrentGoal(current);
-      // 按开始时间排序历史目标
       setGoalHistory(history.sort((a, b) => new Date(b.startDate || '').getTime() - new Date(a.startDate || '').getTime()));
     } catch (error) {
       console.error('加载目标数据失败:', error);
@@ -66,38 +96,16 @@ const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
     }
   };
 
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '未设置';
+  useEffect(() => {
+    void loadData();
+  }, []);
 
-    try {
-      const date = new Date(dateString);
-
-      // 检查日期是否有效
-      if (isNaN(date.getTime())) {
-        console.warn('Invalid date string:', dateString);
-        return '无效日期';
-      }
-
-      // 格式化日期
-      const year = date.getFullYear();
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const day = date.getDate().toString().padStart(2, '0');
-
-      return `${year}年${month}月${day}日`;
-    } catch (error) {
-      console.error('Error formatting date:', error, dateString);
-      return '日期格式错误';
-    }
-  };
-
-  // 开启新目标
   const handleStartNewGoal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.goalName.trim()) {
       alert('请输入目标名称');
       return;
     }
-
     try {
       setIsSubmitting(true);
       await goalService.startNewGoal({
@@ -105,9 +113,8 @@ const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
         targetDate: formData.targetDate || undefined,
         description: formData.description || undefined,
       });
-
       setShowNewGoalForm(false);
-      setFormData({ goalName: '', targetDate: '', description: '', startDate: '' });
+      resetForm();
       await loadData();
       onGoalChange?.();
     } catch (error) {
@@ -118,12 +125,9 @@ const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
     }
   };
 
-  // 完成当前目标
   const handleCompleteGoal = async () => {
     if (!currentGoal) return;
-
     if (!confirm('确定要完成当前目标吗？')) return;
-
     try {
       setIsSubmitting(true);
       await goalService.completeGoal(currentGoal.id);
@@ -137,7 +141,6 @@ const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
     }
   };
 
-  // 编辑目标
   const handleEditGoal = (goal: UserGoal) => {
     setShowNewGoalForm(false);
     setExpandedHistoryId(goal.id);
@@ -150,14 +153,12 @@ const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
     });
   };
 
-  // 更新目标
   const handleUpdateGoal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingGoal || !formData.goalName.trim()) {
       alert('请输入目标名称');
       return;
     }
-
     try {
       setIsSubmitting(true);
       const updateData: UpdateGoalData = {
@@ -166,11 +167,10 @@ const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
         targetDate: formData.targetDate || undefined,
         description: formData.description || undefined,
       };
-
       await goalService.updateGoal(editingGoal.id, updateData);
       setEditingGoal(null);
       setExpandedHistoryId(null);
-      setFormData({ goalName: '', targetDate: '', description: '', startDate: '' });
+      resetForm();
       await loadData();
       onGoalChange?.();
     } catch (error) {
@@ -181,16 +181,14 @@ const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
     }
   };
 
-  // 删除目标
   const handleDeleteGoal = async (goalId: string) => {
     if (!confirm('确定要删除这个目标吗？此操作不可撤销。')) return;
-
     try {
       setIsSubmitting(true);
       await goalService.deleteGoal(goalId);
       setEditingGoal(null);
       setExpandedHistoryId(null);
-      setFormData({ goalName: '', targetDate: '', description: '', startDate: '' });
+      resetForm();
       await loadData();
       onGoalChange?.();
     } catch (error) {
@@ -203,40 +201,41 @@ const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="text-center text-gray-500 dark:text-gray-400">加载中...</div>
+      <div style={CARD_STYLE}>
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>加载中...</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">当前目标</h3>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={CARD_STYLE}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: 700 }}>当前目标</h3>
           <button
             onClick={() => {
               setEditingGoal(null);
               setExpandedHistoryId(null);
               setShowNewGoalForm((prev) => !prev);
-              setFormData({ goalName: '', targetDate: '', description: '', startDate: '' });
+              resetForm();
             }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium inline-flex items-center gap-2"
+            className="btn btn-primary btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
           >
-            <Plus size={16} />
+            <Plus size={14} />
             {showNewGoalForm ? '收起新目标' : '开启新目标'}
           </button>
         </div>
 
         {currentGoal ? (
-          <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div className="min-w-0">
-                <h4 className="font-semibold text-blue-900 dark:text-blue-100 text-lg">{currentGoal.goalName}</h4>
+          <div style={{ ...BLOCK_STYLE, borderColor: 'color-mix(in srgb, var(--accent-primary) 24%, var(--border-color) 76%)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.8rem', flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: 'var(--text-primary)', fontSize: '1.03rem', fontWeight: 700 }}>{currentGoal.goalName}</div>
                 {currentGoal.description && (
-                  <p className="text-blue-700 dark:text-blue-300 mt-1">{currentGoal.description}</p>
+                  <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem', lineHeight: 1.6 }}>{currentGoal.description}</div>
                 )}
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-blue-800 dark:text-blue-200">
+                <div style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.88rem', display: 'flex', gap: '0.9rem', flexWrap: 'wrap' }}>
                   <span>开始：{formatDate(currentGoal.startDate)}</span>
                   {currentGoal.targetDate && <span>目标：{formatDate(currentGoal.targetDate)}</span>}
                 </div>
@@ -244,229 +243,157 @@ const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
               <button
                 onClick={handleCompleteGoal}
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg transition-colors font-medium inline-flex items-center gap-2"
+                className="btn btn-sm"
+                style={{ background: '#16a34a', color: '#fff', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
               >
-                <Check size={16} />
+                <Check size={14} />
                 完成目标
               </button>
             </div>
           </div>
         ) : (
-          <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40 p-5 text-center text-gray-500 dark:text-gray-400">
+          <div style={{ ...BLOCK_STYLE, borderStyle: 'dashed', color: 'var(--text-muted)', textAlign: 'center' }}>
             暂无当前目标，建议先开启一个新的阶段目标。
           </div>
         )}
 
         {showNewGoalForm && (
-          <div className="mt-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 p-4">
-            <h4 className="text-base font-semibold text-gray-900 dark:text-white mb-3">开启新目标</h4>
-            <form onSubmit={handleStartNewGoal} className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">目标名称 *</label>
+          <div style={{ ...BLOCK_STYLE, marginTop: '0.9rem' }}>
+            <h4 style={{ margin: '0 0 0.75rem', color: 'var(--text-primary)', fontSize: '0.96rem' }}>开启新目标</h4>
+            <form onSubmit={handleStartNewGoal} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              <input
+                type="text"
+                value={formData.goalName}
+                onChange={(e) => setFormData({ ...formData, goalName: e.target.value })}
+                placeholder="目标名称"
+                style={INPUT_STYLE}
+                required
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.6rem' }}>
+                <input
+                  type="date"
+                  value={formData.targetDate}
+                  onChange={(e) => setFormData({ ...formData, targetDate: e.target.value })}
+                  min={getTodayDate()}
+                  style={INPUT_STYLE}
+                />
                 <input
                   type="text"
-                  value={formData.goalName}
-                  onChange={(e) => setFormData({ ...formData, goalName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="请输入目标名称"
-                  required
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="目标描述（可选）"
+                  style={INPUT_STYLE}
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">目标日期</label>
-                  <input
-                    type="date"
-                    value={formData.targetDate}
-                    onChange={(e) => setFormData({ ...formData, targetDate: e.target.value })}
-                    min={getTodayDate()}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, targetDate: getTodayDate() }))}
-                      className="px-2.5 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600"
-                    >
-                      今天
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, targetDate: getOffsetDate(7) }))}
-                      className="px-2.5 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600"
-                    >
-                      7天后
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, targetDate: getOffsetDate(30) }))}
-                      className="px-2.5 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600"
-                    >
-                      30天后
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, targetDate: '' }))}
-                      className="px-2.5 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-500"
-                    >
-                      清空
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">目标描述</label>
-                  <input
-                    type="text"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="可选"
-                  />
-                </div>
+              <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-sm" onClick={() => setFormData((prev) => ({ ...prev, targetDate: getTodayDate() }))}>今天</button>
+                <button type="button" className="btn btn-sm" onClick={() => setFormData((prev) => ({ ...prev, targetDate: getOffsetDate(7) }))}>7天后</button>
+                <button type="button" className="btn btn-sm" onClick={() => setFormData((prev) => ({ ...prev, targetDate: getOffsetDate(30) }))}>30天后</button>
+                <button type="button" className="btn btn-sm" onClick={() => setFormData((prev) => ({ ...prev, targetDate: '' }))}>清空</button>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors font-medium"
-                >
-                  {isSubmitting ? '创建中...' : '创建目标'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNewGoalForm(false);
-                    setFormData({ goalName: '', targetDate: '', description: '', startDate: '' });
-                  }}
-                  className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium"
-                >
-                  取消
-                </button>
+              <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={isSubmitting}>{isSubmitting ? '创建中...' : '创建目标'}</button>
+                <button type="button" className="btn btn-sm" onClick={() => { setShowNewGoalForm(false); resetForm(); }}>取消</button>
               </div>
             </form>
           </div>
         )}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">目标历史</h3>
+      <div style={CARD_STYLE}>
+        <h3 style={{ margin: '0 0 0.9rem', color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: 700 }}>目标历史</h3>
         {goalHistory.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">暂无历史目标</div>
+          <div style={{ ...BLOCK_STYLE, textAlign: 'center', color: 'var(--text-muted)' }}>暂无历史目标</div>
         ) : (
-          <div className="space-y-3">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
             {goalHistory.map((goal) => {
-              const isEditing = editingGoal?.id === goal.id;
+              const isEditing = editingGoal?.id === goal.id && expandedHistoryId === goal.id;
               return (
-                <div
-                  key={goal.id}
-                  className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 p-4"
-                >
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="font-medium text-gray-900 dark:text-white">{goal.goalName}</h4>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          goal.status === 'COMPLETED'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                            : goal.status === 'TERMINATED'
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
-                        }`}>
+                <div key={goal.id} style={BLOCK_STYLE}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.7rem', flexWrap: 'wrap' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                        <strong style={{ color: 'var(--text-primary)' }}>{goal.goalName}</strong>
+                        <span
+                          style={{
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            borderRadius: '999px',
+                            padding: '0.14rem 0.48rem',
+                            color: goal.status === 'COMPLETED' ? '#15803d' : goal.status === 'TERMINATED' ? '#dc2626' : '#1d4ed8',
+                            background: goal.status === 'COMPLETED' ? 'rgba(22,163,74,0.12)' : goal.status === 'TERMINATED' ? 'rgba(239,68,68,0.12)' : 'rgba(59,130,246,0.12)',
+                          }}
+                        >
                           {goal.status === 'COMPLETED' ? '已完成' : goal.status === 'TERMINATED' ? '已终止' : '进行中'}
                         </span>
                       </div>
-                      <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 flex flex-wrap gap-x-5 gap-y-1">
+                      <div style={{ marginTop: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.84rem', display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
                         <span>开始：{formatDate(goal.startDate)}</span>
                         {goal.targetDate && <span>目标：{formatDate(goal.targetDate)}</span>}
                         {goal.endDate && <span>结束：{formatDate(goal.endDate)}</span>}
                       </div>
-                      {goal.description && (
-                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{goal.description}</p>
-                      )}
+                      {goal.description && <div style={{ marginTop: '0.25rem', color: 'var(--text-secondary)', fontSize: '0.86rem' }}>{goal.description}</div>}
                     </div>
                     <button
                       onClick={() => {
                         if (isEditing) {
                           setEditingGoal(null);
                           setExpandedHistoryId(null);
-                          setFormData({ goalName: '', targetDate: '', description: '', startDate: '' });
+                          resetForm();
                         } else {
                           handleEditGoal(goal);
                         }
                       }}
-                      className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium inline-flex items-center gap-2"
+                      className="btn btn-primary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                     >
-                      <Edit size={16} />
+                      <Edit size={14} />
                       {isEditing ? '收起编辑' : '编辑'}
                     </button>
                   </div>
 
-                  {isEditing && expandedHistoryId === goal.id && (
-                    <form onSubmit={handleUpdateGoal} className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">目标名称 *</label>
+                  {isEditing && (
+                    <form onSubmit={handleUpdateGoal} style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                      <input
+                        type="text"
+                        value={formData.goalName}
+                        onChange={(e) => setFormData({ ...formData, goalName: e.target.value })}
+                        style={INPUT_STYLE}
+                        required
+                      />
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.6rem' }}>
                         <input
-                          type="text"
-                          value={formData.goalName}
-                          onChange={(e) => setFormData({ ...formData, goalName: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          required
+                          type="date"
+                          value={formData.startDate}
+                          onChange={(e) => updateDateField('startDate', e.target.value)}
+                          style={INPUT_STYLE}
                         />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">开始时间</label>
-                          <input
-                            type="date"
-                            value={formData.startDate}
-                            onChange={(e) => updateDateField('startDate', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">目标日期</label>
-                          <input
-                            type="date"
-                            value={formData.targetDate}
-                            min={formData.startDate || ''}
-                            onChange={(e) => updateDateField('targetDate', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          />
-                        </div>
+                        <input
+                          type="date"
+                          value={formData.targetDate}
+                          min={formData.startDate || ''}
+                          onChange={(e) => updateDateField('targetDate', e.target.value)}
+                          style={INPUT_STYLE}
+                        />
                       </div>
                       <textarea
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         rows={3}
                         placeholder="目标描述（可选）"
+                        style={{ ...INPUT_STYLE, resize: 'vertical' }}
                       />
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="submit"
-                          disabled={isSubmitting}
-                          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white rounded-lg transition-colors font-medium"
-                        >
-                          {isSubmitting ? '更新中...' : '保存修改'}
-                        </button>
+                      <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
+                        <button type="submit" className="btn btn-primary btn-sm" disabled={isSubmitting}>{isSubmitting ? '更新中...' : '保存修改'}</button>
+                        <button type="button" className="btn btn-sm" onClick={() => { setEditingGoal(null); setExpandedHistoryId(null); resetForm(); }}>取消</button>
                         <button
                           type="button"
-                          onClick={() => {
-                            setEditingGoal(null);
-                            setExpandedHistoryId(null);
-                            setFormData({ goalName: '', targetDate: '', description: '', startDate: '' });
-                          }}
-                          className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium"
-                        >
-                          取消
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteGoal(goal.id)}
+                          className="btn btn-sm"
+                          style={{ background: '#dc2626', color: '#fff', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                           disabled={isSubmitting}
-                          className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg transition-colors font-medium inline-flex items-center gap-2"
+                          onClick={() => void handleDeleteGoal(goal.id)}
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                           删除
                         </button>
                       </div>
@@ -480,6 +407,4 @@ const GoalManagement: React.FC<GoalManagementProps> = ({ onGoalChange }) => {
       </div>
     </div>
   );
-};
-
-export default GoalManagement;
+}
