@@ -1,8 +1,8 @@
 .card {
   border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
   border-radius: 26px;
-  background: color-mix(in srgb, var(--bg-secondary) 88%, white 12%);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  background: color-mix(in srgb, var(--bg-secondary) 97%, #eef2ef 3%);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.045);
   padding: 22px;
 }
 
@@ -64,8 +64,8 @@
 .countItem {
   padding: 12px;
   border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent 28%);
-  background: color-mix(in srgb, var(--bg-primary) 78%, white 22%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
+  background: color-mix(in srgb, var(--bg-tertiary) 90%, var(--bg-secondary) 10%);
 }
 
 .countValue {
@@ -114,8 +114,8 @@
   gap: 10px;
   padding: 12px 14px;
   border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent 28%);
-  background: color-mix(in srgb, var(--bg-primary) 78%, white 22%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
+  background: color-mix(in srgb, var(--bg-tertiary) 90%, var(--bg-secondary) 10%);
   margin-bottom: 10px;
 }
 
@@ -139,7 +139,7 @@
   padding: 9px 10px;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
-  background: color-mix(in srgb, var(--bg-secondary) 90%, white 10%);
+  background: color-mix(in srgb, var(--bg-secondary) 96%, #e7ece9 4%);
   color: var(--text-primary);
   font-size: 14px;
   font-weight: 600;
@@ -182,8 +182,8 @@
 
 .feelingButton {
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
-  background: color-mix(in srgb, var(--bg-primary) 88%, white 12%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent 20%);
+  background: color-mix(in srgb, var(--bg-tertiary) 88%, var(--bg-secondary) 12%);
   color: var(--text-primary);
   padding: 8px 10px;
   font-size: 13px;

@@ -1,8 +1,8 @@
 .card {
-  border: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent 26%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
   border-radius: 28px;
-  background: color-mix(in srgb, var(--bg-secondary) 88%, white 12%);
-  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.06);
+  background: color-mix(in srgb, var(--bg-secondary) 97%, #eef2ef 3%);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.045);
   padding: 24px;
 }
 
@@ -204,8 +204,8 @@
   margin-top: 16px;
   border-radius: 22px;
   padding: 16px;
-  background: color-mix(in srgb, var(--bg-tertiary) 82%, white 18%);
-  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent 28%);
+  background: color-mix(in srgb, var(--bg-tertiary) 90%, var(--bg-secondary) 10%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
 }
 
 .cardLabel {

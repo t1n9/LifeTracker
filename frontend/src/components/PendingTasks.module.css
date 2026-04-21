@@ -1,8 +1,8 @@
 .card {
   border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
   border-radius: 26px;
-  background: color-mix(in srgb, var(--bg-secondary) 88%, white 12%);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  background: color-mix(in srgb, var(--bg-secondary) 97%, #eef2ef 3%);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.045);
   padding: 22px;
 }
 
@@ -147,7 +147,7 @@
   margin-bottom: 10px;
   border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
   border-radius: 18px;
-  background: color-mix(in srgb, var(--bg-secondary) 92%, white 8%);
+  background: color-mix(in srgb, var(--bg-secondary) 97%, #eef2ef 3%);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
@@ -155,7 +155,7 @@
   transform: translateY(-1px);
   z-index: 30;
   border-color: color-mix(in srgb, var(--accent-primary) 20%, var(--border-color) 80%);
-  background: color-mix(in srgb, var(--bg-secondary) 88%, white 12%);
+  background: color-mix(in srgb, var(--bg-secondary) 94%, #e7ece9 6%);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.045);
 }
 
@@ -401,7 +401,7 @@
   width: 100%;
   border: 1px dashed color-mix(in srgb, var(--border-color) 80%, transparent 20%);
   border-radius: 16px;
-  background: color-mix(in srgb, var(--bg-primary) 86%, white 14%);
+  background: color-mix(in srgb, var(--bg-secondary) 97%, #eef2ef 3%);
   color: var(--text-secondary);
   padding: 12px 14px;
   font-size: 14px;
@@ -423,7 +423,7 @@
 .addForm {
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
-  background: color-mix(in srgb, var(--bg-primary) 84%, white 16%);
+  background: color-mix(in srgb, var(--bg-secondary) 97%, #eef2ef 3%);
   padding: 14px;
 }
 

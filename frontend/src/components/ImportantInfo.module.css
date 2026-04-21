@@ -1,8 +1,8 @@
 .card {
-  border: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent 26%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
   border-radius: 26px;
-  background: color-mix(in srgb, var(--bg-secondary) 90%, white 10%);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  background: color-mix(in srgb, var(--bg-secondary) 97%, #eef2ef 3%);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.045);
   padding: 22px;
 }
 
@@ -130,7 +130,8 @@
   margin-top: 18px;
   padding: 18px;
   border-radius: 20px;
-  background: color-mix(in srgb, var(--bg-tertiary) 66%, white 34%);
+  background: color-mix(in srgb, var(--bg-tertiary) 90%, var(--bg-secondary) 10%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
   color: var(--text-primary);
   white-space: pre-line;
   word-break: break-word;
@@ -143,7 +144,8 @@
   border-radius: 22px;
   padding: 24px 18px;
   text-align: center;
-  background: color-mix(in srgb, var(--bg-tertiary) 56%, white 44%);
+  background: color-mix(in srgb, var(--bg-tertiary) 88%, var(--bg-secondary) 12%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
   color: var(--text-muted);
 }
 
@@ -155,7 +157,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: white;
+  background: color-mix(in srgb, var(--bg-secondary) 92%, white 8%);
   color: var(--text-primary);
 }
 
@@ -176,8 +178,8 @@
   margin-top: 18px;
   padding: 16px;
   border-radius: 20px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary) 14%, transparent 86%);
-  background: color-mix(in srgb, var(--accent-primary) 6%, white 94%);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 20%, var(--border-color) 80%);
+  background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-tertiary) 90%);
 }
 
 .templateTitle {
