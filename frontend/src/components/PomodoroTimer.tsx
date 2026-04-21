@@ -6,6 +6,7 @@ import { Play, Pause, RotateCcw, Focus, Square } from 'lucide-react';
 import { pomodoroAPI } from '@/lib/api';
 import FocusMode from './FocusMode';
 import BreakMode from './BreakMode';
+import styles from './PomodoroTimer.module.css';
 
 interface PomodoroTimerProps {
   currentBoundTask?: string | null;
@@ -1354,16 +1355,27 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
     progressColor = '#ef4444'; // 红色
   }
 
-  const circumference = 2 * Math.PI * 90; // 半径90的圆周长
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
+  const progressLabel = isCountUpMode
+    ? (() => {
+        const totalMinutes = Math.floor(countUpTime / 60);
+        if (totalMinutes >= 180) return '已达 3 小时上限';
+        const cycle = Math.floor(totalMinutes / 60) + 1;
+        const minutesInCycle = totalMinutes % 60;
+        return `第 ${cycle} 圈 · ${minutesInCycle}/60 分钟`;
+      })()
+    : `本轮 ${selectedMinutes} 分钟`;
 
-  // 获取当前绑定的任务信息
   const displayTaskId = isRunning ? startBoundTask : currentBoundTask;
   const boundTask = displayTaskId ? tasks.find(task => task.id === displayTaskId) : null;
+  const formatStudyTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  };
 
   // 调试信息
   if (isRunning && !boundTask && displayTaskId) {
-    console.log('🐛 番茄钟运行中但找不到绑定任务:', {
+    console.log('Pomodoro running without a matched bound task', {
       isRunning,
       displayTaskId,
       startBoundTask,
@@ -1374,191 +1386,174 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
   }
 
   return (
-    <div className="card">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+    <div className={styles.card}>
+      <div className={styles.header}>
+        <div className={styles.titleWrap}>
+          <div className={styles.icon}>
             <span className="text-white text-xs">🍅</span>
           </div>
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>番茄时钟</h3>
-          <div className="flex items-center gap-2">
-            {!serverConnected && (
-              <span className="text-xs px-2 py-1 rounded" style={{
+          <div>
+            <h3 className={styles.title}>专注计时</h3>
+            <p className={styles.subtitle}>保持界面简单，把展开信息留到专注模式里。</p>
+          </div>
+        </div>
+        <div className={styles.badgeRow}>
+          {!serverConnected && (
+            <span
+              className={styles.badge}
+              style={{
                 backgroundColor: 'rgba(249, 115, 22, 0.1)',
                 color: 'var(--warning-color)',
                 border: '1px solid rgba(249, 115, 22, 0.2)'
-              }}>
-                本地模式
-              </span>
-            )}
-            {serverConnected && sessionId && (
-              <span className="text-xs px-2 py-1 rounded" style={{
+              }}
+            >
+              本地模式
+            </span>
+          )}
+          {serverConnected && sessionId && (
+            <span
+              className={styles.badge}
+              style={{
                 backgroundColor: 'rgba(34, 197, 94, 0.1)',
                 color: 'var(--success-color)',
                 border: '1px solid rgba(34, 197, 94, 0.2)'
-              }}>
-                全局同步
-              </span>
-            )}
-          </div>
+              }}
+            >
+              全局同步
+            </span>
+          )}
         </div>
       </div>
 
-      {/* 圆环时钟 */}
-      <div className="pomodoro-container">
-        <div className="pomodoro-circle">
-          <svg className="pomodoro-svg" viewBox="0 0 200 200">
-            {/* 背景圆环 */}
-            <circle
-              cx="100"
-              cy="100"
-              r="90"
-              fill="none"
-              stroke="var(--bg-tertiary)"
-              strokeWidth="8"
+      <div className={styles.body}>
+        <div className={styles.hero}>
+          <div className={styles.modeTag}>
+            <span>{isCountUpMode ? '正计时模式' : '倒计时模式'}</span>
+          </div>
+
+          <div className={styles.time}>
+            {isCountUpMode ? formatTime(countUpTime) : formatTime(timeLeft)}
+          </div>
+
+          <div className={styles.metaRow}>
+            <span>{progressLabel}</span>
+            <span>{Math.round(progress)}%</span>
+          </div>
+
+          <div className={styles.track}>
+            <div
+              className={styles.fill}
+              style={{
+                width: `${Math.max(0, Math.min(progress, 100))}%`,
+                background: `linear-gradient(90deg, ${progressColor}, color-mix(in srgb, ${progressColor} 62%, white 38%))`,
+              }}
             />
-            {/* 进度圆环 */}
-            <circle
-              cx="100"
-              cy="100"
-              r="90"
-              fill="none"
-              stroke={isCompleted ? "var(--success-color)" : progressColor}
-              strokeWidth="8"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              className="pomodoro-progress"
-              transform="rotate(-90 100 100)"
-            />
-          </svg>
+          </div>
 
-          {/* 中心控制区域 */}
-          <div className="pomodoro-center">
-            <div className="pomodoro-time">
-              {isCountUpMode ? formatTime(countUpTime) : formatTime(timeLeft)}
-            </div>
+          <div className={styles.controls}>
+            {!isRunning && !isPaused ? (
+              <button
+                onClick={handleStart}
+                className={styles.primaryButton}
+                disabled={timeLeft === 0}
+              >
+                <Play size={18} />
+                <span>开始</span>
+              </button>
+            ) : isPaused ? (
+              <button
+                onClick={handlePause}
+                className={styles.primaryButton}
+              >
+                <Play size={18} />
+                <span>继续</span>
+              </button>
+            ) : (
+              <button
+                onClick={handlePause}
+                className={styles.secondaryButton}
+              >
+                <Pause size={18} />
+                <span>暂停</span>
+              </button>
+            )}
+            <button
+              onClick={handleReset}
+              className={styles.ghostButton}
+              title={isCountUpMode ? '结束正计时' : '重置计时器'}
+            >
+              {isCountUpMode ? <Square size={18} /> : <RotateCcw size={18} />}
+              <span>{isCountUpMode ? '结束' : '重置'}</span>
+            </button>
+            <button
+              onClick={handleEnterFocusMode}
+              className={styles.ghostButton}
+              title="进入专注模式"
+            >
+              <Focus size={18} />
+              <span>专注模式</span>
+            </button>
+          </div>
 
-            {/* 正计时模式的圈数指示器 */}
-            {isCountUpMode && (
-              <div className="count-up-cycle-indicator">
-                {(() => {
-                  const totalMinutes = Math.floor(countUpTime / 60);
-                  const currentCycle = Math.floor(totalMinutes / 60);
-                  const minutesInCycle = totalMinutes % 60;
-
-                  const cycleNames = ['第一圈', '第二圈', '第三圈'];
-                  const cycleEmojis = ['🟢', '🟡', '🟣'];
-
-                  if (totalMinutes >= 180) {
-                    return (
-                      <div className="cycle-info">
-                        <span className="cycle-emoji">🔴</span>
-                        <span className="cycle-text">
-                          {isPaused ? '已达3小时 - 已暂停' : '已达3小时'}
-                        </span>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="cycle-info">
-                      <span className="cycle-emoji">{cycleEmojis[currentCycle] || '🟢'}</span>
-                      <span className="cycle-text">
-                        {cycleNames[currentCycle] || '第一圈'} ({minutesInCycle}/60分钟)
-                      </span>
-                    </div>
-                  );
-                })()}
+          {!isRunning && !isPaused && (
+            <div className={styles.sliderBlock}>
+              <div className={styles.sliderHeader}>
+                <span>计时时长</span>
+                <span>{selectedMinutes} 分钟</span>
               </div>
-            )}
-            <div className="pomodoro-controls">
-              {!isRunning && !isPaused ? (
-                <button
-                  onClick={handleStart}
-                  className="pomodoro-btn pomodoro-btn-start"
-                  disabled={timeLeft === 0}
-                >
-                  <Play size={20} />
-                </button>
-              ) : isPaused ? (
-                <button
-                  onClick={handlePause}
-                  className="pomodoro-btn pomodoro-btn-start"
-                >
-                  <Play size={20} />
-                </button>
-              ) : (
-                <button
-                  onClick={handlePause}
-                  className="pomodoro-btn pomodoro-btn-pause"
-                >
-                  <Pause size={20} />
-                </button>
-              )}
-              <button
-                onClick={handleReset}
-                className="pomodoro-btn pomodoro-btn-reset"
-                title={isCountUpMode ? '结束正计时' : '重置番茄钟'}
-              >
-                {isCountUpMode ? <Square size={16} /> : <RotateCcw size={16} />}
-              </button>
-              <button
-                onClick={handleEnterFocusMode}
-                className="pomodoro-btn pomodoro-btn-focus"
-                title="进入专注模式"
-              >
-                <Focus size={16} />
-              </button>
+              <input
+                type="range"
+                min="5"
+                max="120"
+                step="5"
+                value={selectedMinutes}
+                onChange={(e) => handleTimeSelect(parseInt(e.target.value))}
+                className={`time-slider ${styles.slider}`}
+              />
+              <div className={styles.sliderLabels}>
+                <span>5 分钟</span>
+                <span>120 分钟</span>
+              </div>
+            </div>
+          )}
+
+          <div className={styles.infoCard}>
+            <div className={styles.cardLabel}>当前任务</div>
+            <div className={styles.taskTitle}>
+              {boundTask ? boundTask.title : '还没有绑定任务'}
+            </div>
+            <div className={styles.helperText}>
+              {isRunning
+                ? '计时已经开始，详细状态会在专注模式里展开。'
+                : '先绑定一个任务再开始，会更适合持续专注。'}
+            </div>
+            <div className={styles.statsRow}>
+              <span>今日学习 {formatStudyTime(studyTime)}</span>
+              <span>番茄完成 {pomodoroCount}</span>
             </div>
           </div>
         </div>
-
-
-
-        {/* 时长选择滑块 */}
-        {!isRunning && !isPaused && (
-          <div className="pomodoro-slider">
-            <input
-              type="range"
-              min="5"
-              max="120"
-              step="5"
-              value={selectedMinutes}
-              onChange={(e) => handleTimeSelect(parseInt(e.target.value))}
-              className="time-slider"
-            />
-            <div className="slider-labels">
-              <span>5分钟</span>
-              <span>2小时</span>
-            </div>
-          </div>
-        )}
-
-
-
-        {/* 状态提示 */}
-        {isCompleted && (
-          <div className="pomodoro-status completed">
-            🎉 专注时间完成！已添加到学习记录
-          </div>
-        )}
-
-        {isPaused && (
-          <div className="pomodoro-status paused">
-            {isCountUpMode && countUpTime >= 10800
-              ? '⏰ 已达3小时上限，建议休息后继续'
-              : '⏸️ 番茄钟已暂停'
-            }
-          </div>
-        )}
-
-        {isRunning && !isPaused && (
-          <div className="pomodoro-status running">
-            {boundTask ? `🔥 【${boundTask.title}】专注中！` : '🔥 专注中...保持专注！'}
-          </div>
-        )}
       </div>
+
+      {isCompleted && (
+        <div className={`${styles.status} ${styles.statusCompleted}`}>
+          本轮专注已完成，已计入学习记录。
+        </div>
+      )}
+
+      {isPaused && (
+        <div className={`${styles.status} ${styles.statusPaused}`}>
+          {isCountUpMode && countUpTime >= 10800
+            ? '已达到 3 小时上限，建议先休息一下。'
+            : '计时已暂停，随时可以继续。'}
+        </div>
+      )}
+
+      {isRunning && !isPaused && (
+        <div className={`${styles.status} ${styles.statusRunning}`}>
+          {boundTask ? `正在专注：${boundTask.title}` : '专注进行中，先别被别的事情打断。'}
+        </div>
+      )}
 
       {/* 专注模式覆盖层 - 使用Portal渲染到body */}
       {showFocusMode && typeof window !== 'undefined' && createPortal(

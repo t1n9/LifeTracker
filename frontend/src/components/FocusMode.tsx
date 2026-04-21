@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Sun, Moon, Pause, Play, RotateCcw, X, Square } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Moon, Pause, Play, RotateCcw, Square, Sun, X } from 'lucide-react';
+import styles from './FocusMode.module.css';
 
 interface FocusModeProps {
   timeLeft: number;
@@ -13,14 +14,22 @@ interface FocusModeProps {
   onReset: () => void;
   onExit: () => void;
   currentBoundTask?: string;
-  tasks?: Array<{id: string, title: string, isCompleted: boolean}>;
+  tasks?: Array<{ id: string; title: string; isCompleted: boolean }>;
   studyTime?: number;
   pomodoroCount?: number;
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
-  isCountUpMode?: boolean; // 是否为正计时模式
-  countUpTime?: number; // 正计时已用时间
+  isCountUpMode?: boolean;
+  countUpTime?: number;
 }
+
+const focusQuotes = [
+  '保持专注，节奏会自己出现。',
+  '先完成这一段，再考虑下一段。',
+  '把注意力留给最重要的事。',
+  '稳定输出，比情绪更可靠。',
+  '只专注这一件事，已经很强。',
+];
 
 const FocusMode: React.FC<FocusModeProps> = ({
   timeLeft,
@@ -38,98 +47,61 @@ const FocusMode: React.FC<FocusModeProps> = ({
   theme = 'light',
   onToggleTheme,
   isCountUpMode = false,
-  countUpTime = 0
+  countUpTime = 0,
 }) => {
   const [focusQuoteIndex, setFocusQuoteIndex] = useState(0);
 
-  // 激励文字库
-  const focusQuotes = [
-    "💪 保持专注，你正在变得更强！",
-    "🎯 每一分钟的专注都在为梦想加分",
-    "🔥 专注是通往成功的唯一道路",
-    "⭐ 你的努力，时间都看得见",
-    "🚀 专注当下，未来可期",
-    "💎 专注让平凡变得不凡",
-    "🌟 每个专注的瞬间都在塑造更好的你"
-  ];
+  const boundTask = useMemo(
+    () => (currentBoundTask ? tasks.find((task) => task.id === currentBoundTask) : null),
+    [currentBoundTask, tasks]
+  );
 
-  // 获取当前绑定的任务
-  const boundTask = currentBoundTask ? tasks.find(task => task.id === currentBoundTask) : null;
-
-  // 格式化时间
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // 计算进度和显示时间
-  const displayTime = isCountUpMode ? countUpTime : timeLeft;
-
-  // 计算进度 - 与主界面保持一致的3小时循环逻辑
-  let progress = 0;
-  let progressInfo = '';
-
-  if (isCountUpMode) {
-    const totalMinutes = Math.floor(countUpTime / 60);
-    const maxMinutes = 180; // 最长3小时
-    const currentCycle = Math.floor(totalMinutes / 60);
-    const minutesInCycle = totalMinutes % 60;
-
-    const clampedMinutes = Math.min(totalMinutes, maxMinutes);
-    const clampedCycle = Math.floor(clampedMinutes / 60);
-    const clampedMinutesInCycle = clampedMinutes % 60;
-
-    const cycleProgress = (clampedMinutesInCycle / 60) * 100;
-
-    switch (clampedCycle) {
-      case 0: // 第一圈：填充
-        progress = cycleProgress;
-        progressInfo = `第一圈 ${clampedMinutesInCycle}/60分钟`;
-        break;
-      case 1: // 第二圈：消除
-        progress = 100 - cycleProgress;
-        progressInfo = `第二圈 ${clampedMinutesInCycle}/60分钟`;
-        break;
-      case 2: // 第三圈：填充
-        progress = cycleProgress;
-        progressInfo = `第三圈 ${clampedMinutesInCycle}/60分钟`;
-        break;
-      default:
-        progress = 100;
-        progressInfo = '已达3小时';
-        break;
-    }
-  } else {
-    progress = ((selectedMinutes * 60 - timeLeft) / (selectedMinutes * 60)) * 100;
-    progressInfo = `${Math.round(progress)}%`;
-  }
-
-  // 格式化学习时长
   const formatStudyTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    if (hours > 0) {
-      return `${hours}h ${mins}m`;
-    }
-    return `${mins}m`;
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
-  // 键盘快捷键
+  const displayTime = isCountUpMode ? countUpTime : timeLeft;
+
+  const { progress, progressLabel } = useMemo(() => {
+    if (isCountUpMode) {
+      const totalMinutes = Math.floor(countUpTime / 60);
+      const maxMinutes = 180;
+      const clampedMinutes = Math.min(totalMinutes, maxMinutes);
+      const cycle = Math.floor(clampedMinutes / 60);
+      const minutesInCycle = clampedMinutes % 60;
+      const cycleProgress = (minutesInCycle / 60) * 100;
+
+      if (cycle === 0) return { progress: cycleProgress, progressLabel: `第 1 圈 · ${minutesInCycle}/60 分钟` };
+      if (cycle === 1) return { progress: 100 - cycleProgress, progressLabel: `第 2 圈 · ${minutesInCycle}/60 分钟` };
+      if (cycle === 2) return { progress: cycleProgress, progressLabel: `第 3 圈 · ${minutesInCycle}/60 分钟` };
+      return { progress: 100, progressLabel: '已达 3 小时上限' };
+    }
+
+    const total = selectedMinutes * 60;
+    const value = total > 0 ? ((total - timeLeft) / total) * 100 : 0;
+    return { progress: value, progressLabel: `已完成 ${Math.round(value)}%` };
+  }, [countUpTime, isCountUpMode, selectedMinutes, timeLeft]);
+
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onExit();
-      } else if (e.key === ' ') {
+        return;
+      }
+
+      if (e.key === ' ') {
         e.preventDefault();
-        if (isRunning && !isPaused) {
-          // 正在运行且未暂停，执行暂停
+        if (isRunning) {
           onPause();
-        } else if (isPaused) {
-          // 已暂停，执行继续（调用onPause来继续）
-          onPause();
-        } else if (!isRunning && !isPaused) {
-          // 未开始，执行开始
+        } else {
           onStart();
         }
       }
@@ -137,162 +109,106 @@ const FocusMode: React.FC<FocusModeProps> = ({
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isRunning, isPaused, onStart, onPause, onExit]);
+  }, [isRunning, onExit, onPause, onStart]);
 
-  // 定期更新激励文字
   useEffect(() => {
-    if (isRunning) {
-      const interval = setInterval(() => {
-        setFocusQuoteIndex(prev => (prev + 1) % focusQuotes.length);
-      }, 30000); // 每30秒更换一次
-
-      return () => clearInterval(interval);
+    if (!isRunning || isPaused) {
+      return;
     }
-  }, [isRunning, focusQuotes.length]);
 
-  // 时间提醒
-  useEffect(() => {
-    if (isRunning && !isPaused) {
-      // 在剩余5分钟和1分钟时发送提醒
-      if (timeLeft === 300) { // 5分钟
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('⏰ 番茄时钟提醒', {
-            body: '还剩5分钟，继续保持专注！',
-            icon: '/favicon.ico',
-            tag: 'pomodoro-reminder'
-          });
-        }
-      } else if (timeLeft === 60) { // 1分钟
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('⏰ 番茄时钟提醒', {
-            body: '最后1分钟，马上就要完成了！',
-            icon: '/favicon.ico',
-            tag: 'pomodoro-reminder'
-          });
-        }
-      }
-    }
-  }, [timeLeft, isRunning, isPaused]);
+    const interval = window.setInterval(() => {
+      setFocusQuoteIndex((prev) => (prev + 1) % focusQuotes.length);
+    }, 30000);
+
+    return () => window.clearInterval(interval);
+  }, [isPaused, isRunning]);
 
   return (
-    <div className="focus-mode">
-      {/* 顶部栏 */}
-      <div className="focus-header">
-        <div className="focus-title">
-          <span className="focus-icon">🍅</span>
-          <span>专注模式</span>
-        </div>
-        <div className="focus-header-controls">
-          {onToggleTheme && (
-            <button
-              onClick={onToggleTheme}
-              className="focus-theme-toggle"
-              title="切换主题"
-            >
-              {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-            </button>
-          )}
-          <button
-            onClick={onExit}
-            className="focus-exit-btn"
-            title="退出专注模式"
-          >
-            <X size={20} />
-          </button>
-        </div>
-      </div>
-
-      {/* 主要内容区 */}
-      <div className="focus-content">
-        {/* 时间显示 */}
-        <div className="focus-timer">
-          <div className="focus-time">{formatTime(displayTime)}</div>
-
-          {/* 模式指示 */}
-          {isCountUpMode && (
-            <div className="focus-mode-indicator">
-              ⏱️ 正计时模式
-            </div>
-          )}
-
-          {/* 当前任务 */}
-          {boundTask && (
-            <div className="focus-task">
-              【{boundTask.title}】专注中！
-            </div>
-          )}
-          
-          {/* 进度条 */}
-          <div className="focus-progress-container">
-            <div className="focus-progress-bar">
-              <div 
-                className="focus-progress-fill" 
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-            <div className="focus-progress-text">
-              {progressInfo}
-            </div>
+    <div className={styles.overlay}>
+      <div className={styles.shell}>
+        <header className={styles.header}>
+          <div>
+            <div className={styles.eyebrow}>Focus Session</div>
+            <h2 className={styles.title}>专注模式</h2>
+            <p className={styles.subtitle}>隐藏杂音，把这一段时间完整留给当前任务。</p>
           </div>
-
-          {/* 控制按钮 */}
-          <div className="focus-controls">
-            {!isRunning || isPaused ? (
-              <button
-                onClick={isPaused ? onPause : onStart}
-                className="focus-btn focus-btn-start"
-                disabled={timeLeft === 0}
-              >
-                <Play size={24} />
-                <span>{isPaused ? '继续' : '开始'}</span>
-              </button>
-            ) : (
-              <button
-                onClick={onPause}
-                className="focus-btn focus-btn-pause"
-              >
-                <Pause size={24} />
-                <span>暂停</span>
+          <div className={styles.headerActions}>
+            {onToggleTheme && (
+              <button onClick={onToggleTheme} className={styles.iconButton} title="切换主题">
+                {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
               </button>
             )}
-            <button
-              onClick={onReset}
-              className="focus-btn focus-btn-reset"
-            >
-              {isCountUpMode ? (
-                <>
-                  <Square size={20} />
-                  <span>结束</span>
-                </>
-              ) : (
-                <>
-                  <RotateCcw size={20} />
-                  <span>重置</span>
-                </>
-              )}
+            <button onClick={onExit} className={styles.iconButton} title="退出专注模式">
+              <X size={18} />
             </button>
           </div>
+        </header>
 
-          {/* 激励文字 */}
-          <div className="focus-quote">
-            {focusQuotes[focusQuoteIndex]}
-          </div>
-        </div>
-      </div>
+        <main className={styles.body}>
+          <section className={styles.hero}>
+            <div className={styles.timeWrap}>
+              <div className={styles.modeBadge}>{isCountUpMode ? '正计时模式' : `${selectedMinutes} 分钟专注`}</div>
+              <div className={styles.time}>{formatTime(displayTime)}</div>
+              <div className={styles.progressMeta}>{progressLabel}</div>
+              <div className={styles.progressTrack}>
+                <div className={styles.progressFill} style={{ width: `${progress}%` }} />
+              </div>
+            </div>
 
-      {/* 底部统计 */}
-      <div className="focus-footer">
-        <div className="focus-stats">
-          <span>今日已专注: {formatStudyTime(studyTime)}</span>
-          <span className="focus-divider">|</span>
-          <span>完成: {pomodoroCount}🍅</span>
-        </div>
-      </div>
+            <div className={styles.taskPanel}>
+              <div className={styles.panelLabel}>当前任务</div>
+              <div className={styles.taskTitle}>
+                {boundTask ? boundTask.title : '还没有绑定任务，先保持这一段专注。'}
+              </div>
+              <div className={styles.quote}>{focusQuotes[focusQuoteIndex]}</div>
+            </div>
 
-      {/* 快捷键提示 */}
-      <div className="focus-shortcuts">
-        <span>ESC 或点击 ✕ 退出专注模式</span>
-        <span>空格 暂停/继续</span>
+            <div className={styles.controls}>
+              {!isRunning || isPaused ? (
+                <button
+                  onClick={isPaused ? onPause : onStart}
+                  className={`${styles.primaryButton} ${styles.controlButton}`}
+                  disabled={!isCountUpMode && timeLeft === 0}
+                >
+                  <Play size={18} />
+                  <span>{isPaused ? '继续' : '开始'}</span>
+                </button>
+              ) : (
+                <button onClick={onPause} className={`${styles.primaryButton} ${styles.controlButton}`}>
+                  <Pause size={18} />
+                  <span>暂停</span>
+                </button>
+              )}
+
+              <button onClick={onReset} className={`${styles.secondaryButton} ${styles.controlButton}`}>
+                {isCountUpMode ? <Square size={18} /> : <RotateCcw size={18} />}
+                <span>{isCountUpMode ? '结束' : '重置'}</span>
+              </button>
+            </div>
+          </section>
+
+          <aside className={styles.sidebar}>
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>今日学习</div>
+              <div className={styles.statValue}>{formatStudyTime(studyTime)}</div>
+            </div>
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>累计番茄</div>
+              <div className={styles.statValue}>{pomodoroCount}</div>
+            </div>
+            <div className={styles.shortcutCard}>
+              <div className={styles.shortcutTitle}>快捷键</div>
+              <div className={styles.shortcutItem}>
+                <span>空格</span>
+                <span>开始 / 暂停</span>
+              </div>
+              <div className={styles.shortcutItem}>
+                <span>Esc</span>
+                <span>退出模式</span>
+              </div>
+            </div>
+          </aside>
+        </main>
       </div>
     </div>
   );

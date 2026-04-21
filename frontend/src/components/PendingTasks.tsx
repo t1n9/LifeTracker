@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { CheckSquare, Plus, X, Check, Clock, Play, Sunrise, Edit3, GripVertical } from 'lucide-react';
 import { taskAPI, dailyAPI } from '@/lib/api';
 import '@/styles/draggable-tasks.css';
+import styles from './PendingTasks.module.css';
 import {
   DndContext,
   closestCenter,
@@ -107,20 +108,8 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
   return (
     <div
       ref={setNodeRef}
-      style={{
-        ...style,
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        padding: '1rem',
-        background: 'var(--bg-secondary)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '8px',
-        transition: 'all 0.2s ease',
-        marginBottom: '0.5rem',
-      }}
-      className={`pending-task-item ${isBound ? 'bound' : ''} ${isDragging ? 'dragging' : ''}`}
+      style={style}
+      className={`pending-task-item ${styles.item} ${isBound ? `bound ${styles.itemBound}` : ''} ${isDragging ? `dragging ${styles.dragging}` : ''}`}
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
       onClick={() => onTaskClick(task.id, task.title)}
@@ -134,18 +123,10 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
     >
       {/* 拖拽手柄 */}
       <div
-        className="drag-handle-simple"
+        className={`drag-handle-simple ${styles.dragHandle}`}
         {...attributes}
         {...listeners}
         onClick={(e) => e.stopPropagation()}
-        style={{
-          cursor: 'grab',
-          padding: '0.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          color: 'var(--text-muted)',
-          opacity: 0.6,
-        }}
       >
         <GripVertical size={16} />
       </div>
@@ -153,8 +134,8 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
 
 
       {/* 任务内容 */}
-      <div className="task-content" style={{ flex: 1, minWidth: 0 }}>
-        <div className="flex items-center gap-2">
+      <div className={`task-content ${styles.content}`}>
+        <div className={styles.row}>
           {/* 任务完成复选框 */}
           <input
             type="checkbox"
@@ -167,7 +148,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
               e.stopPropagation();
               onToggleTask(task.id, task.isCompleted);
             }}
-            className="task-checkbox"
+            className={`task-checkbox ${styles.checkbox}`}
           />
 
           {/* 任务标题 - 编辑状态或显示状态 */}
@@ -195,14 +176,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
             />
           ) : (
             <span
-              className="task-title"
-              style={{
-                fontWeight: '500',
-                color: task.isCompleted ? 'var(--text-muted)' : 'var(--text-primary)',
-                fontSize: '0.875rem',
-                textDecoration: task.isCompleted ? 'line-through' : 'none',
-                opacity: task.isCompleted ? 0.7 : 1,
-              }}
+              className={`task-title ${styles.taskTitle} ${task.isCompleted ? styles.taskTitleCompleted : ''}`}
             >
               {task.title}
             </span>
@@ -210,7 +184,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
 
           {/* 番茄数量显示 */}
           {(task.pomodoroCount || 0) > 0 && (
-            <div className="pomodoro-count-badge" style={{
+            <div className={`pomodoro-count-badge ${styles.badge}`} style={{
               fontSize: '0.75rem',
               color: 'var(--text-muted)',
               background: 'var(--bg-tertiary)',
@@ -223,7 +197,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
 
           {/* 绑定状态指示 */}
           {isBound && (
-            <div className="bound-indicator" style={{
+            <div className={`bound-indicator ${styles.boundIndicator}`} style={{
               color: 'var(--accent-primary)',
               fontSize: '0.75rem',
             }}>
@@ -232,7 +206,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
           )}
         </div>
         {task.description && (
-          <div className="task-description" style={{
+          <div className={`task-description ${styles.taskDescription}`} style={{
             fontSize: '0.75rem',
             color: 'var(--text-muted)',
             marginTop: '0.25rem',
@@ -243,13 +217,13 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
       </div>
 
       {/* 操作按钮 */}
-      <div className="task-actions">
+      <div className={styles.actions}>
         <button
           onClick={(e) => {
             e.stopPropagation();
             onStartCountUp(task.id, task.title);
           }}
-          className="action-btn start-btn"
+          className={`action-btn start-btn ${styles.actionButton}`}
           title="开始正计时"
         >
           <Play size={16} />
@@ -259,7 +233,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
             e.stopPropagation();
             onEditTask(task);
           }}
-          className="action-btn edit-btn"
+          className={`action-btn edit-btn ${styles.actionButton}`}
           title="编辑任务"
         >
           <Edit3 size={16} />
@@ -269,7 +243,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
             e.stopPropagation();
             onDeleteTask(task.id);
           }}
-          className="action-btn delete-btn"
+          className={`action-btn delete-btn ${styles.actionButton} ${styles.actionButtonDanger}`}
           title="删除任务"
         >
           <X size={16} />
@@ -685,7 +659,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
 
   if (loading) {
     return (
-      <div className="card">
+      <div className={styles.card}>
         <div className="flex items-center justify-center py-8">
           <div style={{ color: 'var(--text-muted)' }}>加载中...</div>
         </div>
@@ -694,10 +668,12 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   }
 
   return (
-    <div className="card">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <CheckSquare size={20} style={{ color: 'var(--success-color)' }} />
+    <div className={styles.card}>
+      <div className={styles.header}>
+        <div className={styles.titleWrap}>
+          <div className={styles.titleIcon}>
+            <CheckSquare size={18} />
+          </div>
           {refreshing && (
             <span className="text-xs opacity-60" style={{ color: 'var(--text-muted)' }}>
               同步中...
@@ -729,7 +705,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       )}
 
       {/* 任务列表 */}
-      <div className="tasks-container space-y-2 mb-4">
+      <div className={styles.list}>
         {pendingTasks.length === 0 ? (
           <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
             <CheckSquare size={40} className="mx-auto mb-2 opacity-50" />
@@ -868,21 +844,21 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
 
       {/* 添加新任务 */}
       {showInput ? (
-        <div className="add-task-form">
+        <div className={styles.addForm}>
           <input
             type="text"
             value={newTaskText}
             onChange={(e) => setNewTaskText(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder="今天要完成什么任务？"
-            className="task-input"
+            className={styles.addInput}
             disabled={isAddingTask}
             autoFocus
           />
-          <div className="form-actions">
+          <div className={styles.addActions}>
             <button
               onClick={handleAddTask}
-              className={`btn btn-primary ${isAddingTask ? 'loading' : ''}`}
+              className={`${styles.addPrimaryButton} ${isAddingTask ? styles.loading : ''}`}
               disabled={!newTaskText.trim() || isAddingTask}
               title="添加任务"
             >
@@ -894,7 +870,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
                 setShowInput(false);
                 setNewTaskText('');
               }}
-              className="btn btn-close"
+              className={styles.addCloseButton}
               disabled={isAddingTask}
               title="取消"
             >
@@ -905,7 +881,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       ) : (
         <button
           onClick={() => setShowInput(true)}
-          className="add-task-btn"
+          className={styles.addOpenButton}
         >
           <Plus size={18} />
           <span>添加今日任务</span>

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Sun, Moon, X, SkipForward, Coffee } from 'lucide-react';
+import { Coffee, Moon, SkipForward, Sun, X } from 'lucide-react';
+import styles from './BreakMode.module.css';
 
 interface BreakModeProps {
   timeLeft: number;
@@ -14,6 +15,14 @@ interface BreakModeProps {
   pomodoroCount?: number;
 }
 
+const breakTips = [
+  '喝口水，别继续盯屏幕。',
+  '站起来走两步，活动一下肩颈。',
+  '看向远处，让眼睛放松一会儿。',
+  '做两次深呼吸，节奏会回来。',
+  '短暂离开座位，效果比硬撑更好。',
+];
+
 const BreakMode: React.FC<BreakModeProps> = ({
   timeLeft,
   selectedMinutes,
@@ -22,33 +31,19 @@ const BreakMode: React.FC<BreakModeProps> = ({
   theme = 'light',
   onToggleTheme,
   breakType = 'short',
-  pomodoroCount = 0
+  pomodoroCount = 0,
 }) => {
-  const [breakTipIndex, setBreakTipIndex] = useState(0);
+  const [tipIndex, setTipIndex] = useState(0);
 
-  // 休息建议库
-  const breakTips = [
-    "☕ 喝杯水，补充水分",
-    "👀 看看远方，放松眼睛",
-    "🧘 深呼吸，放松身心",
-    "🚶 起身走动，活动筋骨",
-    "🌱 看看绿植，缓解疲劳",
-    "💪 做几个伸展运动",
-    "🎵 听听轻音乐，放松心情",
-    "📱 远离屏幕，让眼睛休息"
-  ];
-
-  // 格式化时间
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // 计算进度
   const progress = ((selectedMinutes * 60 - timeLeft) / (selectedMinutes * 60)) * 100;
+  const pomodorosUntilLongBreak = 4 - (pomodoroCount % 4 || 4);
 
-  // 键盘快捷键
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -61,110 +56,86 @@ const BreakMode: React.FC<BreakModeProps> = ({
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [onSkip, onExit]);
+  }, [onExit, onSkip]);
 
-  // 定期更新休息建议
   useEffect(() => {
-    const interval = setInterval(() => {
-      setBreakTipIndex(prev => (prev + 1) % breakTips.length);
-    }, 15000); // 每15秒更换一次
+    const interval = window.setInterval(() => {
+      setTipIndex((prev) => (prev + 1) % breakTips.length);
+    }, 15000);
 
-    return () => clearInterval(interval);
-  }, [breakTips.length]);
+    return () => window.clearInterval(interval);
+  }, []);
 
   return (
-    <div className="break-mode">
-      {/* 顶部栏 */}
-      <div className="break-header">
-        <div className="break-title">
-          <Coffee size={24} />
-          <span>{breakType === 'short' ? '短休息' : '长休息'}时间</span>
-        </div>
-        <div className="break-header-actions">
-          {onToggleTheme && (
-            <button
-              onClick={onToggleTheme}
-              className="break-theme-toggle"
-              title="切换主题"
-            >
-              {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-            </button>
-          )}
-          <button
-            onClick={onExit}
-            className="break-close-btn"
-            title="结束休息"
-          >
-            <X size={20} />
-          </button>
-        </div>
-      </div>
-
-      {/* 主要内容区 */}
-      <div className="break-content">
-        <div className="break-timer">
-          {/* 休息倒计时 */}
-          <div className="break-time">{formatTime(timeLeft)}</div>
-          
-          {/* 休息类型说明 */}
-          <div className="break-type-info">
-            {breakType === 'short' ? (
-              <span>🌸 短暂休息，放松一下</span>
-            ) : (
-              <span>🌳 长时间休息，好好放松</span>
+    <div className={styles.overlay}>
+      <div className={styles.shell}>
+        <header className={styles.header}>
+          <div>
+            <div className={styles.eyebrow}>Break Window</div>
+            <h2 className={styles.title}>{breakType === 'short' ? '短休息' : '长休息'}</h2>
+            <p className={styles.subtitle}>离开任务几分钟，让下一段专注重新变得锋利。</p>
+          </div>
+          <div className={styles.headerActions}>
+            {onToggleTheme && (
+              <button onClick={onToggleTheme} className={styles.iconButton} title="切换主题">
+                {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+              </button>
             )}
-          </div>
-
-          {/* 进度条 */}
-          <div className="break-progress-container">
-            <div className="break-progress-bar">
-              <div 
-                className="break-progress-fill" 
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-            <div className="break-progress-text">{Math.round(progress)}%</div>
-          </div>
-
-          {/* 休息建议 */}
-          <div className="break-suggestion">
-            <div className="break-suggestion-title">💡 休息建议</div>
-            <div className="break-suggestion-text">
-              {breakTips[breakTipIndex]}
-            </div>
-          </div>
-
-          {/* 控制按钮 */}
-          <div className="break-controls">
-            <button
-              onClick={onSkip}
-              className="break-btn break-btn-skip"
-            >
-              <SkipForward size={20} />
-              <span>跳过休息</span>
+            <button onClick={onExit} className={styles.iconButton} title="结束休息">
+              <X size={18} />
             </button>
           </div>
-        </div>
-      </div>
+        </header>
 
-      {/* 底部统计 */}
-      <div className="break-footer">
-        <div className="break-stats">
-          <span>已完成: {pomodoroCount}🍅</span>
-          <span className="break-divider">|</span>
-          <span>
-            {breakType === 'short' 
-              ? `还需 ${4 - (pomodoroCount % 4)} 个番茄钟进入长休息` 
-              : '长休息后重新开始新的循环'
-            }
-          </span>
-        </div>
-      </div>
+        <main className={styles.body}>
+          <section className={styles.hero}>
+            <div className={styles.badge}>
+              <Coffee size={16} />
+              <span>{breakType === 'short' ? '恢复节奏' : '完整放松'}</span>
+            </div>
+            <div className={styles.time}>{formatTime(timeLeft)}</div>
+            <div className={styles.progressTrack}>
+              <div className={styles.progressFill} style={{ width: `${progress}%` }} />
+            </div>
+            <div className={styles.progressLabel}>休息进度 {Math.round(progress)}%</div>
 
-      {/* 快捷键提示 */}
-      <div className="break-shortcuts">
-        <span>ESC 结束休息</span>
-        <span>空格 跳过休息</span>
+            <div className={styles.tipCard}>
+              <div className={styles.tipLabel}>此刻建议</div>
+              <div className={styles.tipText}>{breakTips[tipIndex]}</div>
+            </div>
+
+            <button onClick={onSkip} className={styles.skipButton}>
+              <SkipForward size={18} />
+              <span>跳过休息，继续专注</span>
+            </button>
+          </section>
+
+          <aside className={styles.sidebar}>
+            <div className={styles.infoCard}>
+              <div className={styles.infoLabel}>已完成番茄</div>
+              <div className={styles.infoValue}>{pomodoroCount}</div>
+            </div>
+            <div className={styles.infoCard}>
+              <div className={styles.infoLabel}>下一个长休息</div>
+              <div className={styles.infoText}>
+                {breakType === 'long'
+                  ? '长休息后会重新进入新一轮循环。'
+                  : `再完成 ${pomodorosUntilLongBreak} 个番茄进入长休息。`}
+              </div>
+            </div>
+            <div className={styles.infoCard}>
+              <div className={styles.infoLabel}>快捷键</div>
+              <div className={styles.shortcutItem}>
+                <span>空格</span>
+                <span>跳过休息</span>
+              </div>
+              <div className={styles.shortcutItem}>
+                <span>Esc</span>
+                <span>结束休息</span>
+              </div>
+            </div>
+          </aside>
+        </main>
       </div>
     </div>
   );

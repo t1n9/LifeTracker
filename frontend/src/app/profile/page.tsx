@@ -26,7 +26,7 @@ interface PasswordData {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { isAuthenticated, logout } = useAuthStore();
+  const { isAuthenticated, isLoading: isAuthLoading, hasInitialized, initializeAuth, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'exercise' | 'account' | 'admin'>('profile');
   const [adminSubTab, setAdminSubTab] = useState<'config' | 'suggestions'>('config');
   const [isLoading, setIsLoading] = useState(false);
@@ -57,12 +57,21 @@ export default function ProfilePage() {
 
   // 检查认证状态
   useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
+  useEffect(() => {
+    if (!hasInitialized || isAuthLoading) {
+      return;
+    }
+
     if (!isAuthenticated) {
       router.push('/');
       return;
     }
+
     loadUserData();
-  }, [isAuthenticated, router]);
+  }, [hasInitialized, isAuthLoading, isAuthenticated, router]);
 
   // 应用主题到document
   useEffect(() => {
@@ -200,7 +209,7 @@ export default function ProfilePage() {
   };
 
   // 页面加载中
-  if (isPageLoading) {
+  if (isAuthLoading || !hasInitialized || isPageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="text-center">

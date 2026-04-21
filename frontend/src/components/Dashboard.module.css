@@ -1,0 +1,464 @@
+.page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent-primary) 12%, transparent 88%), transparent 30%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 94%, white 6%) 0%, var(--bg-primary) 100%);
+}
+
+.main {
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 28px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+  gap: 22px;
+}
+
+.heroCopy,
+.heroMetrics,
+.studyCard {
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
+  background: color-mix(in srgb, var(--bg-secondary) 88%, white 12%);
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.08);
+}
+
+.heroCopy {
+  padding: 28px;
+  border-radius: 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.heroBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-tertiary) 88%, white 12%);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.heroBadgeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent-primary) 14%, transparent 86%);
+}
+
+.heroEyebrow,
+.sectionEyebrow,
+.studyEyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.heroTitle {
+  margin: 0;
+  max-width: 11ch;
+  color: var(--text-primary);
+  font-size: clamp(38px, 6vw, 64px);
+  line-height: 0.98;
+  letter-spacing: -0.06em;
+}
+
+.heroDescription {
+  margin: 0;
+  max-width: 56ch;
+  color: var(--text-secondary);
+  font-size: 17px;
+  line-height: 1.75;
+}
+
+.quickActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.primaryAction,
+.secondaryAction,
+.textAction,
+.undoButton,
+.inlineLink {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.primaryAction,
+.secondaryAction {
+  min-height: 46px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.primaryAction {
+  color: white;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  box-shadow: 0 18px 30px color-mix(in srgb, var(--accent-primary) 24%, transparent 76%);
+}
+
+.secondaryAction {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-secondary) 88%, white 12%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
+}
+
+.primaryAction:hover,
+.secondaryAction:hover,
+.inlineLink:hover {
+  transform: translateY(-1px);
+}
+
+.primaryAction:disabled,
+.secondaryAction:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.heroMetrics {
+  padding: 20px;
+  border-radius: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.metricCardAccent,
+.metricCard {
+  border-radius: 24px;
+  padding: 18px 18px 16px;
+}
+
+.metricCardAccent {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--accent-primary) 16%, white 84%), transparent),
+    color-mix(in srgb, var(--bg-tertiary) 82%, white 18%);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 16%, var(--border-color) 84%);
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metricCard {
+  background: color-mix(in srgb, var(--bg-primary) 76%, white 24%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
+}
+
+.metricLabel {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.metricValue {
+  margin-top: 10px;
+  color: var(--text-primary);
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.metricMeta {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.goalFooter {
+  margin-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.goalDate {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.goalCountdown {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 70%, white 30%);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.focusArea {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.primaryColumn,
+.secondaryColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sectionTitle,
+.studyTitle {
+  margin: 8px 0 0;
+  color: var(--text-primary);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.05em;
+}
+
+.inlineLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.studyCard {
+  padding: 22px;
+  border-radius: 26px;
+}
+
+.studyHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.studyBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-primary) 10%, white 90%);
+  color: var(--accent-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.studyNumbers {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.studyNumberLabel {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.studyNumberValue {
+  color: var(--text-primary);
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
+.progressTrack {
+  margin-top: 20px;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-tertiary) 82%, white 18%);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+}
+
+.progressCaption {
+  margin: 12px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.manualEntry {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.manualInputRow {
+  display: flex;
+  gap: 10px;
+}
+
+.manualInput {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
+  background: color-mix(in srgb, var(--bg-primary) 82%, white 18%);
+  color: var(--text-primary);
+  padding: 0 14px;
+  font-size: 15px;
+}
+
+.manualInput:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--border-color) 70%);
+}
+
+.textAction {
+  align-self: flex-start;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.undoButton {
+  margin-top: 14px;
+  width: 100%;
+  min-height: 46px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--warning-color) 14%, white 86%);
+  color: var(--warning-color);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.footer {
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 6px 24px 28px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 18px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.footer a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.footer a:hover {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 1120px) {
+  .hero,
+  .focusArea {
+    grid-template-columns: 1fr;
+  }
+
+  .heroTitle {
+    max-width: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding: 18px 14px 32px;
+    gap: 24px;
+  }
+
+  .heroCopy,
+  .heroMetrics,
+  .studyCard {
+    border-radius: 24px;
+    padding: 18px;
+  }
+
+  .sectionHeader,
+  .studyHeader,
+  .goalFooter {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .metricGrid,
+  .studyNumbers {
+    grid-template-columns: 1fr;
+  }
+
+  .quickActions,
+  .manualInputRow {
+    flex-direction: column;
+  }
+
+  .primaryAction,
+  .secondaryAction,
+  .manualInput,
+  .undoButton {
+    width: 100%;
+  }
+
+  .heroDescription {
+    font-size: 15px;
+  }
+
+  .sectionTitle,
+  .studyTitle {
+    font-size: 24px;
+  }
+}

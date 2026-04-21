@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { exerciseAPI } from '@/lib/api';
@@ -6,6 +6,7 @@ import {
   AGENT_DATA_CHANGED_EVENT,
   eventAffectsDomains,
 } from '@/lib/agent-events';
+import styles from './ExerciseStats.module.css';
 
 interface ExerciseType {
   id: string;
@@ -29,7 +30,7 @@ interface ExerciseStatsProps {
   theme?: 'light' | 'dark';
 }
 
-const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
+const ExerciseStats: React.FC<ExerciseStatsProps> = () => {
   const [exerciseTypes, setExerciseTypes] = useState<ExerciseType[]>([]);
   const [todayRecords, setTodayRecords] = useState<TodayRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +40,6 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
   const [distanceValues, setDistanceValues] = useState<Record<string, number>>({});
   const [exerciseFeeling, setExerciseFeeling] = useState<string>('');
 
-  // 加载运动类型和今日记录
   const loadData = async ({ silent = false }: { silent?: boolean } = {}) => {
     const useSilentRefresh = silent && hasLoadedOnceRef.current;
 
@@ -49,8 +49,9 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
       } else {
         setLoading(true);
       }
+
       const [typesResponse, recordsResponse, feelingResponse] = await Promise.all([
-        exerciseAPI.getExerciseTypes(), // 只获取启用的运动类型
+        exerciseAPI.getExerciseTypes(),
         exerciseAPI.getTodayRecords(),
         exerciseAPI.getExerciseFeeling(),
       ]);
@@ -63,7 +64,6 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
       setTodayRecords(records);
       setExerciseFeeling(feeling);
 
-      // 初始化里程型运动的输入框值
       const initialDistanceValues: Record<string, number> = {};
       types.forEach((type: ExerciseType) => {
         if (type.type === 'DISTANCE') {
@@ -84,13 +84,10 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
     }
   };
 
-  // 添加计数型运动记录
   const addCountRecord = async (exerciseId: string, increment: number) => {
-    // 设置提交状态
     setSubmitting(prev => ({ ...prev, [exerciseId]: true }));
 
     try {
-      // 乐观更新：立即更新UI
       setTodayRecords(prev => {
         const existing = prev.find(r => r.exerciseId === exerciseId);
         if (existing) {
@@ -99,19 +96,18 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
               ? { ...r, totalValue: r.totalValue + increment }
               : r
           );
-        } else {
-          const exerciseType = exerciseTypes.find(e => e.id === exerciseId);
-          return [...prev, {
-            exerciseId,
-            exerciseName: exerciseType?.name || '',
-            exerciseType: 'COUNT' as const,
-            unit: exerciseType?.unit || '次',
-            totalValue: increment,
-          }];
         }
+
+        const exerciseType = exerciseTypes.find(e => e.id === exerciseId);
+        return [...prev, {
+          exerciseId,
+          exerciseName: exerciseType?.name || '',
+          exerciseType: 'COUNT' as const,
+          unit: exerciseType?.unit || '次',
+          totalValue: increment,
+        }];
       });
 
-      // 后台提交 - 使用setTodayExerciseValue来更新今日总值
       const currentRecord = todayRecords.find(r => r.exerciseId === exerciseId);
       const newTotalValue = (currentRecord?.totalValue || 0) + increment;
 
@@ -122,27 +118,22 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
     } catch (error) {
       console.error('添加运动记录失败:', error);
       alert('添加运动记录失败');
-      // 失败时重新加载数据
       await loadData({ silent: true });
     } finally {
-      // 清除提交状态
       setSubmitting(prev => ({ ...prev, [exerciseId]: false }));
     }
   };
 
-  // 更新里程型运动记录
   const updateDistanceRecord = async (exerciseId: string, newValue: number) => {
     const oldValue = getTodayValue(exerciseId);
 
     if (newValue === oldValue) {
-      return; // 值没有变化，不需要提交
+      return;
     }
 
-    // 设置提交状态
     setSubmitting(prev => ({ ...prev, [exerciseId]: true }));
 
     try {
-      // 乐观更新：立即更新UI
       setTodayRecords(prev => {
         const existing = prev.find(r => r.exerciseId === exerciseId);
         if (existing) {
@@ -151,19 +142,18 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
               ? { ...r, totalValue: newValue }
               : r
           );
-        } else {
-          const exerciseType = exerciseTypes.find(e => e.id === exerciseId);
-          return [...prev, {
-            exerciseId,
-            exerciseName: exerciseType?.name || '',
-            exerciseType: 'DISTANCE' as const,
-            unit: exerciseType?.unit || '公里',
-            totalValue: newValue,
-          }];
         }
+
+        const exerciseType = exerciseTypes.find(e => e.id === exerciseId);
+        return [...prev, {
+          exerciseId,
+          exerciseName: exerciseType?.name || '',
+          exerciseType: 'DISTANCE' as const,
+          unit: exerciseType?.unit || 'km',
+          totalValue: newValue,
+        }];
       });
 
-      // 后台提交 - 设置今日总值
       await exerciseAPI.setTodayExerciseValue({
         exerciseId,
         totalValue: newValue,
@@ -171,43 +161,36 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
     } catch (error) {
       console.error('更新运动记录失败:', error);
       alert('更新运动记录失败');
-      // 失败时恢复原值
       setDistanceValues(prev => ({ ...prev, [exerciseId]: oldValue }));
       await loadData({ silent: true });
     } finally {
-      // 清除提交状态
       setSubmitting(prev => ({ ...prev, [exerciseId]: false }));
     }
   };
 
-  // 获取今日记录值
   const getTodayValue = (exerciseId: string): number => {
     const record = todayRecords.find(r => r.exerciseId === exerciseId);
     return record?.totalValue || 0;
   };
 
-  // 处理距离输入变化
   const handleDistanceInputChange = (exerciseId: string, value: string) => {
     const numValue = parseFloat(value) || 0;
     setDistanceValues(prev => ({ ...prev, [exerciseId]: numValue }));
   };
 
-  // 处理距离输入失去焦点
   const handleDistanceInputBlur = (exerciseId: string) => {
     const value = distanceValues[exerciseId] || 0;
     updateDistanceRecord(exerciseId, value);
   };
 
-  // 处理距离输入回车键
   const handleDistanceInputKeyPress = (e: React.KeyboardEvent, exerciseId: string) => {
     if (e.key === 'Enter') {
       const value = distanceValues[exerciseId] || 0;
       updateDistanceRecord(exerciseId, value);
-      (e.target as HTMLInputElement).blur(); // 移除焦点
+      (e.target as HTMLInputElement).blur();
     }
   };
 
-  // 保存运动感受
   const saveExerciseFeeling = async (feeling: string) => {
     try {
       setExerciseFeeling(feeling);
@@ -218,12 +201,10 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
     }
   };
 
-  // 组件加载时获取数据
   useEffect(() => {
     loadData();
   }, []);
 
-  // Agent 操作后刷新
   useEffect(() => {
     const handler = (event: Event) => {
       if (eventAffectsDomains(event, ['exercise'])) {
@@ -234,49 +215,41 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
     return () => window.removeEventListener(AGENT_DATA_CHANGED_EVENT, handler);
   }, []);
 
-  // 按类型分组运动（现在直接基于isActive字段，因为getExerciseTypes()只返回启用的）
   const countExercises = exerciseTypes.filter(e => e.type === 'COUNT');
   const distanceExercises = exerciseTypes.filter(e => e.type === 'DISTANCE');
 
   return (
-    <div className="card">
-      <div className="flex items-center gap-2 mb-4">
-        <span style={{ fontSize: '1.25rem' }}>🏃</span>
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-          运动统计
-        </h3>
-        {refreshing && (
-          <span className="text-xs opacity-60" style={{ color: 'var(--text-muted)' }}>
-            同步中...
-          </span>
-        )}
+    <div className={styles.card}>
+      <div className={styles.header}>
+        <div className={styles.titleWrap}>
+          <span className={styles.titleIcon}>🏃</span>
+          <h3 className={styles.title}>运动统计</h3>
+        </div>
+        {refreshing && <span className={styles.sync}>同步中...</span>}
       </div>
 
       {loading ? (
-        <div className="text-center py-4">
-          <div className="text-sm opacity-60">加载中...</div>
-        </div>
+        <div className={styles.loading}>加载中...</div>
       ) : (
         <>
-          {/* 计数型运动 - 横向紧凑布局 */}
           {countExercises.length > 0 && (
-            <div className="exercise-count-grid">
+            <div className={styles.countGrid}>
               {countExercises.map((exercise) => (
-                <div key={exercise.id} className="exercise-count-item">
+                <div key={exercise.id} className={styles.countItem}>
                   <div
-                    className="exercise-count-value"
+                    className={styles.countValue}
                     style={{ color: exercise.color || 'var(--accent-primary)' }}
                   >
                     {getTodayValue(exercise.id)}
                   </div>
-                  <div className="exercise-count-name">
+                  <div className={styles.countName}>
                     {exercise.icon} {exercise.name}
                   </div>
                   <button
-                    className="exercise-count-btn"
+                    className={styles.countButton}
                     style={{
                       backgroundColor: exercise.color || 'var(--accent-primary)',
-                      opacity: submitting[exercise.id] ? 0.6 : 1
+                      opacity: submitting[exercise.id] ? 0.6 : 1,
                     }}
                     onClick={() => addCountRecord(exercise.id, exercise.increment || 1)}
                     disabled={loading || submitting[exercise.id]}
@@ -295,15 +268,14 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
             </div>
           )}
 
-          {/* 里程型运动 */}
           {distanceExercises.map((exercise) => (
-            <div key={exercise.id} className="exercise-distance-item">
-              <span className="exercise-name">
+            <div key={exercise.id} className={styles.distanceItem}>
+              <span className={styles.distanceName}>
                 <span>{exercise.icon}</span>
                 <span>{exercise.name}</span>
               </span>
 
-              <div className="exercise-input-group">
+              <div className={styles.inputGroup}>
                 <input
                   type="number"
                   placeholder={submitting[exercise.id] ? '保存中...' : '0'}
@@ -314,52 +286,34 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
                   onBlur={() => handleDistanceInputBlur(exercise.id)}
                   onKeyPress={(e) => handleDistanceInputKeyPress(e, exercise.id)}
                   onFocus={(e) => e.target.select()}
-                  className="exercise-input"
+                  className={styles.distanceInput}
                   style={{ opacity: submitting[exercise.id] ? 0.6 : 1 }}
                   disabled={loading || submitting[exercise.id]}
                 />
 
-                <span className="exercise-unit">
-                  {exercise.unit}
-                </span>
+                <span className={styles.unit}>{exercise.unit}</span>
               </div>
             </div>
           ))}
 
-          {/* 运动感受选择 */}
           {exerciseTypes.length > 0 && (
-            <div className="mt-4" style={{
-              padding: '0.75rem',
-              backgroundColor: 'var(--bg-tertiary)',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)'
-            }}>
-              <div className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
-                💭 今日运动感受
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+            <div className={styles.feelingCard}>
+              <div className={styles.feelingTitle}>今日运动感受</div>
+              <div className={styles.feelingGrid}>
                 {[
                   { value: 'excellent', label: '非常棒', emoji: '🔥', color: '#ff6b6b' },
-                  { value: 'good', label: '不错', emoji: '😊', color: '#51cf66' },
-                  { value: 'normal', label: '一般', emoji: '😐', color: '#ffd43b' },
-                  { value: 'tired', label: '有点累', emoji: '😴', color: '#74c0fc' },
+                  { value: 'good', label: '不错', emoji: '👍', color: '#51cf66' },
+                  { value: 'normal', label: '一般', emoji: '🙂', color: '#ffd43b' },
+                  { value: 'tired', label: '有点累', emoji: '😵', color: '#74c0fc' },
                 ].map((feeling) => (
                   <button
                     key={feeling.value}
                     onClick={() => saveExerciseFeeling(feeling.value)}
-                    className="btn"
+                    className={styles.feelingButton}
                     style={{
-                      padding: '0.5rem',
-                      fontSize: '0.875rem',
                       backgroundColor: exerciseFeeling === feeling.value ? feeling.color : 'var(--bg-secondary)',
                       color: exerciseFeeling === feeling.value ? 'white' : 'var(--text-primary)',
-                      border: `1px solid ${exerciseFeeling === feeling.value ? feeling.color : 'var(--border-color)'}`,
-                      borderRadius: '6px',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.25rem'
+                      borderColor: exerciseFeeling === feeling.value ? feeling.color : 'var(--border-color)',
                     }}
                   >
                     <span>{feeling.emoji}</span>
@@ -370,12 +324,11 @@ const ExerciseStats: React.FC<ExerciseStatsProps> = ({ theme = 'light' }) => {
             </div>
           )}
 
-          {/* 空状态 */}
           {exerciseTypes.length === 0 && (
-            <div className="text-center py-8 opacity-60">
-              <div className="text-2xl mb-2">🏃</div>
-              <p className="mb-2">还没有设置运动类型</p>
-              <p className="text-xs opacity-75">系统将自动为您创建默认运动类型</p>
+            <div className={styles.empty}>
+              <div>🏃</div>
+              <p>还没有运动类型</p>
+              <p>请先在系统里创建运动项</p>
             </div>
           )}
         </>

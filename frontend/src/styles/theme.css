@@ -2,15 +2,15 @@
 
 :root {
   /* ========== 浅色主题（默认） - 冷调极简 ========== */
-  --bg-primary: #ffffff;          /* 纯白背景 */
-  --bg-secondary: #ffffff;        /* 卡片白色 */
-  --bg-tertiary: #f5f7fa;         /* 极浅灰蓝 */
-  --bg-navbar: rgba(255, 255, 255, 0.95);
+  --bg-primary: #f5f8f6;          /* 柔和灰绿底 */
+  --bg-secondary: #edf3f0;        /* 卡片浅灰绿 */
+  --bg-tertiary: #e3ebe7;         /* 次层浅灰绿 */
+  --bg-navbar: rgba(245, 248, 246, 0.92);
 
   /* 文字色系 - 高对比 */
-  --text-primary: #1a202c;        /* 深灰 */
-  --text-secondary: #4b5563;      /* 中灰 */
-  --text-muted: #8b92a9;          /* 浅灰 */
+  --text-primary: #17212b;        /* 深灰蓝 */
+  --text-secondary: #52606d;      /* 中灰蓝 */
+  --text-muted: #83919d;          /* 浅灰蓝 */
 
   /* 单一强调色 - 深青绿 */
   --accent-primary: #0f766e;      /* 深青绿 - 高级感 */
@@ -28,7 +28,7 @@
   --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
 
   /* 边框 - 极浅 */
-  --border-color: #e5e7eb;
+  --border-color: #d7e1dc;
 
   /* 圆角 - 现代但不过度 */
   --border-radius-sm: 6px;
@@ -48,14 +48,14 @@
 
 [data-theme="dark"] {
   /* ========== 深色主题 - 冷调极简深色 ========== */
-  --bg-primary: #0f172a;          /* 深蓝黑 */
-  --bg-secondary: #1e293b;        /* 深灰蓝卡片 */
-  --bg-tertiary: #334155;         /* 次深灰蓝 */
-  --bg-navbar: rgba(15, 23, 42, 0.95);
+  --bg-primary: #121a24;          /* 深灰蓝底 */
+  --bg-secondary: #1d2733;        /* 深卡片底 */
+  --bg-tertiary: #2a3644;         /* 次层深蓝灰 */
+  --bg-navbar: rgba(18, 26, 36, 0.92);
 
-  --text-primary: #f1f5f9;        /* 浅白 */
-  --text-secondary: #cbd5e1;      /* 中灰白 */
-  --text-muted: #94a3b8;          /* 浅灰 */
+  --text-primary: #edf3f0;        /* 柔和浅白 */
+  --text-secondary: #c7d2db;      /* 中灰白 */
+  --text-muted: #95a5b2;          /* 浅灰 */
 
   --accent-primary: #14b8a6;      /* 冰青绿 */
   --accent-primary-alpha: rgba(20, 184, 166, 0.15);
@@ -69,7 +69,7 @@
   --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.5);
 
-  --border-color: #334155;
+  --border-color: #344253;
 }
 
 /* 通用样式 */

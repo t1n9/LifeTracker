@@ -1,0 +1,399 @@
+.card {
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
+  border-radius: 26px;
+  background: color-mix(in srgb, var(--bg-secondary) 88%, white 12%);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  padding: 22px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.titleWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.titleIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--success-color) 14%, white 86%);
+  color: var(--success-color);
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
+.meta {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.progressBlock {
+  margin-bottom: 18px;
+}
+
+.progressRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-tertiary) 82%, white 18%);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--success-color), color-mix(in srgb, var(--success-color) 68%, white 32%));
+  transition: width 0.3s ease;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.completedWrap {
+  margin-bottom: 16px;
+}
+
+.summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.completedList {
+  border-left: 2px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
+  padding-left: 14px;
+}
+
+.dayStart {
+  margin-bottom: 18px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 16%, transparent 84%);
+  background: color-mix(in srgb, var(--accent-primary) 7%, white 93%);
+}
+
+.dayStartLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: var(--accent-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dayStartContent {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.addButton {
+  width: 100%;
+}
+
+.list {
+  margin-bottom: 18px;
+}
+
+.item {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  margin-bottom: 10px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent 28%);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--bg-primary) 78%, white 22%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.item:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--border-color) 72%);
+  background: color-mix(in srgb, var(--bg-primary) 72%, white 28%);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+}
+
+.itemBound {
+  border-color: color-mix(in srgb, var(--accent-primary) 34%, var(--border-color) 66%);
+  background: color-mix(in srgb, var(--accent-primary) 8%, var(--bg-primary) 92%);
+}
+
+.dragging {
+  box-shadow: 0 22px 38px rgba(15, 23, 42, 0.14);
+}
+
+.dragHandle {
+  cursor: grab;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  opacity: 0.7;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, white 28%);
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.taskTitle {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.taskTitleCompleted {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  opacity: 0.72;
+}
+
+.taskDescription {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.actionButton {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
+  background: color-mix(in srgb, var(--bg-secondary) 88%, white 12%);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+
+.actionButton:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--border-color) 72%);
+  color: var(--text-primary);
+}
+
+.actionButtonDanger:hover {
+  border-color: color-mix(in srgb, var(--error-color) 30%, var(--border-color) 70%);
+  color: var(--error-color);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-tertiary) 80%, white 20%);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.boundIndicator {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent-primary);
+}
+
+.completedItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.dayStartHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.addOpenButton {
+  width: 100%;
+  border: 1px dashed color-mix(in srgb, var(--border-color) 80%, transparent 20%);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-primary) 86%, white 14%);
+  color: var(--text-secondary);
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+}
+
+.addOpenButton:hover {
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--border-color) 70%);
+  color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
+.addForm {
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
+  background: color-mix(in srgb, var(--bg-primary) 84%, white 16%);
+  padding: 14px;
+}
+
+.addInput {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
+  background: color-mix(in srgb, var(--bg-secondary) 90%, white 10%);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.addInput:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent-primary) 36%, var(--border-color) 64%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 14%, transparent 86%);
+}
+
+.addActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.addPrimaryButton {
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.addPrimaryButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.addPrimaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.addCloseButton {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
+  background: color-mix(in srgb, var(--bg-secondary) 90%, white 10%);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.addCloseButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  color: var(--error-color);
+  border-color: color-mix(in srgb, var(--error-color) 32%, var(--border-color) 68%);
+}
+
+.addCloseButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.loading {
+  opacity: 0.7;
+}
+
+@media (max-width: 768px) {
+  .card {
+    border-radius: 24px;
+    padding: 18px;
+  }
+
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .title {
+    font-size: 22px;
+  }
+}

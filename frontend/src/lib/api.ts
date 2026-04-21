@@ -52,7 +52,13 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // 清除token并重定向到登录页
-      if (typeof window !== 'undefined') {
+      const requestUrl = String(error.config?.url || '');
+      const shouldRedirectOn401 =
+        !requestUrl.startsWith('/auth/login') &&
+        !requestUrl.startsWith('/auth/register') &&
+        !requestUrl.startsWith('/email/');
+
+      if (typeof window !== 'undefined' && shouldRedirectOn401) {
         localStorage.removeItem('token');
         window.location.href = '/';
       }

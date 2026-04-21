@@ -1,17 +1,47 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, Sparkles, UserRound } from 'lucide-react';
+import { authAPI, emailAPI, systemConfigAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
-import { authAPI, systemConfigAPI, emailAPI } from '@/lib/api';
+import styles from './LoginForm.module.css';
+
+type FormMode = 'login' | 'register';
+
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string | string[];
+    };
+  };
+  message?: string;
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  const apiError = error as ApiError;
+  const message = apiError.response?.data?.message;
+
+  if (Array.isArray(message)) {
+    return message.join('，');
+  }
+
+  if (typeof message === 'string' && message.trim()) {
+    return message;
+  }
+
+  return apiError.message || fallback;
+}
 
 export default function LoginForm() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuthStore();
+  const [mode, setMode] = useState<FormMode>('login');
   const [registrationEnabled, setRegistrationEnabled] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [showVerificationInput, setShowVerificationInput] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
-  const [sendingCode, setSendingCode] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -21,505 +51,345 @@ export default function LoginForm() {
     name: '',
   });
 
-  const { login } = useAuthStore();
+  const isLogin = mode === 'login';
 
-  // 倒计时效果
   useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
+    if (countdown <= 0) {
+      return;
     }
+
+    const timer = window.setTimeout(() => {
+      setCountdown((current) => current - 1);
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
   }, [countdown]);
 
-  // 获取系统配置
   useEffect(() => {
     const fetchConfig = async () => {
       try {
         const response = await systemConfigAPI.getPublicConfigs();
         setRegistrationEnabled(response.data.registration_enabled === 'true');
-      } catch (error) {
-        console.error('获取系统配置失败:', error);
+      } catch (fetchError) {
+        console.error('Failed to load registration config:', fetchError);
         setRegistrationEnabled(false);
       }
     };
+
     fetchConfig();
   }, []);
 
-  // 发送验证码
+  useEffect(() => {
+    setError('');
+    setSuccess('');
+    setShowPassword(false);
+    setShowVerificationInput(false);
+    setVerificationCode('');
+    setCountdown(0);
+  }, [mode]);
+
+  const modeCopy = useMemo(
+    () =>
+      isLogin
+        ? {
+            eyebrow: 'LifeTracker',
+            title: '欢迎回来',
+            description: '登录后继续你的任务、专注和每日记录。',
+            submit: '登录',
+            loading: '登录中...',
+            switchText: '还没有账号？',
+            switchAction: '创建账号',
+          }
+        : {
+            eyebrow: 'Create account',
+            title: '创建你的工作台',
+            description: '注册后即可开始记录任务、番茄钟和每日进展。',
+            submit: '注册',
+            loading: '注册中...',
+            switchText: '已经有账号？',
+            switchAction: '返回登录',
+          },
+    [isLogin],
+  );
+
+  const handleModeChange = () => {
+    setMode((current) => (current === 'login' ? 'register' : 'login'));
+  };
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    setError('');
+    setSuccess('');
+    setFormData((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
   const handleSendCode = async () => {
-    if (countdown > 0 || !formData.email) return;
+    if (!formData.email || sendingCode || countdown > 0) {
+      return;
+    }
+
+    setSendingCode(true);
+    setError('');
+    setSuccess('');
 
     try {
-      setSendingCode(true);
-      setError('');
-
       const response = await emailAPI.sendVerificationCode(formData.email, 'register');
 
       if (response.data.success) {
-        setSuccess('验证码已发送，请查收邮件');
-        setCountdown(60); // 60秒倒计时
         setShowVerificationInput(true);
-
-        // 开发环境显示验证码
-        if (response.data.code) {
-          console.log('🔐 开发环境验证码:', response.data.code);
-        }
+        setCountdown(60);
+        setSuccess('验证码已发送，请查看邮箱。');
       }
-    } catch (error: any) {
-      setError(error.response?.data?.message || '发送验证码失败');
+    } catch (sendError) {
+      setError(getErrorMessage(sendError, '发送验证码失败，请稍后重试。'));
     } finally {
       setSendingCode(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setIsLoading(true);
     setError('');
+    setSuccess('');
 
     try {
       if (isLogin) {
-        // 登录
         const response = await authAPI.login({
-          email: formData.email,
+          email: formData.email.trim(),
           password: formData.password,
         });
         login(response.data.accessToken);
-        console.log('登录成功');
-      } else {
-        // 注册
-        if (!formData.email || !formData.password) {
-          setError('请填写邮箱和密码');
-          return;
-        }
-        if (formData.password.length < 6) {
-          setError('密码至少6位');
-          return;
-        }
-        if (!showVerificationInput) {
-          setError('请先获取验证码');
-          return;
-        }
-        if (!verificationCode) {
-          setError('请输入验证码');
-          return;
-        }
-
-        // 注册
-        const response = await authAPI.register({
-          email: formData.email,
-          password: formData.password,
-          name: formData.name,
-          verificationCode: verificationCode,
-        });
-        login(response.data.accessToken);
-        console.log('注册成功');
+        return;
       }
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } }; message?: string };
-      const action = isLogin ? '登录' : '注册';
-      console.error(`${action}失败`, err.response?.data?.message || err.message);
-      setError(err.response?.data?.message || `${action}失败，请检查您的信息`);
+
+      if (!registrationEnabled) {
+        setError('注册功能当前未开放。');
+        return;
+      }
+
+      if (!formData.name.trim()) {
+        setError('请输入昵称。');
+        return;
+      }
+
+      if (formData.password.length < 6) {
+        setError('密码至少需要 6 位。');
+        return;
+      }
+
+      if (!showVerificationInput) {
+        setError('请先获取邮箱验证码。');
+        return;
+      }
+
+      if (verificationCode.length !== 6) {
+        setError('请输入 6 位验证码。');
+        return;
+      }
+
+      const response = await authAPI.register({
+        email: formData.email.trim(),
+        password: formData.password,
+        name: formData.name.trim(),
+        verificationCode,
+      });
+      login(response.data.accessToken);
+    } catch (submitError) {
+      setError(getErrorMessage(submitError, isLogin ? '登录失败，请重试。' : '注册失败，请重试。'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-
-
-
-
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#f8fafc',
-      padding: '1rem'
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '420px',
-        backgroundColor: 'white',
-        padding: '2.5rem',
-        borderRadius: '16px',
-        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e2e8f0'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <h1 style={{
-            fontSize: '2rem',
-            fontWeight: 'bold',
-            color: '#1e40af',
-            marginBottom: '0.5rem',
-            letterSpacing: '-0.025em'
-          }}>
-            LifeTracker
-          </h1>
+    <div className={styles.shell}>
+      <div className={styles.backgroundGlow} aria-hidden="true" />
 
-        </div>
+      <main className={styles.layout}>
+        <section className={styles.brandPanel}>
+          <div className={styles.brandBadge}>
+            <Sparkles size={16} />
+            <span>Calm Productivity</span>
+          </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1rem' }}>
-            {!isLogin && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontWeight: '600',
-                  color: '#1f2937',
-                  fontSize: '0.875rem'
-                }}>
-                  姓名
-                </label>
-                <input
-                  name="name"
-                  type="text"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="请输入您的姓名"
-                  style={{
-                    width: '100%',
-                    padding: '0.875rem',
-                    border: '2px solid #e2e8f0',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    color: '#1f2937',
-                    backgroundColor: '#ffffff',
-                    transition: 'border-color 0.2s',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                  onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-                  required
-                />
+          <div className={styles.brandContent}>
+            <p className={styles.eyebrow}>{modeCopy.eyebrow}</p>
+            <h1 className={styles.brandTitle}>像一个现代工作台，而不是旧后台。</h1>
+            <p className={styles.brandDescription}>
+              任务、专注、记录和复盘应该待在一个清晰、安静、长期可用的界面里。
+            </p>
+          </div>
+
+          <div className={styles.featureList}>
+            <div className={styles.featureItem}>
+              <span className={styles.featureLabel}>任务管理</span>
+              <span className={styles.featureValue}>更清晰的每日视图</span>
+            </div>
+            <div className={styles.featureItem}>
+              <span className={styles.featureLabel}>专注记录</span>
+              <span className={styles.featureValue}>番茄钟与学习统计</span>
+            </div>
+            <div className={styles.featureItem}>
+              <span className={styles.featureLabel}>生活记录</span>
+              <span className={styles.featureValue}>运动、消费、复盘一体化</span>
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.formPanel}>
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <div>
+                <p className={styles.cardEyebrow}>{modeCopy.eyebrow}</p>
+                <h2 className={styles.cardTitle}>{modeCopy.title}</h2>
+                <p className={styles.cardDescription}>{modeCopy.description}</p>
               </div>
-            )}
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontWeight: '600',
-                color: '#1f2937',
-                fontSize: '0.875rem'
-              }}>
-                邮箱
-              </label>
-              <input
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder="请输入邮箱地址"
-                style={{
-                  width: '100%',
-                  padding: '0.875rem',
-                  border: '2px solid #e2e8f0',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  color: '#1f2937',
-                  backgroundColor: '#ffffff',
-                  transition: 'border-color 0.2s',
-                  outline: 'none'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-                required
-              />
             </div>
 
-            <div style={{ marginBottom: '2rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontWeight: '600',
-                color: '#1f2937',
-                fontSize: '0.875rem'
-              }}>
-                密码
-              </label>
-              <input
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                placeholder="请输入密码"
-                style={{
-                  width: '100%',
-                  padding: '0.875rem',
-                  border: '2px solid #e2e8f0',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  color: '#1f2937',
-                  backgroundColor: '#ffffff',
-                  transition: 'border-color 0.2s',
-                  outline: 'none'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-                required
-              />
-            </div>
-
-            {/* 注册时的验证码输入 */}
-            {!isLogin && (
-              <>
-                {/* 邮箱验证码获取 */}
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <label style={{
-                    display: 'block',
-                    marginBottom: '0.5rem',
-                    fontSize: '0.875rem',
-                    fontWeight: '600',
-                    color: '#374151'
-                  }}>
-                    邮箱验证码
-                  </label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <form className={styles.form} onSubmit={handleSubmit}>
+              {!isLogin && (
+                <label className={styles.field}>
+                  <span className={styles.label}>昵称</span>
+                  <span className={styles.inputWrap}>
+                    <UserRound size={18} className={styles.icon} />
                     <input
+                      className={styles.input}
+                      name="name"
                       type="text"
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="请输入6位验证码"
-                      disabled={!showVerificationInput}
-                      style={{
-                        flex: 1,
-                        padding: '0.875rem',
-                        border: '2px solid #e2e8f0',
-                        borderRadius: '8px',
-                        fontSize: '1rem',
-                        color: '#1f2937',
-                        backgroundColor: showVerificationInput ? '#ffffff' : '#f9fafb',
-                        transition: 'border-color 0.2s',
-                        outline: 'none',
-                        textAlign: 'center',
-                        letterSpacing: '0.1em'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                      onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-                      maxLength={6}
+                      autoComplete="nickname"
+                      placeholder="输入你希望显示的名字"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      required={!isLogin}
                     />
+                  </span>
+                </label>
+              )}
+
+              <label className={styles.field}>
+                <span className={styles.label}>邮箱</span>
+                <span className={styles.inputWrap}>
+                  <Mail size={18} className={styles.icon} />
+                  <input
+                    className={styles.input}
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="name@example.com"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </span>
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.label}>密码</span>
+                <span className={styles.inputWrap}>
+                  <LockKeyhole size={18} className={styles.icon} />
+                  <input
+                    className={styles.inputWithAction}
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete={isLogin ? 'current-password' : 'new-password'}
+                    placeholder={isLogin ? '输入你的密码' : '至少 6 位'}
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className={styles.visibilityButton}
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </span>
+              </label>
+
+              {!isLogin && (
+                <div className={styles.field}>
+                  <span className={styles.label}>邮箱验证码</span>
+                  <div className={styles.codeRow}>
+                    <span className={styles.inputWrap}>
+                      <Mail size={18} className={styles.icon} />
+                      <input
+                        className={styles.codeInput}
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="6 位验证码"
+                        value={verificationCode}
+                        onChange={(event) => {
+                          setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6));
+                          setError('');
+                        }}
+                        disabled={!showVerificationInput}
+                        maxLength={6}
+                      />
+                    </span>
                     <button
                       type="button"
+                      className={styles.codeButton}
                       onClick={handleSendCode}
-                      disabled={sendingCode || countdown > 0 || !formData.email}
-                      style={{
-                        padding: '0.875rem 1rem',
-                        border: '2px solid #3b82f6',
-                        borderRadius: '8px',
-                        backgroundColor: (sendingCode || countdown > 0 || !formData.email) ? '#f3f4f6' : 'transparent',
-                        color: (sendingCode || countdown > 0 || !formData.email) ? '#9ca3af' : '#3b82f6',
-                        fontSize: '0.875rem',
-                        fontWeight: '600',
-                        cursor: (sendingCode || countdown > 0 || !formData.email) ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.2s',
-                        whiteSpace: 'nowrap'
-                      }}
+                      disabled={sendingCode || countdown > 0 || !formData.email.trim()}
                     >
-                      {sendingCode ? '发送中...' : countdown > 0 ? `${countdown}秒` : '获取验证码'}
+                      {sendingCode ? '发送中...' : countdown > 0 ? `${countdown}s` : '获取验证码'}
                     </button>
                   </div>
                 </div>
-              </>
-            )}
+              )}
 
-            {/* 错误和成功消息 */}
-            {error && (
-              <div style={{
-                padding: '0.75rem',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: '6px',
-                color: '#ef4444',
-                fontSize: '0.875rem',
-                marginBottom: '1rem',
-              }}>
-                {error}
+              {(error || success) && (
+                <div className={error ? styles.alertError : styles.alertSuccess}>
+                  {error || success}
+                </div>
+              )}
+
+              <button className={styles.submitButton} type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <LoaderCircle size={18} className={styles.spinner} />
+                    <span>{modeCopy.loading}</span>
+                  </>
+                ) : (
+                  <span>{modeCopy.submit}</span>
+                )}
+              </button>
+            </form>
+
+            {registrationEnabled ? (
+              <div className={styles.switchRow}>
+                <span>{modeCopy.switchText}</span>
+                <button type="button" className={styles.switchButton} onClick={handleModeChange}>
+                  {modeCopy.switchAction}
+                </button>
               </div>
-            )}
-
-            {success && (
-              <div style={{
-                padding: '0.75rem',
-                backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                border: '1px solid rgba(34, 197, 94, 0.3)',
-                borderRadius: '6px',
-                color: '#22c55e',
-                fontSize: '0.875rem',
-                marginBottom: '1rem',
-              }}>
-                {success}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              style={{
-                width: '100%',
-                padding: '1rem',
-                backgroundColor: isLoading ? '#94a3b8' : '#1e40af',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                transition: 'background-color 0.2s',
-                boxShadow: '0 4px 6px rgba(30, 64, 175, 0.3)'
-              }}
-              onMouseOver={(e) => {
-                if (!isLoading) (e.target as HTMLButtonElement).style.backgroundColor = '#1d4ed8';
-              }}
-              onMouseOut={(e) => {
-                if (!isLoading) (e.target as HTMLButtonElement).style.backgroundColor = '#1e40af';
-              }}
-            >
-              {isLoading ? (isLogin ? '登录中...' : '注册中...') : (isLogin ? '登录' : '注册')}
-            </button>
+            ) : !isLogin ? (
+              <div className={styles.registrationClosed}>注册功能当前未开放，请联系管理员。</div>
+            ) : null}
           </div>
-        </form>
 
-
-
-        {/* 模式切换 */}
-        {registrationEnabled && (
-          <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-            <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
-              {isLogin ? '还没有账号？' : '已有账号？'}
-            </p>
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#1e40af',
-                fontSize: '0.875rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                padding: '0.25rem 0.5rem',
-                borderRadius: '4px',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseOver={(e) => {
-                (e.target as HTMLButtonElement).style.color = '#1d4ed8';
-                (e.target as HTMLButtonElement).style.backgroundColor = '#f1f5f9';
-              }}
-              onMouseOut={(e) => {
-                (e.target as HTMLButtonElement).style.color = '#1e40af';
-                (e.target as HTMLButtonElement).style.backgroundColor = 'transparent';
-              }}
-            >
-              {isLogin ? '立即注册' : '返回登录'}
-            </button>
-          </div>
-        )}
-
-        {!registrationEnabled && !isLogin && (
-          <div style={{
-            textAlign: 'center',
-            marginTop: '1rem',
-            padding: '1rem',
-            backgroundColor: '#fef3c7',
-            border: '1px solid #f59e0b',
-            borderRadius: '8px'
-          }}>
-            <p style={{ color: '#92400e', fontSize: '0.875rem', margin: 0 }}>
-              注册功能暂时关闭，请联系管理员
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* 备案信息 */}
-      <div style={{
-        position: 'fixed',
-        bottom: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        textAlign: 'center',
-        zIndex: 1000
-      }}>
-        <div style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
-          backdropFilter: 'blur(4px)',
-          border: '1px solid rgba(226, 232, 240, 0.5)',
-          borderRadius: '8px',
-          padding: '8px 12px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '4px',
-          alignItems: 'center'
-        }}>
-          {/* ICP备案 */}
-          <a
-            href="https://beian.miit.gov.cn"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: '#64748b',
-              fontSize: '0.75rem',
-              textDecoration: 'none',
-              transition: 'color 0.2s ease'
-            }}
-            onMouseOver={(e) => {
-              (e.target as HTMLAnchorElement).style.color = '#475569';
-            }}
-            onMouseOut={(e) => {
-              (e.target as HTMLAnchorElement).style.color = '#64748b';
-            }}
-          >
-            粤ICP备2025456526号-1
-          </a>
-
-          {/* 公安备案 */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}>
-            <Image
-              src="/beian-icon.png"
-              alt="备案图标"
-              width={12}
-              height={12}
-              style={{
-                opacity: 0.6
-              }}
-            />
+          <footer className={styles.footer}>
+            <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">
+              粤ICP备2025456526号-1
+            </a>
             <a
               href="https://beian.mps.gov.cn/#/query/webSearch?code=44030002007784"
               target="_blank"
               rel="noreferrer"
-              style={{
-                color: '#64748b',
-                fontSize: '0.75rem',
-                textDecoration: 'none',
-                transition: 'color 0.2s ease'
-              }}
-              onMouseOver={(e) => {
-                (e.target as HTMLAnchorElement).style.color = '#475569';
-              }}
-              onMouseOut={(e) => {
-                (e.target as HTMLAnchorElement).style.color = '#64748b';
-              }}
+              className={styles.footerPublicSecurity}
             >
-              粤公网安备44030002007784号
+              <Image src="/beian-icon.png" alt="备案图标" width={14} height={14} />
+              <span>粤公网安备44030002007784号</span>
             </a>
-          </div>
-        </div>
-      </div>
+          </footer>
+        </section>
+      </main>
     </div>
   );
 }

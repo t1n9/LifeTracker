@@ -149,7 +149,7 @@ export class AgentService {
     const apiUrl = this.configService.get<string>('AI_API_URL');
     const apiKey = this.configService.get<string>('AI_API_KEY');
     const model = this.configService.get<string>('AI_MODEL', 'GLM-4-Flash');
-    const timeout = this.configService.get<number>('AI_TIMEOUT', 30000);
+    const timeout = parseInt(this.configService.get<string>('AI_TIMEOUT', '60000'), 10);
 
     if (!apiUrl || !apiKey) {
       throw new Error('AI_API_URL and AI_API_KEY must be configured');

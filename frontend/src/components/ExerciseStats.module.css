@@ -1,0 +1,209 @@
+.card {
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
+  border-radius: 26px;
+  background: color-mix(in srgb, var(--bg-secondary) 88%, white 12%);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  padding: 22px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.titleWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.titleIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--success-color) 14%, white 86%);
+  color: var(--success-color);
+  font-size: 18px;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
+.sync {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.loading {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 16px 0;
+}
+
+.countGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.countItem {
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent 28%);
+  background: color-mix(in srgb, var(--bg-primary) 78%, white 22%);
+}
+
+.countValue {
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  margin-bottom: 6px;
+}
+
+.countName {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.countButton {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.countButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.countButton:disabled {
+  cursor: not-allowed;
+}
+
+.distanceItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent 28%);
+  background: color-mix(in srgb, var(--bg-primary) 78%, white 22%);
+  margin-bottom: 10px;
+}
+
+.distanceName {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inputGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.distanceInput {
+  width: 86px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
+  background: color-mix(in srgb, var(--bg-secondary) 90%, white 10%);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.distanceInput:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent-primary) 36%, var(--border-color) 64%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 14%, transparent 86%);
+}
+
+.unit {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.feelingCard {
+  margin-top: 14px;
+  border-radius: 16px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent 28%);
+  background: color-mix(in srgb, var(--bg-tertiary) 80%, white 20%);
+}
+
+.feelingTitle {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.feelingGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.feelingButton {
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
+  background: color-mix(in srgb, var(--bg-secondary) 90%, white 10%);
+  color: var(--text-primary);
+  padding: 9px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.feelingButton:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--border-color) 72%);
+}
+
+.empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 22px 10px;
+  font-size: 13px;
+}
+

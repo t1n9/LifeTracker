@@ -39,15 +39,12 @@ export default function AgentPage() {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isLoading, initializeAuth } = useAuthStore();
 
   // 初始化：检查 token
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      useAuthStore.getState().setToken(token);
-    }
-  }, []);
+    initializeAuth();
+  }, [initializeAuth]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -109,6 +106,16 @@ export default function AgentPage() {
     } catch {}
     setMessages([]);
   };
+
+  if (isLoading) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.loginPrompt}>
+          <p style={{ color: 'var(--text-secondary)' }}>加载中...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (

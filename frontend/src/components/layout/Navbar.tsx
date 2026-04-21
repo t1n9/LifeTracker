@@ -1,9 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ChevronDown, LogOut, MoonStar, Settings2, SunMedium } from 'lucide-react';
 import { getVersionString } from '@/lib/version';
+import { useAuthStore } from '@/store/auth';
+import styles from './Navbar.module.css';
 
 interface NavbarProps {
   userName?: string;
@@ -13,206 +16,83 @@ interface NavbarProps {
 
 export default function Navbar({ userName = 'User', theme, onThemeToggle }: NavbarProps) {
   const router = useRouter();
+  const { logout } = useAuthStore();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, []);
+
+  const handleOpenProfile = () => {
+    setIsUserMenuOpen(false);
+    router.push('/profile');
+  };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    router.push('/');
-    window.location.reload();
-  };
-
-  const handleChangePassword = () => {
-    router.push('/profile');
     setIsUserMenuOpen(false);
-  };
-
-  const navbarStyle: React.CSSProperties = {
-    position: 'sticky',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    background: `var(--bg-navbar)`,
-    backdropFilter: 'blur(10px)',
-    WebkitBackdropFilter: 'blur(10px)',
-    borderBottom: '1px solid var(--border-color)',
-    boxShadow: 'var(--shadow)',
-  };
-
-  const navbarContentStyle: React.CSSProperties = {
-    maxWidth: '1800px',
-    margin: '0 auto',
-    padding: '0 1.5rem',
-    height: '60px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  };
-
-  const logoStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    cursor: 'pointer',
-  };
-
-  const logoTextStyle: React.CSSProperties = {
-    fontSize: '1.125rem',
-    fontWeight: 600,
-    color: 'var(--text-primary)',
-    textDecoration: 'none',
-  };
-
-  const logoVersionStyle: React.CSSProperties = {
-    fontSize: '0.75rem',
-    background: 'var(--accent-primary)',
-    color: 'white',
-    padding: '0.125rem 0.5rem',
-    borderRadius: '4px',
-  };
-
-  const rightActionsStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-  };
-
-  const themeToggleButtonStyle: React.CSSProperties = {
-    background: 'transparent',
-    border: '1px solid var(--border-color)',
-    borderRadius: '8px',
-    width: '36px',
-    height: '36px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    fontSize: '1rem',
-    transition: 'all 0.2s ease',
-    color: 'var(--text-primary)',
-  };
-
-  const userButtonStyle: React.CSSProperties = {
-    background: 'transparent',
-    border: '1px solid var(--border-color)',
-    borderRadius: '8px',
-    padding: '0.5rem 0.75rem',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    color: 'var(--text-primary)',
-    transition: 'all 0.2s ease',
-    position: 'relative',
-  };
-
-  const userMenuStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: '100%',
-    right: 0,
-    marginTop: '0.5rem',
-    background: 'var(--bg-secondary)',
-    border: '1px solid var(--border-color)',
-    borderRadius: '8px',
-    minWidth: '160px',
-    boxShadow: 'var(--shadow-lg)',
-    zIndex: 1000,
-    overflow: 'hidden',
-  };
-
-  const menuItemStyle: React.CSSProperties = {
-    display: 'block',
-    width: '100%',
-    padding: '0.75rem 1rem',
-    textAlign: 'left',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: 'var(--text-primary)',
-    fontSize: '0.875rem',
-    transition: 'background-color 0.2s ease',
-    borderBottom: '1px solid var(--border-color)',
+    logout();
+    router.push('/');
   };
 
   return (
-    <nav style={navbarStyle}>
-      <div style={navbarContentStyle}>
-        {/* Logo */}
-        <Link href="/" style={logoStyle}>
-          <span style={logoTextStyle}>LifeTracker</span>
-          <span style={logoVersionStyle}>{getVersionString()}</span>
+    <header className={styles.navbar}>
+      <div className={styles.inner}>
+        <Link href="/" className={styles.brand}>
+          <div className={styles.brandMark}>LT</div>
+          <div className={styles.brandText}>
+            <span className={styles.brandName}>LifeTracker</span>
+            <span className={styles.brandVersion}>{getVersionString()}</span>
+          </div>
         </Link>
 
-        {/* Right actions */}
-        <div style={rightActionsStyle}>
-          {/* Theme toggle */}
+        <div className={styles.actions}>
           <button
+            type="button"
+            className={styles.iconButton}
             onClick={onThemeToggle}
-            title={`切换到${theme === 'dark' ? '浅色' : '深色'}主题`}
-            style={themeToggleButtonStyle}
-            onMouseEnter={(e) => {
-              (e.target as HTMLElement).style.backgroundColor = 'var(--bg-tertiary)';
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLElement).style.backgroundColor = 'transparent';
-            }}
+            aria-label={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
+            title={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
           >
-            {theme === 'dark' ? '☀️' : '🌙'}
+            {theme === 'dark' ? <SunMedium size={18} /> : <MoonStar size={18} />}
           </button>
 
-          {/* User menu */}
-          <div style={{ position: 'relative' }}>
+          <div ref={menuRef} className={styles.menuWrap}>
             <button
-              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              style={userButtonStyle}
-              onMouseEnter={(e) => {
-                (e.target as HTMLElement).style.backgroundColor = 'var(--bg-tertiary)';
-              }}
-              onMouseLeave={(e) => {
-                (e.target as HTMLElement).style.backgroundColor = 'transparent';
-              }}
+              type="button"
+              className={styles.userButton}
+              onClick={() => setIsUserMenuOpen((current) => !current)}
+              aria-expanded={isUserMenuOpen}
             >
-              <span>{userName}</span>
-              <span style={{ fontSize: '0.75rem' }}>▼</span>
+              <span className={styles.userMeta}>
+                <span className={styles.userLabel}>Workspace</span>
+                <span className={styles.userName}>{userName}</span>
+              </span>
+              <ChevronDown size={16} className={isUserMenuOpen ? styles.chevronOpen : styles.chevron} />
             </button>
 
-            {/* User dropdown menu */}
             {isUserMenuOpen && (
-              <div style={userMenuStyle}>
-                <button
-                  onClick={handleChangePassword}
-                  style={menuItemStyle}
-                  onMouseEnter={(e) => {
-                    (e.target as HTMLElement).style.backgroundColor = 'var(--bg-tertiary)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.target as HTMLElement).style.backgroundColor = 'transparent';
-                  }}
-                >
-                  设置
+              <div className={styles.menu}>
+                <button type="button" className={styles.menuItem} onClick={handleOpenProfile}>
+                  <Settings2 size={16} />
+                  <span>个人资料</span>
                 </button>
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    ...menuItemStyle,
-                    borderBottom: 'none',
-                    color: 'var(--error-color)',
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.target as HTMLElement).style.backgroundColor = 'var(--bg-tertiary)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.target as HTMLElement).style.backgroundColor = 'transparent';
-                  }}
-                >
-                  退出登录
+                <button type="button" className={`${styles.menuItem} ${styles.menuItemDanger}`} onClick={handleLogout}>
+                  <LogOut size={16} />
+                  <span>退出登录</span>
                 </button>
               </div>
             )}
           </div>
         </div>
       </div>
-    </nav>
+    </header>
   );
 }
