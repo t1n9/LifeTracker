@@ -230,14 +230,7 @@ export default function ProfilePage() {
             <ArrowLeft size={18} />
             返回首页
           </button>
-          <h1 style={{ 
-            fontSize: '1.5rem', 
-            fontWeight: '600', 
-            color: 'var(--text-primary)',
-            margin: 0 
-          }}>
-            用户信息管理
-          </h1>
+          <h1 className="profile-title">设置中心</h1>
         </div>
 
         {/* 主要内容卡片 */}
@@ -457,86 +450,53 @@ export default function ProfilePage() {
           {activeTab === 'account' && (
             <div className="form-container">
               <div className="account-section">
-                <h3 style={{
-                  color: 'var(--text-primary)',
-                  marginBottom: '1rem',
-                  fontSize: '1.1rem',
-                  fontWeight: '600'
-                }}>
+                <h3 className="account-heading">
                   账户安全
                 </h3>
 
-                <div className="account-info" style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  padding: '1rem',
-                  borderRadius: '8px',
-                  marginBottom: '1.5rem',
-                  border: '1px solid var(--border-color)'
-                }}>
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    <strong style={{ color: 'var(--text-primary)' }}>当前账户：</strong>
-                    <span style={{ color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
+                <div className="account-info">
+                  <div className="account-row">
+                    <strong className="account-key">当前账户：</strong>
+                    <span className="account-value">
                       {userData.email}
                     </span>
                   </div>
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    <strong style={{ color: 'var(--text-primary)' }}>用户名：</strong>
-                    <span style={{ color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
+                  <div className="account-row">
+                    <strong className="account-key">用户名：</strong>
+                    <span className="account-value">
                       {userData.name}
                     </span>
                   </div>
                   {userData.isAdmin && (
-                    <div>
-                      <strong style={{ color: 'var(--text-primary)' }}>权限：</strong>
-                      <span style={{
-                        color: '#10b981',
-                        marginLeft: '0.5rem',
-                        fontSize: '0.875rem',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        padding: '0.125rem 0.5rem',
-                        borderRadius: '4px'
-                      }}>
+                    <div className="account-row">
+                      <strong className="account-key">权限：</strong>
+                      <span className="role-badge">
                         管理员
                       </span>
                     </div>
                   )}
                 </div>
 
-                <div className="version-section" style={{
-                  marginBottom: '1.5rem',
-                  paddingBottom: '1rem',
-                  borderBottom: '1px solid var(--border-color)'
-                }}>
-                  <h4 style={{
-                    color: 'var(--text-primary)',
-                    marginBottom: '0.75rem',
-                    fontSize: '1rem',
-                    fontWeight: '500'
-                  }}>
+                <div className="version-section">
+                  <h4 className="section-heading">
                     系统信息
                   </h4>
-                  <div style={{
-                    backgroundColor: 'var(--bg-secondary)',
-                    padding: '0.75rem',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-color)',
-                    fontSize: '0.875rem'
-                  }}>
-                    <div style={{ marginBottom: '0.25rem' }}>
-                      <strong style={{ color: 'var(--text-primary)' }}>版本：</strong>
-                      <span style={{ color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
+                  <div className="version-box">
+                    <div className="version-row">
+                      <strong className="account-key">版本：</strong>
+                      <span className="account-value">
                         {getVersionString()}
                       </span>
                     </div>
-                    <div style={{ marginBottom: '0.25rem' }}>
-                      <strong style={{ color: 'var(--text-primary)' }}>构建日期：</strong>
-                      <span style={{ color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
+                    <div className="version-row">
+                      <strong className="account-key">构建日期：</strong>
+                      <span className="account-value">
                         {VERSION_INFO.buildDate}
                       </span>
                     </div>
-                    <div>
-                      <strong style={{ color: 'var(--text-primary)' }}>系统名称：</strong>
-                      <span style={{ color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
+                    <div className="version-row">
+                      <strong className="account-key">系统名称：</strong>
+                      <span className="account-value">
                         {VERSION_INFO.name}
                       </span>
                     </div>
@@ -544,45 +504,15 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="logout-section">
-                  <h4 style={{
-                    color: 'var(--text-primary)',
-                    marginBottom: '0.75rem',
-                    fontSize: '1rem',
-                    fontWeight: '500'
-                  }}>
+                  <h4 className="section-heading">
                     退出登录
                   </h4>
-                  <p style={{
-                    color: 'var(--text-secondary)',
-                    fontSize: '0.875rem',
-                    marginBottom: '1rem',
-                    lineHeight: '1.5'
-                  }}>
+                  <p className="logout-desc">
                     退出当前账户，返回到登录页面。请确保已保存所有重要数据。
                   </p>
                   <button
                     onClick={handleLogout}
-                    className="btn"
-                    style={{
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      padding: '0.75rem 1.5rem',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#dc2626';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#ef4444';
-                    }}
+                    className="logout-button"
                   >
                     <LogOut size={16} />
                     退出登录
@@ -596,41 +526,16 @@ export default function ProfilePage() {
           {activeTab === 'admin' && userData.isAdmin && (
             <div>
               {/* 管理员子标签 */}
-              <div style={{
-                display: 'flex',
-                gap: '1rem',
-                marginBottom: '2rem',
-                borderBottom: '1px solid var(--border-color)',
-              }}>
+              <div className="admin-subtabs">
                 <button
                   onClick={() => setAdminSubTab('config')}
-                  style={{
-                    padding: '0.75rem 1rem',
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    color: adminSubTab === 'config' ? 'var(--primary-color)' : 'var(--text-secondary)',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    borderBottom: adminSubTab === 'config' ? '2px solid var(--primary-color)' : '2px solid transparent',
-                    transition: 'all 0.2s ease',
-                  }}
+                  className={`admin-subtab ${adminSubTab === 'config' ? 'active' : ''}`}
                 >
                   系统配置
                 </button>
                 <button
                   onClick={() => setAdminSubTab('suggestions')}
-                  style={{
-                    padding: '0.75rem 1rem',
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    color: adminSubTab === 'suggestions' ? 'var(--primary-color)' : 'var(--text-secondary)',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    borderBottom: adminSubTab === 'suggestions' ? '2px solid var(--primary-color)' : '2px solid transparent',
-                    transition: 'all 0.2s ease',
-                  }}
+                  className={`admin-subtab ${adminSubTab === 'suggestions' ? 'active' : ''}`}
                 >
                   系统建议
                 </button>

@@ -1974,60 +1974,72 @@ p {
 
 /* Profile页面样式 */
 .profile-container {
-  max-width: 800px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 2rem 1rem 2.5rem;
 }
 
 .profile-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1.25rem;
+}
+
+.profile-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
 .back-button {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  padding: 0.62rem 0.9rem;
+  background: color-mix(in srgb, var(--bg-secondary) 90%, white 10%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
+  border-radius: 12px;
   color: var(--text-primary);
   text-decoration: none;
-  font-size: 0.875rem;
+  font-size: 0.86rem;
+  font-weight: 600;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .back-button:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--bg-tertiary) 86%, white 14%);
+  border-color: color-mix(in srgb, var(--accent-primary) 34%, var(--border-color) 66%);
   transform: translateY(-1px);
 }
 
 .profile-card {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: var(--shadow);
-  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-secondary) 90%, white 10%);
+  border-radius: 24px;
+  padding: 1.25rem;
+  box-shadow: 0 22px 50px rgba(15, 23, 42, 0.08);
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
 }
 
 .profile-tabs {
   display: flex;
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent 26%);
+  padding-bottom: 0.9rem;
+  margin-bottom: 1.2rem;
 }
 
 .tab-button {
-  flex: 1;
-  padding: 1rem;
-  border: none;
-  background: transparent;
+  flex: 0 0 auto;
+  padding: 0.62rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent 20%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 90%, white 10%);
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -2035,26 +2047,31 @@ p {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  font-size: 1rem;
-  border-bottom: 2px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .tab-button:hover {
   color: var(--text-primary);
-  background: var(--bg-tertiary);
+  border-color: color-mix(in srgb, var(--accent-primary) 32%, var(--border-color) 68%);
+  background: color-mix(in srgb, var(--bg-tertiary) 86%, white 14%);
 }
 
 .tab-button.active {
-  color: var(--accent-primary);
-  border-bottom-color: var(--accent-primary);
-  background: var(--bg-tertiary);
+  color: white;
+  border-color: color-mix(in srgb, var(--accent-primary) 72%, transparent 28%);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
 }
 
 .form-container {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
   max-width: 100%;
+  background: color-mix(in srgb, var(--bg-primary) 86%, white 14%);
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
+  padding: 1rem;
 }
 
 .form-group {
@@ -2090,10 +2107,10 @@ p {
 
 .form-input {
   width: 100%;
-  padding: 0.875rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-primary);
+  padding: 0.84rem;
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-secondary) 92%, white 8%);
   color: var(--text-primary);
   font-size: 0.875rem;
   transition: all 0.2s ease;
@@ -2103,8 +2120,8 @@ p {
 
 .form-input:focus {
   outline: none;
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+  border-color: color-mix(in srgb, var(--accent-primary) 42%, var(--border-color) 58%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 14%, transparent 86%);
 }
 
 .form-input:disabled {
@@ -2153,16 +2170,16 @@ p {
 }
 
 .form-actions {
-  margin-top: 2rem;
+  margin-top: 0.5rem;
   display: flex;
   justify-content: flex-end;
   width: 100%;
 }
 
 .alert {
-  padding: 1rem;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 12px;
+  margin-bottom: 0.9rem;
   font-size: 0.875rem;
 }
 
@@ -2176,6 +2193,119 @@ p {
   background: rgba(34, 197, 94, 0.1);
   color: #22c55e;
   border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.account-heading,
+.section-heading {
+  margin: 0 0 0.6rem;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.account-info,
+.version-box {
+  background: color-mix(in srgb, var(--bg-secondary) 92%, white 8%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
+  border-radius: 14px;
+  padding: 0.8rem;
+}
+
+.account-row,
+.version-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.account-row:last-child,
+.version-row:last-child {
+  margin-bottom: 0;
+}
+
+.account-key {
+  color: var(--text-primary);
+  font-size: 0.88rem;
+}
+
+.account-value {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.role-badge {
+  color: var(--success-color);
+  background: color-mix(in srgb, var(--success-color) 14%, transparent 86%);
+  border: 1px solid color-mix(in srgb, var(--success-color) 22%, transparent 78%);
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.version-section {
+  margin: 0.4rem 0 0.2rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent 26%);
+}
+
+.logout-desc {
+  margin: 0 0 0.8rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.logout-button {
+  border: 1px solid color-mix(in srgb, var(--error-color) 35%, transparent 65%);
+  background: color-mix(in srgb, var(--error-color) 88%, black 12%);
+  color: #fff;
+  padding: 0.66rem 1rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.logout-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.96);
+}
+
+.admin-subtabs {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent 26%);
+}
+
+.admin-subtab {
+  padding: 0.62rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent 20%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 90%, white 10%);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-subtab:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 32%, var(--border-color) 68%);
+}
+
+.admin-subtab.active {
+  color: #fff;
+  border-color: color-mix(in srgb, var(--accent-primary) 72%, transparent 28%);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
 }
 
 /* 响应式设计 */
@@ -2199,16 +2329,17 @@ p {
   }
 
   .profile-card {
-    padding: 1.5rem 1rem;
+    padding: 1rem;
   }
 
   .tab-button {
-    padding: 0.75rem;
+    padding: 0.55rem 0.8rem;
     font-size: 0.875rem;
   }
 
   .form-container {
-    gap: 1.25rem;
+    gap: 0.9rem;
+    padding: 0.85rem;
   }
 
   .form-input {

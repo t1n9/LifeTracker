@@ -156,7 +156,7 @@ const ExerciseConfigManager: React.FC<ExerciseConfigManagerProps> = ({ onUpdate 
 
   return (
     <div className="exercise-config-manager">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 ecm-header">
         <div>
           <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
             运动项目管理
@@ -167,7 +167,7 @@ const ExerciseConfigManager: React.FC<ExerciseConfigManagerProps> = ({ onUpdate 
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="btn btn-primary btn-sm"
+          className="btn btn-primary btn-sm ecm-add-btn"
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
           <Plus size={16} />
@@ -289,7 +289,7 @@ const ExerciseConfigManager: React.FC<ExerciseConfigManagerProps> = ({ onUpdate 
           </div>
 
           {/* 图标和颜色选择 */}
-          <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="ecm-pair-grid" style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             {/* 图标选择 */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
@@ -346,7 +346,7 @@ const ExerciseConfigManager: React.FC<ExerciseConfigManagerProps> = ({ onUpdate 
           </div>
 
           {/* 操作按钮 */}
-          <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem' }}>
+          <div className="ecm-form-actions" style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem' }}>
             <button
               onClick={handleSave}
               disabled={submitting}
@@ -387,6 +387,7 @@ const ExerciseConfigManager: React.FC<ExerciseConfigManagerProps> = ({ onUpdate 
           exerciseTypes.map(exerciseType => (
             <div
               key={exerciseType.id}
+              className="ecm-item"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -398,7 +399,7 @@ const ExerciseConfigManager: React.FC<ExerciseConfigManagerProps> = ({ onUpdate 
                 opacity: exerciseType.isActive ? 1 : 0.6
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div className="ecm-item-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div
                   style={{
                     width: '40px',
@@ -417,7 +418,7 @@ const ExerciseConfigManager: React.FC<ExerciseConfigManagerProps> = ({ onUpdate 
                   <div style={{ fontWeight: '500', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
                     {exerciseType.name}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div className="ecm-meta" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                       {exerciseType.type === 'COUNT' ? <Target size={12} /> : <Ruler size={12} />}
                       {exerciseType.type === 'COUNT' ? '计数型' : '距离型'}
@@ -430,7 +431,7 @@ const ExerciseConfigManager: React.FC<ExerciseConfigManagerProps> = ({ onUpdate 
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div className="ecm-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 {/* 启用/禁用切换 */}
                 <button
                   onClick={() => toggleActive(exerciseType.id, exerciseType.isActive)}
@@ -491,6 +492,53 @@ const ExerciseConfigManager: React.FC<ExerciseConfigManagerProps> = ({ onUpdate 
           ))
         )}
       </div>
+      <style jsx>{`
+        .ecm-header {
+          gap: 12px;
+        }
+        .ecm-add-btn {
+          flex-shrink: 0;
+          width: auto !important;
+          max-width: none !important;
+          white-space: nowrap;
+        }
+        .ecm-item {
+          gap: 12px;
+        }
+        .ecm-item-main {
+          min-width: 0;
+          flex: 1;
+        }
+        .ecm-meta {
+          flex-wrap: wrap;
+          row-gap: 6px;
+        }
+        .ecm-actions {
+          flex-shrink: 0;
+        }
+        @media (max-width: 960px) {
+          .ecm-header {
+            align-items: flex-start !important;
+            flex-direction: column;
+          }
+        }
+        @media (max-width: 760px) {
+          .ecm-pair-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .ecm-form-actions {
+            flex-wrap: wrap;
+          }
+          .ecm-item {
+            align-items: flex-start !important;
+            flex-direction: column;
+          }
+          .ecm-actions {
+            width: 100%;
+            justify-content: flex-end;
+          }
+        }
+      `}</style>
     </div>
   );
 };

@@ -81,7 +81,7 @@ export default function Navbar({ userName = 'User', theme, onThemeToggle }: Navb
               <div className={styles.menu}>
                 <button type="button" className={styles.menuItem} onClick={handleOpenProfile}>
                   <Settings2 size={16} />
-                  <span>个人资料</span>
+                  <span>设置</span>
                 </button>
                 <button type="button" className={`${styles.menuItem} ${styles.menuItemDanger}`} onClick={handleLogout}>
                   <LogOut size={16} />
