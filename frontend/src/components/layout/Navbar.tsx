@@ -12,9 +12,17 @@ interface NavbarProps {
   userName?: string;
   theme: 'light' | 'dark';
   onThemeToggle: () => void;
+  demoCtaHref?: string;
+  demoCtaLabel?: string;
 }
 
-export default function Navbar({ userName = 'User', theme, onThemeToggle }: NavbarProps) {
+export default function Navbar({
+  userName = 'User',
+  theme,
+  onThemeToggle,
+  demoCtaHref,
+  demoCtaLabel = 'Try!',
+}: NavbarProps) {
   const router = useRouter();
   const { logout } = useAuthStore();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -53,43 +61,55 @@ export default function Navbar({ userName = 'User', theme, onThemeToggle }: Navb
         </Link>
 
         <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.iconButton}
-            onClick={onThemeToggle}
-            aria-label={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
-            title={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
-          >
-            {theme === 'dark' ? <SunMedium size={18} /> : <MoonStar size={18} />}
-          </button>
-
-          <div ref={menuRef} className={styles.menuWrap}>
-            <button
-              type="button"
+          {demoCtaHref ? (
+            <a
+              href={demoCtaHref}
               className={styles.userButton}
-              onClick={() => setIsUserMenuOpen((current) => !current)}
-              aria-expanded={isUserMenuOpen}
+              style={{ textDecoration: 'none', justifyContent: 'center', minWidth: '120px', fontWeight: 700 }}
             >
-              <span className={styles.userMeta}>
-                <span className={styles.userLabel}>Workspace</span>
-                <span className={styles.userName}>{userName}</span>
-              </span>
-              <ChevronDown size={16} className={isUserMenuOpen ? styles.chevronOpen : styles.chevron} />
-            </button>
+              <span className={styles.userName}>{demoCtaLabel}</span>
+            </a>
+          ) : (
+            <>
+              <button
+                type="button"
+                className={styles.iconButton}
+                onClick={onThemeToggle}
+                aria-label={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
+                title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
+              >
+                {theme === 'dark' ? <SunMedium size={18} /> : <MoonStar size={18} />}
+              </button>
 
-            {isUserMenuOpen && (
-              <div className={styles.menu}>
-                <button type="button" className={styles.menuItem} onClick={handleOpenProfile}>
-                  <Settings2 size={16} />
-                  <span>设置</span>
+              <div ref={menuRef} className={styles.menuWrap}>
+                <button
+                  type="button"
+                  className={styles.userButton}
+                  onClick={() => setIsUserMenuOpen((current) => !current)}
+                  aria-expanded={isUserMenuOpen}
+                >
+                  <span className={styles.userMeta}>
+                    <span className={styles.userLabel}>Workspace</span>
+                    <span className={styles.userName}>{userName}</span>
+                  </span>
+                  <ChevronDown size={16} className={isUserMenuOpen ? styles.chevronOpen : styles.chevron} />
                 </button>
-                <button type="button" className={`${styles.menuItem} ${styles.menuItemDanger}`} onClick={handleLogout}>
-                  <LogOut size={16} />
-                  <span>退出登录</span>
-                </button>
+
+                {isUserMenuOpen && (
+                  <div className={styles.menu}>
+                    <button type="button" className={styles.menuItem} onClick={handleOpenProfile}>
+                      <Settings2 size={16} />
+                      <span>设置</span>
+                    </button>
+                    <button type="button" className={`${styles.menuItem} ${styles.menuItemDanger}`} onClick={handleLogout}>
+                      <LogOut size={16} />
+                      <span>退出登录</span>
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
     </header>
