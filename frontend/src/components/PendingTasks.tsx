@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { CheckSquare, Plus, X, Check, Clock, Play, Sunrise, Edit3, GripVertical } from 'lucide-react';
 import { taskAPI, dailyAPI } from '@/lib/api';
-import '@/styles/draggable-tasks.css';
 import styles from './PendingTasks.module.css';
 import {
   DndContext,
@@ -31,29 +30,29 @@ interface Task {
   title: string;
   isCompleted: boolean;
   description?: string;
-  priority?: number; // 0=低，1=中，2=高
-  pomodoroCount?: number; // 番茄数量
-  sortOrder?: number; // 排序顺序
+  priority?: number; // 0=浣庯紝1=涓紝2=楂?
+  pomodoroCount?: number; // 鐣寗鏁伴噺
+  sortOrder?: number; // 鎺掑簭椤哄簭
   createdAt: string;
   updatedAt: string;
 }
 
 interface PendingTasksProps {
-  onTaskClick: (taskId: string, taskTitle: string) => void; // 点击任务绑定番茄钟
-  onStartCountUp: (taskId: string, taskTitle: string) => void; // 开始正计时番茄钟
-  currentBoundTask?: string | null; // 当前绑定的任务ID
-  isRunning?: boolean; // 番茄钟是否正在运行
-  dayStartRefreshTrigger?: number; // 开启内容刷新触发器
-  pomodoroCompleteRefreshTrigger?: number; // 番茄钟完成刷新触发器
-  onCompleteTaskWithPomodoro?: (taskId: string) => void; // 完成任务并结束番茄钟（计入番茄数）
-  onCompleteTaskCancelPomodoro?: (taskId: string) => void; // 完成任务并取消番茄钟（不计入番茄数）
-  pomodoroElapsedTime?: number; // 番茄钟已运行时间（秒）
-  taskRefreshTrigger?: number; // 任务刷新触发器
-  onUpdatePomodoroTaskId?: (oldId: string, newId: string) => void; // 更新番茄钟绑定任务ID
-  onTaskAdded?: (newTask: any) => void; // 任务添加成功回调
+  onTaskClick: (taskId: string, taskTitle: string) => void; // 鐐瑰嚮浠诲姟缁戝畾鐣寗閽?
+  onStartCountUp: (taskId: string, taskTitle: string) => void; // 寮€濮嬫璁℃椂鐣寗閽?
+  currentBoundTask?: string | null; // 褰撳墠缁戝畾鐨勪换鍔D
+  isRunning?: boolean; // 鐣寗閽熸槸鍚︽鍦ㄨ繍琛?
+  dayStartRefreshTrigger?: number; // 寮€鍚唴瀹瑰埛鏂拌Е鍙戝櫒
+  pomodoroCompleteRefreshTrigger?: number; // 鐣寗閽熷畬鎴愬埛鏂拌Е鍙戝櫒
+  onCompleteTaskWithPomodoro?: (taskId: string) => void; // 瀹屾垚浠诲姟骞剁粨鏉熺暘鑼勯挓锛堣鍏ョ暘鑼勬暟锛?
+  onCompleteTaskCancelPomodoro?: (taskId: string) => void; // 瀹屾垚浠诲姟骞跺彇娑堢暘鑼勯挓锛堜笉璁″叆鐣寗鏁帮級
+  pomodoroElapsedTime?: number; // 鐣寗閽熷凡杩愯鏃堕棿锛堢锛?
+  taskRefreshTrigger?: number; // 浠诲姟鍒锋柊瑙﹀彂鍣?
+  onUpdatePomodoroTaskId?: (oldId: string, newId: string) => void; // 鏇存柊鐣寗閽熺粦瀹氫换鍔D
+  onTaskAdded?: (newTask: any) => void; // 浠诲姟娣诲姞鎴愬姛鍥炶皟
 }
 
-// 可拖拽的任务项组件
+// 鍙嫋鎷界殑浠诲姟椤圭粍浠?
 interface SortableTaskItemProps {
   task: Task;
   onTaskClick: (taskId: string, taskTitle: string) => void;
@@ -109,21 +108,15 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`pending-task-item ${styles.item} ${isBound ? `bound ${styles.itemBound}` : ''} ${isDragging ? `dragging ${styles.dragging}` : ''}`}
+      className={`${styles.item} ${isBound ? styles.itemBound : ''} ${isDragging ? styles.dragging : ''}`}
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
       onClick={() => onTaskClick(task.id, task.title)}
-      title={
-        isRunning
-          ? '番茄钟运行中，无法更换绑定'
-          : isBound
-            ? '点击取消绑定'
-            : '点击绑定到番茄钟'
-      }
+      title={isRunning ? '计时进行中，点击查看绑定任务' : isBound ? '当前已绑定为专注任务' : '点击查看任务，或开始计时'}
     >
-      {/* 拖拽手柄 */}
+      {/* 鎷栨嫿鎵嬫焺 */}
       <div
-        className={`drag-handle-simple ${styles.dragHandle}`}
+        className={styles.dragHandle}
         {...attributes}
         {...listeners}
         onClick={(e) => e.stopPropagation()}
@@ -133,25 +126,25 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
 
 
 
-      {/* 任务内容 */}
-      <div className={`task-content ${styles.content}`}>
+      {/* 浠诲姟鍐呭 */}
+      <div className={styles.content}>
         <div className={styles.row}>
-          {/* 任务完成复选框 */}
+          {/* 浠诲姟瀹屾垚澶嶉€夋 */}
           <input
             type="checkbox"
             checked={task.isCompleted}
             title="完成任务"
             onClick={(e) => {
-              e.stopPropagation(); // 阻止冒泡到父元素的点击事件
+              e.stopPropagation(); // 闃绘鍐掓场鍒扮埗鍏冪礌鐨勭偣鍑讳簨浠?
             }}
             onChange={(e) => {
               e.stopPropagation();
               onToggleTask(task.id, task.isCompleted);
             }}
-            className={`task-checkbox ${styles.checkbox}`}
+            className={styles.checkbox}
           />
 
-          {/* 任务标题 - 编辑状态或显示状态 */}
+          {/* 浠诲姟鏍囬 - 缂栬緫鐘舵€佹垨鏄剧ず鐘舵€?*/}
           {editingTaskId === task.id ? (
             <input
               type="text"
@@ -159,72 +152,48 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
               onChange={(e) => onEditTitleChange?.(e.target.value)}
               onBlur={onSaveEdit}
               onKeyDown={onEditKeyPress}
-              onClick={(e) => e.stopPropagation()} // 阻止冒泡到父元素
-              className="task-title-input"
+              onClick={(e) => e.stopPropagation()} // 闃绘鍐掓场鍒扮埗鍏冪礌
+              className={styles.editInput}
               autoFocus
-              style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '4px',
-                padding: '2px 6px',
-                fontSize: '14px',
-                color: 'var(--text-primary)',
-                outline: 'none',
-                flex: 1,
-                minWidth: '120px'
-              }}
             />
           ) : (
             <span
-              className={`task-title ${styles.taskTitle} ${task.isCompleted ? styles.taskTitleCompleted : ''}`}
+              className={`${styles.taskTitle} ${task.isCompleted ? styles.taskTitleCompleted : ''}`}
             >
               {task.title}
             </span>
           )}
 
-          {/* 番茄数量显示 */}
+          {/* 鐣寗鏁伴噺鏄剧ず */}
           {(task.pomodoroCount || 0) > 0 && (
-            <div className={`pomodoro-count-badge ${styles.badge}`} style={{
-              fontSize: '0.75rem',
-              color: 'var(--text-muted)',
-              background: 'var(--bg-tertiary)',
-              padding: '0.125rem 0.375rem',
-              borderRadius: '12px',
-            }}>
-              🍅 {task.pomodoroCount}
+            <div className={styles.badge}>
+              番茄 {task.pomodoroCount}
             </div>
           )}
 
-          {/* 绑定状态指示 */}
+          {/* 缁戝畾鐘舵€佹寚绀?*/}
           {isBound && (
-            <div className={`bound-indicator ${styles.boundIndicator}`} style={{
-              color: 'var(--accent-primary)',
-              fontSize: '0.75rem',
-            }}>
+            <div className={styles.boundIndicator}>
               <Clock size={14} />
             </div>
           )}
         </div>
         {task.description && (
-          <div className={`task-description ${styles.taskDescription}`} style={{
-            fontSize: '0.75rem',
-            color: 'var(--text-muted)',
-            marginTop: '0.25rem',
-          }}>
+          <div className={styles.taskDescription}>
             {task.description}
           </div>
         )}
       </div>
 
-      {/* 操作按钮 */}
+      {/* 鎿嶄綔鎸夐挳 */}
       <div className={styles.actions}>
         <button
           onClick={(e) => {
             e.stopPropagation();
             onStartCountUp(task.id, task.title);
           }}
-          className={`action-btn start-btn ${styles.actionButton}`}
-          title="开始正计时"
+          className={`${styles.actionButton} ${styles.actionButtonStart}`}
+          title="开始计时"
         >
           <Play size={16} />
         </button>
@@ -233,7 +202,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
             e.stopPropagation();
             onEditTask(task);
           }}
-          className={`action-btn edit-btn ${styles.actionButton}`}
+          className={`${styles.actionButton} ${styles.actionButtonEdit}`}
           title="编辑任务"
         >
           <Edit3 size={16} />
@@ -243,7 +212,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
             e.stopPropagation();
             onDeleteTask(task.id);
           }}
-          className={`action-btn delete-btn ${styles.actionButton} ${styles.actionButtonDanger}`}
+          className={`${styles.actionButton} ${styles.actionButtonDanger}`}
           title="删除任务"
         >
           <X size={16} />
@@ -281,33 +250,33 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskTitle, setEditingTaskTitle] = useState<string>('');
 
-  // 拖拽传感器配置
+  // 鎷栨嫿浼犳劅鍣ㄩ厤缃?
   const sensors = useSensors(
-    // 鼠标和触摸板支持
+    // 榧犳爣鍜岃Е鎽告澘鏀寔
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // 需要移动8px才开始拖拽，避免误触
+        distance: 8, // 闇€瑕佺Щ鍔?px鎵嶅紑濮嬫嫋鎷斤紝閬垮厤璇Е
       },
     }),
-    // 移动设备触摸支持
+    // 绉诲姩璁惧瑙︽懜鏀寔
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200, // 长按200ms后开始拖拽
-        tolerance: 8, // 允许8px的移动容差
+        delay: 200, // 闀挎寜200ms鍚庡紑濮嬫嫋鎷?
+        tolerance: 8, // 鍏佽8px鐨勭Щ鍔ㄥ宸?
       },
     }),
-    // 键盘支持
+    // 閿洏鏀寔
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
-  // 处理拖拽开始
+  // 澶勭悊鎷栨嫿寮€濮?
   const handleDragStart = () => {
     document.body.classList.add('dragging');
   };
 
-  // 处理拖拽结束
+  // 澶勭悊鎷栨嫿缁撴潫
   const handleDragEnd = async (event: DragEndEvent) => {
     document.body.classList.remove('dragging');
 
@@ -317,7 +286,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       return;
     }
 
-    // 只在未完成任务中查找索引
+    // 鍙湪鏈畬鎴愪换鍔′腑鏌ユ壘绱㈠紩
     const pendingTasks = tasks.filter(task => !task.isCompleted);
     const oldIndex = pendingTasks.findIndex(task => task.id === active.id);
     const newIndex = pendingTasks.findIndex(task => task.id === over.id);
@@ -326,15 +295,15 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       return;
     }
 
-    // 重新排列未完成任务
+    // 閲嶆柊鎺掑垪鏈畬鎴愪换鍔?
     const newPendingTasks = arrayMove(pendingTasks, oldIndex, newIndex);
 
-    // 合并已完成任务和重新排序的未完成任务
+    // 鍚堝苟宸插畬鎴愪换鍔″拰閲嶆柊鎺掑簭鐨勬湭瀹屾垚浠诲姟
     const completedTasks = tasks.filter(task => task.isCompleted);
     const newTasks = [...newPendingTasks, ...completedTasks];
     setTasks(newTasks);
 
-    // 只更新未完成任务的排序顺序
+    // 鍙洿鏂版湭瀹屾垚浠诲姟鐨勬帓搴忛『搴?
     const taskOrders = newPendingTasks.map((task, index) => ({
       id: task.id,
       sortOrder: index,
@@ -343,18 +312,18 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     try {
       await taskAPI.updateTasksOrder(taskOrders);
     } catch (error) {
-      console.error('更新任务排序失败:', error);
-      // 如果更新失败，恢复原来的顺序
+      console.error('????????:', error);
+      // 濡傛灉鏇存柊澶辫触锛屾仮澶嶅師鏉ョ殑椤哄簭
       setTasks(tasks);
     }
   };
 
-  // 处理拖拽取消
+  // 澶勭悊鎷栨嫿鍙栨秷
   const handleDragCancel = () => {
     document.body.classList.remove('dragging');
   };
 
-  // 加载今日任务列表
+  // 鍔犺浇浠婃棩浠诲姟鍒楄〃
   const loadTasks = async ({ silent = false }: { silent?: boolean } = {}) => {
     const useSilentRefresh = silent && hasLoadedOnce;
 
@@ -366,23 +335,23 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       }
       const response = await taskAPI.getTodayTasks();
       const loadedTasks = response.data || [];
-      // 前端按sortOrder重新排序
+      // 鍓嶇鎸塻ortOrder閲嶆柊鎺掑簭
       const sortedTasks = [...loadedTasks].sort((a: any, b: any) => {
-        // 未完成任务在前，已完成任务在后
+        // 鏈畬鎴愪换鍔″湪鍓嶏紝宸插畬鎴愪换鍔″湪鍚?
         if (a.isCompleted !== b.isCompleted) {
           return a.isCompleted ? 1 : -1;
         }
-        // 同类型任务按sortOrder排序
+        // 鍚岀被鍨嬩换鍔℃寜sortOrder鎺掑簭
         if (!a.isCompleted && !b.isCompleted) {
           return (a.sortOrder || 0) - (b.sortOrder || 0);
         }
-        // 已完成任务按更新时间排序
+        // 宸插畬鎴愪换鍔℃寜鏇存柊鏃堕棿鎺掑簭
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       });
 
       setTasks(sortedTasks);
     } catch (error) {
-      console.error('加载今日任务失败:', error);
+      console.error('????????:', error);
     } finally {
       if (useSilentRefresh) {
         setRefreshing(false);
@@ -393,45 +362,45 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     }
   };
 
-  // 加载今日开启内容
+  // 鍔犺浇浠婃棩寮€鍚唴瀹?
   const loadDayStart = async () => {
     try {
       const response = await dailyAPI.getTodayStatus();
       setDayStart(response.data.dayStart);
     } catch (error) {
-      console.error('加载开启内容失败:', error);
+      console.error('??????????:', error);
     }
   };
 
-  // 初始加载
+  // 鍒濆鍔犺浇
   useEffect(() => {
     loadTasks();
     loadDayStart();
   }, []);
 
-  // 当开启内容刷新触发器变化时，重新加载开启内容
+  // 褰撳紑鍚唴瀹瑰埛鏂拌Е鍙戝櫒鍙樺寲鏃讹紝閲嶆柊鍔犺浇寮€鍚唴瀹?
   useEffect(() => {
     if (dayStartRefreshTrigger !== undefined) {
       loadDayStart();
     }
   }, [dayStartRefreshTrigger]);
 
-  // 当番茄钟完成刷新触发器变化时，重新加载任务列表
+  // 褰撶暘鑼勯挓瀹屾垚鍒锋柊瑙﹀彂鍣ㄥ彉鍖栨椂锛岄噸鏂板姞杞戒换鍔″垪琛?
   useEffect(() => {
     if (pomodoroCompleteRefreshTrigger !== undefined && pomodoroCompleteRefreshTrigger > 0) {
       loadTasks({ silent: true });
     }
   }, [pomodoroCompleteRefreshTrigger]);
 
-  // 当任务刷新触发器变化时，重新加载任务列表
+  // 褰撲换鍔″埛鏂拌Е鍙戝櫒鍙樺寲鏃讹紝閲嶆柊鍔犺浇浠诲姟鍒楄〃
   useEffect(() => {
     if (taskRefreshTrigger !== undefined && taskRefreshTrigger > 0) {
-      console.log('🔄 任务刷新触发器变化，重新加载任务列表');
+      console.log('Task refresh trigger changed, reloading tasks');
       loadTasks({ silent: true });
     }
   }, [taskRefreshTrigger]);
 
-  // 添加新任务
+  // 娣诲姞鏂颁换鍔?
   const handleAddTask = async () => {
     if (!newTaskText.trim() || isAddingTask) return;
 
@@ -449,7 +418,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     try {
       setIsAddingTask(true);
 
-      // 乐观更新：添加到未完成任务的最后
+      // 涔愯鏇存柊锛氭坊鍔犲埌鏈畬鎴愪换鍔＄殑鏈€鍚?
       setTasks(prev => {
         const pendingTasks = prev.filter(t => !t.isCompleted);
         const completedTasks = prev.filter(t => t.isCompleted);
@@ -458,31 +427,31 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       setNewTaskText('');
       setShowInput(false);
 
-      // 调用API创建任务
+      // 璋冪敤API鍒涘缓浠诲姟
       const response = await taskAPI.createTask({
         title: newTask.title,
         isCompleted: false,
         priority: 1
       });
 
-      // 用真实的任务数据替换临时任务
+      // 鐢ㄧ湡瀹炵殑浠诲姟鏁版嵁鏇挎崲涓存椂浠诲姟
       setTasks(prev => prev.map(task =>
         task.id === tempId ? response.data : task
       ));
 
-      // 通知Dashboard任务已添加
+      // 閫氱煡Dashboard浠诲姟宸叉坊鍔?
       if (onTaskAdded) {
         onTaskAdded(response.data);
       }
 
-      // 如果当前绑定的任务是临时ID，更新为真实ID
+      // 濡傛灉褰撳墠缁戝畾鐨勪换鍔℃槸涓存椂ID锛屾洿鏂颁负鐪熷疄ID
       if (currentBoundTask === tempId) {
-        console.log('🔄 更新番茄钟绑定任务ID:', tempId, '->', response.data.id);
-        // 使用专门的更新方法，避免重新绑定
+        console.log('??????ID:', tempId, '->', response.data.id);
+        // 浣跨敤涓撻棬鐨勬洿鏂版柟娉曪紝閬垮厤閲嶆柊缁戝畾
         if (onUpdatePomodoroTaskId) {
           onUpdatePomodoroTaskId(tempId, response.data.id);
         } else {
-          // 兜底方案：重新绑定
+          // 鍏滃簳鏂规锛氶噸鏂扮粦瀹?
           onTaskClick(response.data.id, response.data.title);
         }
       }
@@ -491,92 +460,92 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       console.error('添加任务失败:', error);
       alert('添加任务失败，请重试');
 
-      // 失败时移除临时任务
+      // 澶辫触鏃剁Щ闄や复鏃朵换鍔?
       setTasks(prev => prev.filter(task => task.id !== tempId));
-      setShowInput(true); // 重新显示输入框
+      setShowInput(true); // 閲嶆柊鏄剧ず杈撳叆妗?
     } finally {
       setIsAddingTask(false);
     }
   };
 
-  // 切换任务完成状态
+  // 鍒囨崲浠诲姟瀹屾垚鐘舵€?
   const handleToggleTask = async (taskId: string, currentStatus: boolean) => {
     try {
-      console.log('🔄 处理任务状态切换:', { taskId, currentStatus, isRunning, currentBoundTask, pomodoroElapsedTime });
+      console.log('????????', { taskId, currentStatus, isRunning, currentBoundTask, pomodoroElapsedTime });
 
-      // 如果是要完成任务（从未完成变为完成）
+      // 濡傛灉鏄瀹屾垚浠诲姟锛堜粠鏈畬鎴愬彉涓哄畬鎴愶級
       if (!currentStatus) {
-        // 检查是否是番茄钟运行中的绑定任务
+        // 妫€鏌ユ槸鍚︽槸鐣寗閽熻繍琛屼腑鐨勭粦瀹氫换鍔?
         const isCurrentBoundTask = currentBoundTask === taskId;
         const isPomodoroRunning = isRunning && isCurrentBoundTask;
 
         if (isPomodoroRunning) {
-          // 番茄钟正在运行中，根据运行时间决定处理方式
-          if (pomodoroElapsedTime >= 300) { // 5分钟 = 300秒
-            // 超过5分钟，可以正常完成任务并计入番茄数
+          // 鐣寗閽熸鍦ㄨ繍琛屼腑锛屾牴鎹繍琛屾椂闂村喅瀹氬鐞嗘柟寮?
+          if (pomodoroElapsedTime >= 300) { // 5鍒嗛挓 = 300绉?
+            // 瓒呰繃5鍒嗛挓锛屽彲浠ユ甯稿畬鎴愪换鍔″苟璁″叆鐣寗鏁?
             if (onCompleteTaskWithPomodoro) {
-              const confirmed = confirm('番茄钟正在运行中，完成此任务将提前结束番茄钟并计入番茄数。是否继续？');
+              const confirmed = confirm('当前专注时长已达标，确定完成任务并结束计时吗？');
               if (confirmed) {
                 onCompleteTaskWithPomodoro(taskId);
                 return;
               } else {
-                return; // 用户取消，不执行任何操作
+                return; // 鐢ㄦ埛鍙栨秷锛屼笉鎵ц浠讳綍鎿嶄綔
               }
             }
           } else {
-            // 不足5分钟，完成任务但不计入番茄数
+            // 涓嶈冻5鍒嗛挓锛屽畬鎴愪换鍔′絾涓嶈鍏ョ暘鑼勬暟
             if (onCompleteTaskCancelPomodoro) {
-              const confirmed = confirm('番茄钟运行不足5分钟，完成此任务将取消番茄钟且不计入番茄数。是否继续？');
+              const confirmed = confirm('当前专注时长未达标，确定取消计时并完成任务吗？');
               if (confirmed) {
                 onCompleteTaskCancelPomodoro(taskId);
                 return;
               } else {
-                return; // 用户取消，不执行任何操作
+                return; // 鐢ㄦ埛鍙栨秷锛屼笉鎵ц浠讳綍鎿嶄綔
               }
             }
           }
         }
       }
 
-      // 设置更新状态
+      // 璁剧疆鏇存柊鐘舵€?
       setUpdatingTasks(prev => ({ ...prev, [taskId]: true }));
 
-      // 乐观更新：立即更新本地状态
+      // 涔愯鏇存柊锛氱珛鍗虫洿鏂版湰鍦扮姸鎬?
       setTasks(prev => prev.map(task =>
         task.id === taskId
           ? { ...task, isCompleted: !currentStatus }
           : task
       ));
 
-      // 调用API更新
+      // 璋冪敤API鏇存柊
       await taskAPI.updateTask(taskId, {
         isCompleted: !currentStatus
       });
 
     } catch (error) {
-      console.error('更新任务状态失败:', error);
-      alert('更新任务失败，请重试');
+      console.error('????????:', error);
+      alert('更新任务状态失败，请重试');
 
-      // 失败时恢复原状态
+      // 澶辫触鏃舵仮澶嶅師鐘舵€?
       setTasks(prev => prev.map(task =>
         task.id === taskId
           ? { ...task, isCompleted: currentStatus }
           : task
       ));
     } finally {
-      // 清除更新状态
+      // 娓呴櫎鏇存柊鐘舵€?
       setUpdatingTasks(prev => ({ ...prev, [taskId]: false }));
     }
   };
 
-  // 删除任务
+  // 鍒犻櫎浠诲姟
   const handleDeleteTask = async (taskId: string) => {
-    if (!confirm('确定要删除这个任务吗？')) return;
+    if (!confirm('确定要删除这个任务吗？此操作不可恢复。')) return;
 
     try {
       await taskAPI.deleteTask(taskId);
 
-      // 本地移除任务，避免重新加载
+      // 鏈湴绉婚櫎浠诲姟锛岄伩鍏嶉噸鏂板姞杞?
       setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
     } catch (error) {
       console.error('删除任务失败:', error);
@@ -586,7 +555,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
 
 
 
-  // 保存任务编辑
+  // 淇濆瓨浠诲姟缂栬緫
   const handleSaveEdit = async () => {
     if (!editingTaskId || !editingTaskTitle.trim()) {
       setEditingTaskId(null);
@@ -595,15 +564,15 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     }
 
     try {
-      // 设置更新状态
+      // 璁剧疆鏇存柊鐘舵€?
       setUpdatingTasks(prev => ({ ...prev, [editingTaskId]: true }));
 
-      // 调用API更新任务标题
+      // 璋冪敤API鏇存柊浠诲姟鏍囬
       await taskAPI.updateTask(editingTaskId, {
         title: editingTaskTitle.trim()
       });
 
-      // 本地更新任务状态，避免重新加载
+      // 鏈湴鏇存柊浠诲姟鐘舵€侊紝閬垮厤閲嶆柊鍔犺浇
       setTasks(prevTasks =>
         prevTasks.map(task =>
           task.id === editingTaskId
@@ -612,25 +581,25 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
         )
       );
 
-      // 清除编辑状态
+      // 娓呴櫎缂栬緫鐘舵€?
       setEditingTaskId(null);
       setEditingTaskTitle('');
     } catch (error) {
-      console.error('更新任务失败:', error);
+      console.error('??????:', error);
       alert('更新任务失败，请重试');
     } finally {
-      // 清除更新状态
+      // 娓呴櫎鏇存柊鐘舵€?
       setUpdatingTasks(prev => ({ ...prev, [editingTaskId]: false }));
     }
   };
 
-  // 取消编辑
+  // 鍙栨秷缂栬緫
   const handleCancelEdit = () => {
     setEditingTaskId(null);
     setEditingTaskTitle('');
   };
 
-  // 处理编辑输入框的键盘事件
+  // 澶勭悊缂栬緫杈撳叆妗嗙殑閿洏浜嬩欢
   const handleEditKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSaveEdit();
@@ -641,7 +610,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
 
 
 
-  // 键盘事件处理
+  // 閿洏浜嬩欢澶勭悊
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleAddTask();
@@ -651,7 +620,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     }
   };
 
-  // 过滤未完成的任务
+  // 杩囨护鏈畬鎴愮殑浠诲姟
   const pendingTasks = tasks.filter(task => !task.isCompleted);
   const completedTasks = tasks.filter(task => task.isCompleted);
 
@@ -661,7 +630,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     return (
       <div className={styles.card}>
         <div className="flex items-center justify-center py-8">
-          <div style={{ color: 'var(--text-muted)' }}>加载中...</div>
+          <div style={{ color: 'var(--text-muted)' }}>{'加载中...'}</div>
         </div>
       </div>
     );
@@ -676,21 +645,21 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
           </div>
           {refreshing && (
             <span className="text-xs opacity-60" style={{ color: 'var(--text-muted)' }}>
-              同步中...
+              {'刷新中...'}
             </span>
           )}
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>今日任务</h3>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{'今日任务'}</h3>
         </div>
         <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          {pendingTasks.length} 个待完成
+          {pendingTasks.length} {'个待完成'}
         </div>
       </div>
 
-      {/* 进度显示 */}
+      {/* 杩涘害鏄剧ず */}
       {tasks.length > 0 && (
         <div className="mb-4">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>完成进度</span>
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{'任务完成率'}</span>
             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
               {Math.round((completedTasks.length / tasks.length) * 100)}%
             </span>
@@ -704,13 +673,13 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
         </div>
       )}
 
-      {/* 任务列表 */}
+      {/* 浠诲姟鍒楄〃 */}
       <div className={styles.list}>
         {pendingTasks.length === 0 ? (
           <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
             <CheckSquare size={40} className="mx-auto mb-2 opacity-50" />
-            <p>今日暂无待完成任务</p>
-            <p className="text-sm">点击下方按钮添加今日任务</p>
+            <p>{'今日暂无待办任务'}</p>
+            <p className="text-sm">{'点击右下角添加按钮，创建你的第一个任务'}</p>
           </div>
         ) : (
           <DndContext
@@ -752,11 +721,11 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
         )}
       </div>
 
-      {/* 已完成任务（折叠显示） */}
+      {/* 宸插畬鎴愪换鍔★紙鎶樺彔鏄剧ず锛?*/}
       {completedTasks.length > 0 && (
         <details className="mb-4">
           <summary className="cursor-pointer text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-            已完成任务 ({completedTasks.length})
+            {'已完成任务'}({completedTasks.length})
           </summary>
           <div className="space-y-1 pl-4 border-l-2" style={{ borderColor: 'var(--border-color)' }}>
             {completedTasks.map(task => (
@@ -774,7 +743,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
                 </button>
                 <span className="task-title completed" style={{ flex: 1 }}>{task.title}</span>
 
-                {/* 番茄数量显示 */}
+                {/* 鐣寗鏁伴噺鏄剧ず */}
                 {(task.pomodoroCount || 0) > 0 && (
                   <div className="pomodoro-count-badge" style={{
                     fontSize: '0.75rem',
@@ -785,7 +754,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
                     opacity: 0.8,
                     marginRight: '0.5rem',
                   }}>
-                    🍅 {task.pomodoroCount}
+                    {'番茄'} {task.pomodoroCount}
                   </div>
                 )}
 
@@ -802,7 +771,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
         </details>
       )}
 
-      {/* 今日开启内容显示 */}
+      {/* 浠婃棩寮€鍚唴瀹规樉绀?*/}
       {dayStart && (
         <div style={{
           marginTop: '1rem',
@@ -827,7 +796,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
             }}>
-              今日开启
+              {'今日晨间记录'}
             </span>
           </div>
           <div style={{
@@ -842,7 +811,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
         </div>
       )}
 
-      {/* 添加新任务 */}
+      {/* 娣诲姞鏂颁换鍔?*/}
       {showInput ? (
         <div className={styles.addForm}>
           <input
@@ -850,7 +819,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
             value={newTaskText}
             onChange={(e) => setNewTaskText(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="今天要完成什么任务？"
+            placeholder="输入新任务内容..."
             className={styles.addInput}
             disabled={isAddingTask}
             autoFocus
@@ -884,7 +853,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
           className={styles.addOpenButton}
         >
           <Plus size={18} />
-          <span>添加今日任务</span>
+          <span>{'添加今日任务'}</span>
         </button>
       )}
     </div>

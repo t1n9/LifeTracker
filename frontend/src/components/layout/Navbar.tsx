@@ -46,7 +46,6 @@ export default function Navbar({ userName = 'User', theme, onThemeToggle }: Navb
     <header className={styles.navbar}>
       <div className={styles.inner}>
         <Link href="/" className={styles.brand}>
-          <div className={styles.brandMark}>LT</div>
           <div className={styles.brandText}>
             <span className={styles.brandName}>LifeTracker</span>
             <span className={styles.brandVersion}>{getVersionString()}</span>

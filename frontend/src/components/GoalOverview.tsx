@@ -106,9 +106,7 @@ const GoalOverview: React.FC<GoalOverviewProps> = ({ userId }) => {
             {goals.map((goal) => (
               <option key={goal.id} value={goal.id}>
                 {goal.goalName} ({formatDate(goal.startDate)} - {goal.endDate ? formatDate(goal.endDate) : '进行中'})
-                <span className="ml-2 text-sm">
-                  [{getStatusText(goal.status)}]
-                </span>
+                {` [${getStatusText(goal.status)}]`}
               </option>
             ))}
           </select>

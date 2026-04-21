@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { ArrowRight, BookOpenText, History, LayoutDashboard, PlayCircle, Target, TimerReset } from 'lucide-react';
 import { userAPI, studyAPI, taskAPI } from '@/lib/api';
 import { AGENT_DATA_CHANGED_EVENT, eventAffectsDomains } from '@/lib/agent-events';
@@ -638,13 +639,23 @@ export default function Dashboard() {
       </main>
 
       <footer className={styles.footer}>
-        <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">
-          粤ICP备2025456526号-1
-        </a>
-        <a href="https://beian.mps.gov.cn/#/query/webSearch?code=44030002007784" target="_blank" rel="noreferrer">
-          粤公网安备44030002007784号
-        </a>
-      </footer>
+  <div>
+    <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">
+      粤ICP备2025456526号-1
+    </a>
+  </div>
+  <div>
+    <a
+      href="https://beian.mps.gov.cn/#/query/webSearch?code=44030002007784"
+      target="_blank"
+      rel="noreferrer"
+      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+    >
+      <Image src="/beian-icon.png" alt="备案图标" width={14} height={14} />
+      粤公网安备44030002007784号
+    </a>
+  </div>
+</footer>
 
       <HistoryViewer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 
@@ -671,3 +682,4 @@ function formatStudyTime(minutes: number) {
   const restMinutes = minutes % 60;
   return restMinutes > 0 ? `${hours} 小时 ${restMinutes} 分` : `${hours} 小时`;
 }
+

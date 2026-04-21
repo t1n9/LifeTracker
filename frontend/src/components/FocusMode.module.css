@@ -7,11 +7,15 @@
   justify-content: center;
   padding: 24px;
   background: color-mix(in srgb, var(--bg-primary) 94%, white 6%);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .shell {
   width: min(1320px, 100%);
   min-height: 100%;
+  max-height: 100%;
   border-radius: 36px;
   border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
   background: color-mix(in srgb, var(--bg-secondary) 88%, white 12%);
@@ -75,6 +79,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.8fr) minmax(280px, 0.9fr);
   gap: 24px;
+  min-height: 0;
 }
 
 .hero {
@@ -202,6 +207,7 @@
   display: grid;
   align-content: start;
   gap: 16px;
+  min-height: 0;
 }
 
 .statCard,
@@ -242,15 +248,23 @@
 @media (max-width: 960px) {
   .overlay {
     padding: 12px;
+    align-items: flex-start;
   }
 
   .shell {
     border-radius: 24px;
     padding: 18px;
+    min-height: auto;
+    max-height: none;
   }
 
   .body {
     grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .sidebar {
+    display: none;
   }
 
   .hero {
@@ -259,5 +273,15 @@
 
   .time {
     font-size: clamp(72px, 20vw, 120px);
+  }
+}
+
+@media (max-height: 760px) {
+  .body {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    display: none;
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   fetchAvailableDates, 
   fetchDayData, 
@@ -20,8 +20,10 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [dayData, setDayData] = useState<DayData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(false);
+  const [isSwitchingDate, setIsSwitchingDate] = useState(false);
   const [error, setError] = useState<string>('');
+  const datePillScrollRef = useRef<HTMLDivElement | null>(null);
 
   // 组件打开时获取数据
   useEffect(() => {
@@ -32,7 +34,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
 
   // 初始化历史数据
   const initializeHistoryData = async () => {
-    setLoading(true);
+    setInitialLoading(true);
     setError('');
     try {
       // console.log('🚀 初始化历史数据...');
@@ -46,13 +48,18 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
       console.error('初始化历史数据失败:', error);
       setError('获取历史数据失败，请检查网络连接');
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
   };
 
   // 加载指定日期的数据
-  const loadDateData = async (date: string) => {
-    setLoading(true);
+  const loadDateData = async (date: string, options: { keepContent?: boolean } = {}) => {
+    const keepContent = options.keepContent ?? false;
+    if (keepContent) {
+      setIsSwitchingDate(true);
+    } else {
+      setInitialLoading(true);
+    }
     setError('');
     try {
       const data = await fetchDayData(date);
@@ -60,16 +67,25 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
     } catch (error) {
       console.error('加载数据失败:', error);
       setError('加载数据失败');
-      setDayData(null);
+      if (keepContent) {
+        setError('');
+      } else {
+        setDayData(null);
+      }
     } finally {
-      setLoading(false);
+      if (keepContent) {
+        setIsSwitchingDate(false);
+      } else {
+        setInitialLoading(false);
+      }
     }
   };
 
   // 切换日期
   const handleDateChange = (date: string) => {
+    if (date === selectedDate) return;
     setSelectedDate(date);
-    loadDateData(date);
+    loadDateData(date, { keepContent: true });
   };
 
   // 上一天/下一天导航
@@ -95,8 +111,6 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
     exportDayData(dayData, selectedDate);
   };
 
-  if (!isOpen) return null;
-
   const studyData: NonNullable<DayData['study']> = dayData?.study ?? {
     totalMinutes: 0,
     pomodoroCount: 0
@@ -115,6 +129,52 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
   };
   const customExpenseCategories = expensesData.customCategories ?? {};
   const otherExpenses = Array.isArray(expensesData.other) ? expensesData.other : [];
+  const currentDateIndex = availableDates.indexOf(selectedDate);
+  const canGoPrev = currentDateIndex >= 0 && currentDateIndex < availableDates.length - 1;
+  const canGoNext = currentDateIndex > 0;
+  const visibleRangeStart = Math.max(0, currentDateIndex - 5);
+  const visibleRangeEnd = Math.min(availableDates.length, visibleRangeStart + 11);
+  const visibleDates = availableDates.slice(visibleRangeStart, visibleRangeEnd).reverse();
+
+  const formatDayPill = (dateText: string) => {
+    const parsed = new Date(dateText);
+    if (Number.isNaN(parsed.getTime())) {
+      return { weekday: '', monthDay: dateText };
+    }
+    const weekday = new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(parsed);
+    const monthDay = new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' }).format(parsed);
+    return { weekday, monthDay };
+  };
+  const sectionCardStyle: React.CSSProperties = {
+    padding: '1rem',
+    background: 'color-mix(in srgb, var(--bg-tertiary) 84%, white 16%)',
+    borderRadius: '16px',
+    border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+    boxShadow: '0 10px 22px rgba(15, 23, 42, 0.04)',
+  };
+  const sectionTitleStyle: React.CSSProperties = {
+    fontSize: '0.82rem',
+    fontWeight: 700,
+    marginBottom: '0.8rem',
+    color: 'var(--text-primary)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const container = datePillScrollRef.current;
+    if (!container) return;
+    container.scrollTo({
+      left: container.scrollWidth,
+      behavior: 'auto'
+    });
+  }, [isOpen, visibleDates.length, selectedDate]);
+
+  if (!isOpen) return null;
 
   return (
     <div style={{
@@ -123,7 +183,8 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: 'rgba(15, 23, 42, 0.56)',
+      backdropFilter: 'blur(6px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -131,30 +192,30 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
       padding: '1rem'
     }}>
       <div style={{
-        backgroundColor: 'var(--bg-secondary)',
-        borderRadius: '12px',
+        backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+        borderRadius: '24px',
         width: '100%',
-        maxWidth: '800px',
+        maxWidth: '860px',
         maxHeight: '90vh',
         overflow: 'hidden',
-        boxShadow: 'var(--shadow-lg)',
-        border: '1px solid var(--border-color)',
+        boxShadow: '0 28px 56px rgba(15, 23, 42, 0.22)',
+        border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
         display: 'flex',
         flexDirection: 'column'
       }}>
-        {/* 头部 */}
+        {/* Header */}
         <div style={{
           padding: '1.5rem',
-          borderBottom: '1px solid var(--border-color)',
+          borderBottom: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>📅</span>
-            <h3 style={{ 
-              fontSize: '1.25rem', 
-              fontWeight: 'bold', 
+            <span style={{ fontSize: '1.5rem' }}>📓</span>
+            <h3 style={{
+              fontSize: '1.25rem',
+              fontWeight: 'bold',
               margin: 0,
               color: 'var(--text-primary)'
             }}>
@@ -166,9 +227,9 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
             style={{
               width: '32px',
               height: '32px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
+              borderRadius: '10px',
+              backgroundColor: 'color-mix(in srgb, var(--bg-tertiary) 82%, white 18%)',
+              border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
               color: 'var(--text-primary)',
               cursor: 'pointer',
               display: 'flex',
@@ -177,15 +238,15 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
               fontSize: '1.25rem'
             }}
           >
-            ×
+            X
           </button>
         </div>
 
-        {/* 日期选择器 */}
+        {/* Date selector */}
         <div style={{
           padding: '1rem',
-          borderBottom: '1px solid var(--border-color)',
-          background: 'var(--bg-tertiary)',
+          borderBottom: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+          background: 'color-mix(in srgb, var(--bg-tertiary) 86%, white 14%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -193,21 +254,15 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
         }}>
           <button
             onClick={() => navigateDate('prev')}
-            disabled={availableDates.indexOf(selectedDate) >= availableDates.length - 1}
+            disabled={!canGoPrev}
             style={{
               width: '36px',
               height: '36px',
-              borderRadius: '8px',
-              backgroundColor: availableDates.indexOf(selectedDate) >= availableDates.length - 1
-                ? 'var(--bg-secondary)'
-                : 'var(--accent-primary)',
-              border: '1px solid var(--border-color)',
-              color: availableDates.indexOf(selectedDate) >= availableDates.length - 1
-                ? 'var(--text-muted)'
-                : 'white',
-              cursor: availableDates.indexOf(selectedDate) >= availableDates.length - 1
-                ? 'not-allowed'
-                : 'pointer',
+              borderRadius: '12px',
+              backgroundColor: !canGoPrev ? 'var(--bg-secondary)' : 'var(--accent-primary)',
+              border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+              color: !canGoPrev ? 'var(--text-muted)' : 'white',
+              cursor: !canGoPrev ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -215,59 +270,71 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
               fontWeight: 'bold',
               transition: 'all 0.2s ease'
             }}
-            title="前一天"
+            title="Prev"
           >
-            ‹
+            {'<'}
           </button>
 
-          <div style={{ textAlign: 'center', minWidth: '200px' }}>
-            <select
-              value={selectedDate}
-              onChange={(e) => handleDateChange(e.target.value)}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div
+              ref={datePillScrollRef}
               style={{
-                width: '100%',
-                padding: '0.5rem 0.75rem',
-                border: '1px solid var(--border-color)',
-                borderRadius: '6px',
-                backgroundColor: 'var(--bg-primary)',
-                color: 'var(--text-primary)',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                marginBottom: '0.5rem'
-              }}
-            >
-              {availableDates.map(date => (
-                <option key={date} value={date}>
-                  {date}
-                </option>
-              ))}
-            </select>
-            <div style={{
-              fontSize: '0.75rem',
-              color: 'var(--text-muted)'
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              overflowX: 'auto',
+              paddingBottom: '0.35rem',
+              scrollbarWidth: 'thin'
             }}>
+              {visibleDates.map((date) => {
+                const active = date === selectedDate;
+                const { weekday, monthDay } = formatDayPill(date);
+                return (
+                  <button
+                    key={date}
+                    onClick={() => handleDateChange(date)}
+                    style={{
+                      minWidth: '74px',
+                      border: active
+                        ? '1px solid color-mix(in srgb, var(--accent-primary) 52%, transparent 48%)'
+                        : '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+                      background: active
+                        ? 'color-mix(in srgb, var(--accent-primary) 14%, var(--bg-primary) 86%)'
+                        : 'color-mix(in srgb, var(--bg-primary) 90%, white 10%)',
+                      borderRadius: '12px',
+                      padding: '0.55rem 0.62rem',
+                      color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      display: 'grid',
+                      gap: '0.16rem',
+                      textAlign: 'center',
+                      boxShadow: active ? '0 10px 20px rgba(15, 23, 42, 0.08)' : 'none',
+                      flexShrink: 0
+                    }}
+                    title={date}
+                  >
+                    <span style={{ fontSize: '0.68rem', opacity: 0.82, fontWeight: 600 }}>{weekday}</span>
+                    <span style={{ fontSize: '0.86rem', fontWeight: 700 }}>{monthDay}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
               共 {availableDates.length} 天记录
             </div>
           </div>
 
           <button
             onClick={() => navigateDate('next')}
-            disabled={availableDates.indexOf(selectedDate) <= 0}
+            disabled={!canGoNext}
             style={{
               width: '36px',
               height: '36px',
-              borderRadius: '8px',
-              backgroundColor: availableDates.indexOf(selectedDate) <= 0
-                ? 'var(--bg-secondary)'
-                : 'var(--accent-primary)',
-              border: '1px solid var(--border-color)',
-              color: availableDates.indexOf(selectedDate) <= 0
-                ? 'var(--text-muted)'
-                : 'white',
-              cursor: availableDates.indexOf(selectedDate) <= 0
-                ? 'not-allowed'
-                : 'pointer',
+              borderRadius: '12px',
+              backgroundColor: !canGoNext ? 'var(--bg-secondary)' : 'var(--accent-primary)',
+              border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+              color: !canGoNext ? 'var(--text-muted)' : 'white',
+              cursor: !canGoNext ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -275,9 +342,9 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
               fontWeight: 'bold',
               transition: 'all 0.2s ease'
             }}
-            title="后一天"
+            title="Next"
           >
-            ›
+            {'>'}
           </button>
         </div>
 
@@ -285,9 +352,9 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
         <div style={{
           flex: 1,
           overflow: 'auto',
-          padding: '1.5rem'
+          padding: '1.25rem 1.35rem'
         }}>
-          {loading ? (
+          {initialLoading && !dayData ? (
             <div style={{
               textAlign: 'center',
               padding: '3rem',
@@ -312,9 +379,9 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                 textAlign: 'center',
                 marginBottom: '1.5rem',
                 padding: '1rem',
-                background: 'var(--bg-tertiary)',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)'
+                background: 'color-mix(in srgb, var(--bg-tertiary) 86%, white 14%)',
+                borderRadius: '14px',
+                border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)'
               }}>
                 <h4 style={{
                   fontSize: '1.125rem',
@@ -324,26 +391,22 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                 }}>
                   📅 {formatDate(selectedDate)}
                 </h4>
+                {isSwitchingDate ? (
+                  <p style={{
+                    margin: '0.45rem 0 0',
+                    fontSize: '0.78rem',
+                    color: 'var(--text-muted)'
+                  }}>
+                    更新中...
+                  </p>
+                ) : null}
               </div>
 
               {/* 数据展示内容 */}
               <div style={{ display: 'grid', gap: '1rem' }}>
                 {/* 学习统计 */}
-                <div style={{
-                  padding: '1rem',
-                  background: 'var(--bg-tertiary)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)'
-                }}>
-                  <h5 style={{
-                    fontSize: '0.875rem',
-                    fontWeight: '600',
-                    marginBottom: '0.75rem',
-                    color: 'var(--text-primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}>
+                <div style={sectionCardStyle}>
+                  <h5 style={sectionTitleStyle}>
                     📚 学习统计
                   </h5>
                   <div style={{
@@ -387,21 +450,8 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                 </div>
 
                 {/* 任务统计 */}
-                <div style={{
-                  padding: '1rem',
-                  background: 'var(--bg-tertiary)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)'
-                }}>
-                  <h5 style={{
-                    fontSize: '0.875rem',
-                    fontWeight: '600',
-                    marginBottom: '0.75rem',
-                    color: 'var(--text-primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}>
+                <div style={sectionCardStyle}>
+                  <h5 style={sectionTitleStyle}>
                     ✅ 任务完成情况
                   </h5>
                   {dayData.tasks && dayData.tasks.length > 0 ? (
@@ -451,11 +501,11 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.5rem',
-                            padding: '0.5rem',
+                            padding: '0.55rem 0.6rem',
                             marginBottom: '0.25rem',
-                            backgroundColor: 'var(--bg-secondary)',
-                            borderRadius: '6px',
-                            border: '1px solid var(--border-color)'
+                            backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+                            borderRadius: '10px',
+                            border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)'
                           }}>
                             <span style={{
                               fontSize: '0.875rem',
@@ -500,21 +550,8 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                 </div>
 
                 {/* 运动统计 */}
-                <div style={{
-                  padding: '1rem',
-                  background: 'var(--bg-tertiary)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)'
-                }}>
-                  <h5 style={{
-                    fontSize: '0.875rem',
-                    fontWeight: '600',
-                    marginBottom: '0.75rem',
-                    color: 'var(--text-primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}>
+                <div style={sectionCardStyle}>
+                  <h5 style={sectionTitleStyle}>
                     🏃 运动记录
                   </h5>
                   {exerciseData.exercises.length > 0 ? (
@@ -552,9 +589,10 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                   )}
                   {exerciseData.feeling && (
                     <div style={{
-                      padding: '0.5rem',
-                      backgroundColor: 'var(--bg-secondary)',
-                      borderRadius: '6px',
+                      padding: '0.55rem 0.6rem',
+                      backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+                      borderRadius: '10px',
+                      border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
                       textAlign: 'center'
                     }}>
                       <span style={{
@@ -568,21 +606,8 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                 </div>
 
                 {/* 消费统计 */}
-                <div style={{
-                  padding: '1rem',
-                  background: 'var(--bg-tertiary)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)'
-                }}>
-                  <h5 style={{
-                    fontSize: '0.875rem',
-                    fontWeight: '600',
-                    marginBottom: '0.75rem',
-                    color: 'var(--text-primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}>
+                <div style={sectionCardStyle}>
+                  <h5 style={sectionTitleStyle}>
                     💰 消费记录
                   </h5>
 
@@ -684,11 +709,11 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            padding: '0.25rem 0.5rem',
+                            padding: '0.45rem 0.6rem',
                             marginBottom: '0.25rem',
-                            backgroundColor: 'var(--bg-secondary)',
-                            borderRadius: '4px',
-                            border: '1px solid var(--border-color)'
+                            backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+                            borderRadius: '10px',
+                            border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)'
                           }}>
                             <span style={{
                               fontSize: '0.75rem',
@@ -713,12 +738,7 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
 
                 {/* 复盘记录 */}
                 {(dayData.dayStart || dayData.dayReflection || dayData.wakeUpTime) && (
-                  <div style={{
-                    padding: '1rem',
-                    backgroundColor: 'var(--bg-tertiary)',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)'
-                  }}>
+                  <div style={sectionCardStyle}>
                     <h5 style={{
                       fontSize: '1rem',
                       fontWeight: 'bold',
@@ -742,8 +762,9 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                         </div>
                         <div style={{
                           padding: '0.75rem',
-                          backgroundColor: 'var(--bg-secondary)',
-                          borderRadius: '6px',
+                          backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+                          borderRadius: '10px',
+                          border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
                           color: 'var(--text-primary)',
                           lineHeight: '1.5',
                           display: 'flex',
@@ -767,8 +788,9 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                         </div>
                         <div style={{
                           padding: '0.75rem',
-                          backgroundColor: 'var(--bg-secondary)',
-                          borderRadius: '6px',
+                          backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+                          borderRadius: '10px',
+                          border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
                           color: 'var(--text-primary)',
                           lineHeight: '1.5'
                         }}>
@@ -788,8 +810,9 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
                         </div>
                         <div style={{
                           padding: '0.75rem',
-                          backgroundColor: 'var(--bg-secondary)',
-                          borderRadius: '6px',
+                          backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+                          borderRadius: '10px',
+                          border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
                           color: 'var(--text-primary)',
                           lineHeight: '1.5'
                         }}>
@@ -826,21 +849,42 @@ export default function HistoryViewer({ isOpen, onClose }: HistoryViewerProps) {
         {/* 底部 */}
         <div style={{
           padding: '1rem 1.5rem',
-          borderTop: '1px solid var(--border-color)',
+          borderTop: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.6rem'
         }}>
           <button
             onClick={onClose}
-            className="btn btn-secondary"
+            style={{
+              padding: '0.62rem 1rem',
+              borderRadius: '11px',
+              border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+              background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+              color: 'var(--text-primary)',
+              fontSize: '0.83rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
           >
             关闭
           </button>
           {dayData && (
             <button
               onClick={handleExport}
-              className="btn btn-primary"
+              style={{
+                padding: '0.62rem 1rem',
+                borderRadius: '11px',
+                border: '1px solid transparent',
+                background: 'var(--accent-primary)',
+                color: 'white',
+                fontSize: '0.83rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 12px 24px rgba(15, 23, 42, 0.18)',
+              }}
             >
               📥 导出该日数据
             </button>

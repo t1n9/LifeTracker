@@ -1,17 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowLeft, Moon, Sun } from 'lucide-react';
 import StudyOverview from '@/components/overview/StudyOverview';
 import GoalOverview from '@/components/GoalOverview';
-
 import { userAPI } from '@/lib/api';
-
-// 导入统一的主题样式
 import '@/styles/theme.css';
-
-
 
 export default function OverviewPage() {
   const router = useRouter();
@@ -19,39 +15,31 @@ export default function OverviewPage() {
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'goal' | 'study'>('study');
 
-  // 加载用户信息
   useEffect(() => {
     const loadUser = async () => {
       try {
         const response = await userAPI.getProfile();
         setUser(response.data);
       } catch (error) {
-        console.error('加载用户信息失败:', error);
+        console.error('load profile failed:', error);
       }
     };
-    loadUser();
+    void loadUser();
   }, []);
 
-  // 主题切换处理
   const handleThemeToggle = async () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
-
     try {
-      // 同步到后端
       await userAPI.updateTheme(newTheme);
-      // console.log(`🎨 主题已切换为: ${newTheme}`);
     } catch (error) {
-      console.error('主题更新失败:', error);
-      // 如果失败，回滚主题
+      console.error('save theme failed:', error);
       setTheme(theme);
     }
   };
 
-  // 应用主题到document
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    // 同时为Tailwind深色模式添加class
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -59,100 +47,183 @@ export default function OverviewPage() {
     }
   }, [theme]);
 
-  // 初始化主题（从用户配置加载）
   useEffect(() => {
     if (user?.theme) {
-      const userTheme = user.theme === 'dark' ? 'dark' : 'light';
-      // console.log(`🎨 从用户配置加载主题: ${userTheme}`);
-      setTheme(userTheme);
+      setTheme(user.theme === 'dark' ? 'dark' : 'light');
     }
   }, [user?.theme]);
 
+  const shellCardStyle: React.CSSProperties = {
+    background: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
+    border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+    borderRadius: '18px',
+    boxShadow: '0 18px 36px rgba(15, 23, 42, 0.08)',
+  };
+
   return (
     <div
-      className="overview-container"
       style={{
         minHeight: '100vh',
-        backgroundColor: 'var(--bg-primary)',
-        padding: '2rem',
+        background:
+          'radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--accent-primary) 10%, transparent 90%) 0%, transparent 38%), var(--bg-primary)',
+        padding: '1.25rem 1rem 2rem',
       }}
     >
-
-      {/* 返回主界面按钮 */}
       <button
-        className="back-button"
         onClick={() => router.push('/')}
+        title="Back"
         style={{
           position: 'fixed',
-          top: '1rem',
-          left: '1rem',
+          top: '1.25rem',
+          left: '1.25rem',
           zIndex: 1000,
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '50%',
           width: '48px',
           height: '48px',
+          borderRadius: '50%',
+          border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+          background: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
+          color: 'var(--text-primary)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          boxShadow: 'var(--shadow)',
+          boxShadow: '0 10px 20px rgba(15, 23, 42, 0.12)',
           transition: 'all 0.2s ease',
-          color: 'var(--text-primary)',
         }}
-        title="返回主界面"
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.05)';
-          e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+          e.currentTarget.style.transform = 'translateY(-1px)';
+          e.currentTarget.style.boxShadow = '0 14px 24px rgba(15, 23, 42, 0.16)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          e.currentTarget.style.boxShadow = 'var(--shadow)';
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = '0 10px 20px rgba(15, 23, 42, 0.12)';
         }}
       >
         <ArrowLeft size={20} />
       </button>
 
-      {/* 主题切换按钮 */}
       <button
         onClick={handleThemeToggle}
-        className="theme-toggle"
-        title={`切换到${theme === 'dark' ? '浅色' : '深色'}主题`}
+        title="Theme"
+        style={{
+          position: 'fixed',
+          top: '1.25rem',
+          right: '1.25rem',
+          zIndex: 1000,
+          width: '48px',
+          height: '48px',
+          borderRadius: '50%',
+          border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+          background: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
+          color: 'var(--text-primary)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          boxShadow: '0 10px 20px rgba(15, 23, 42, 0.12)',
+          transition: 'all 0.2s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-1px)';
+          e.currentTarget.style.boxShadow = '0 14px 24px rgba(15, 23, 42, 0.16)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = '0 10px 20px rgba(15, 23, 42, 0.12)';
+        }}
       >
-        {theme === 'dark' ? '🌙' : '☀️'}
+        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
       </button>
 
-      {/* 标签页切换 */}
-      <div className="max-w-6xl mx-auto mb-6">
-        <div className="flex space-x-1 bg-white dark:bg-gray-800 rounded-lg p-1 shadow-sm border border-gray-200 dark:border-gray-700">
+      <div style={{ width: 'min(1180px, 100%)', margin: '4.4rem auto 0' }}>
+        <div
+          style={{
+            ...shellCardStyle,
+            padding: '0.4rem',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            gap: '0.45rem',
+            marginBottom: '1rem',
+          }}
+        >
           <button
             onClick={() => setActiveTab('study')}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'study'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
+            style={{
+              border:
+                activeTab === 'study'
+                  ? '1px solid color-mix(in srgb, var(--accent-primary) 48%, transparent 52%)'
+                  : '1px solid transparent',
+              background:
+                activeTab === 'study'
+                  ? 'color-mix(in srgb, var(--accent-primary) 16%, var(--bg-primary) 84%)'
+                  : 'transparent',
+              color: activeTab === 'study' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              borderRadius: '12px',
+              padding: '0.72rem 1rem',
+              fontSize: '0.9rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
           >
-            学习概况
+            学习概览
           </button>
           <button
             onClick={() => setActiveTab('goal')}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'goal'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
+            style={{
+              border:
+                activeTab === 'goal'
+                  ? '1px solid color-mix(in srgb, var(--accent-primary) 48%, transparent 52%)'
+                  : '1px solid transparent',
+              background:
+                activeTab === 'goal'
+                  ? 'color-mix(in srgb, var(--accent-primary) 16%, var(--bg-primary) 84%)'
+                  : 'transparent',
+              color: activeTab === 'goal' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              borderRadius: '12px',
+              padding: '0.72rem 1rem',
+              fontSize: '0.9rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
           >
-            目标概况
+            目标概览
           </button>
+        </div>
+
+        <div style={{ ...shellCardStyle, padding: '1rem' }}>
+          {activeTab === 'study' && <StudyOverview userId={user?.id} theme={theme} />}
+          {activeTab === 'goal' && <GoalOverview userId={user?.id} />}
         </div>
       </div>
 
-      {/* 内容区域 */}
-      <div className="max-w-6xl mx-auto">
-        {activeTab === 'study' && <StudyOverview userId={user?.id} theme={theme} />}
-        {activeTab === 'goal' && <GoalOverview userId={user?.id} />}
-      </div>
+      <footer
+        style={{
+          marginTop: '1.2rem',
+          textAlign: 'center',
+          color: 'var(--text-muted)',
+          fontSize: '0.82rem',
+          lineHeight: 1.9,
+        }}
+      >
+        <div>
+          <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
+            粤ICP备2025456526号-1
+          </a>
+        </div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+          <Image src="/beian-icon.png" alt="备案图标" width={14} height={14} />
+          <a
+            href="https://beian.mps.gov.cn/#/query/webSearch?code=44030002007784"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: 'inherit' }}
+          >
+            粤公网安备44030002007784号
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }

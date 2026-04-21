@@ -216,6 +216,15 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }
     return streak;
   })();
 
+  const statCardStyle: React.CSSProperties = {
+    background: 'color-mix(in srgb, var(--bg-tertiary) 84%, white 16%)',
+    borderRadius: '16px',
+    border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+    padding: '20px',
+    textAlign: 'center',
+    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.05)',
+  };
+
   if (loading) {
     return (
       <div style={{
@@ -328,13 +337,7 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }
           marginBottom: '32px',
         }}
       >
-        <div style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderRadius: '12px',
-          border: '1px solid var(--border-color)',
-          padding: '20px',
-          textAlign: 'center',
-        }}>
+        <div style={statCardStyle}>
           <div style={{
             display: 'flex',
             justifyContent: 'center',
@@ -358,13 +361,7 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }
           </div>
         </div>
 
-        <div style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderRadius: '12px',
-          border: '1px solid var(--border-color)',
-          padding: '20px',
-          textAlign: 'center',
-        }}>
+        <div style={statCardStyle}>
           <div style={{
             display: 'flex',
             justifyContent: 'center',
@@ -388,13 +385,7 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }
           </div>
         </div>
 
-        <div style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderRadius: '12px',
-          border: '1px solid var(--border-color)',
-          padding: '20px',
-          textAlign: 'center',
-        }}>
+        <div style={statCardStyle}>
           <div style={{
             display: 'flex',
             justifyContent: 'center',
@@ -418,13 +409,7 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }
           </div>
         </div>
 
-        <div style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderRadius: '12px',
-          border: '1px solid var(--border-color)',
-          padding: '20px',
-          textAlign: 'center',
-        }}>
+        <div style={statCardStyle}>
           <div style={{
             display: 'flex',
             justifyContent: 'center',
@@ -468,7 +453,7 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
           gap: '24px',
-          marginBottom: '32px',
+          marginBottom: '0',
         }}
       >
         <div style={{
@@ -500,7 +485,8 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backgroundColor: 'rgba(15, 23, 42, 0.56)',
+            backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -510,12 +496,13 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }
         >
           <div
             style={{
-              backgroundColor: 'var(--bg-primary)',
-              borderRadius: '12px',
+              backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
+              borderRadius: '20px',
               padding: '24px',
               maxWidth: '500px',
               width: '90%',
-              border: '1px solid var(--border-color)',
+              border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+              boxShadow: '0 28px 56px rgba(15, 23, 42, 0.22)',
             }}
             onClick={(e) => e.stopPropagation()}
           >

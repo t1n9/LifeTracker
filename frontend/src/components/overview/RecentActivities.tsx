@@ -80,7 +80,16 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities, theme =
       borderRadius: '12px',
       padding: '0', // 移除内边距，使用父容器的内边距
     }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          maxHeight: '360px',
+          overflowY: activities.length > 0 ? 'auto' : 'visible',
+          paddingRight: activities.length > 0 ? '4px' : '0',
+        }}
+      >
         {activities.length === 0 ? (
           <div style={{
             textAlign: 'center',

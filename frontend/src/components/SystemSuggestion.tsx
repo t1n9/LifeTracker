@@ -69,11 +69,11 @@ export default function SystemSuggestion({ onClose }: SystemSuggestionProps) {
           width: '50px',
           height: '50px',
           borderRadius: '50%',
-          backgroundColor: 'var(--primary-color)',
-          color: 'white',
-          border: 'none',
+          backgroundColor: 'transparent',
+          color: 'var(--text-secondary)',
+          border: '1px solid color-mix(in srgb, var(--border-color) 80%, transparent 20%)',
           cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          boxShadow: '0 8px 18px rgba(15, 23, 42, 0.12)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -82,12 +82,16 @@ export default function SystemSuggestion({ onClose }: SystemSuggestionProps) {
         }}
         title="系统建议"
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.1)';
-          e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.2)';
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--bg-tertiary) 76%, white 24%)';
+          e.currentTarget.style.boxShadow = '0 14px 24px rgba(15, 23, 42, 0.18)';
+          e.currentTarget.style.color = 'var(--text-primary)';
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'scale(1)';
-          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.boxShadow = '0 8px 18px rgba(15, 23, 42, 0.12)';
+          e.currentTarget.style.color = 'var(--text-secondary)';
         }}
       >
         <Lightbulb size={20} />
@@ -101,21 +105,23 @@ export default function SystemSuggestion({ onClose }: SystemSuggestionProps) {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'rgba(15, 23, 42, 0.56)',
+          backdropFilter: 'blur(6px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
         }}>
           <div style={{
-            backgroundColor: 'var(--bg-primary)',
-            borderRadius: '12px',
-            padding: '2rem',
-            width: '90%',
+            backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
+            borderRadius: '24px',
+            border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+            padding: '1.5rem',
+            width: '92%',
             maxWidth: '500px',
-            maxHeight: '80vh',
+            maxHeight: '88vh',
             overflow: 'auto',
-            boxShadow: 'var(--shadow-lg)',
+            boxShadow: '0 28px 56px rgba(15, 23, 42, 0.22)',
           }}>
             {success ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>
@@ -173,8 +179,9 @@ export default function SystemSuggestion({ onClose }: SystemSuggestionProps) {
                       border: 'none',
                       color: 'var(--text-secondary)',
                       cursor: 'pointer',
-                      padding: '0.25rem',
-                      borderRadius: '4px',
+                      padding: '0.45rem',
+                      borderRadius: '10px',
+                      backgroundColor: 'color-mix(in srgb, var(--bg-tertiary) 78%, white 22%)',
                     }}
                   >
                     <X size={20} />

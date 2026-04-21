@@ -187,21 +187,23 @@ export default function DayReflection({ mode, onClose, onSave }: DayReflectionPr
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'rgba(15, 23, 42, 0.56)',
+          backdropFilter: 'blur(6px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
         }}>
           <div style={{
-            backgroundColor: 'var(--bg-primary)',
-            borderRadius: '12px',
-            padding: '2rem',
-            width: '90%',
+            backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
+            borderRadius: '24px',
+            border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+            padding: '1.5rem',
+            width: '92%',
             maxWidth: '500px',
-            maxHeight: '80vh',
+            maxHeight: '88vh',
             overflow: 'auto',
-            boxShadow: 'var(--shadow-lg)',
+            boxShadow: '0 28px 56px rgba(15, 23, 42, 0.22)',
           }}>
             <div style={{
               display: 'flex',
@@ -222,8 +224,9 @@ export default function DayReflection({ mode, onClose, onSave }: DayReflectionPr
                   border: 'none',
                   color: 'var(--text-secondary)',
                   cursor: 'pointer',
-                  padding: '0.25rem',
-                  borderRadius: '4px',
+                  padding: '0.45rem',
+                  borderRadius: '10px',
+                  backgroundColor: 'color-mix(in srgb, var(--bg-tertiary) 78%, white 22%)',
                 }}
               >
                 <X size={20} />
@@ -344,21 +347,23 @@ export default function DayReflection({ mode, onClose, onSave }: DayReflectionPr
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'rgba(15, 23, 42, 0.56)',
+          backdropFilter: 'blur(6px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
         }}>
           <div style={{
-            backgroundColor: 'var(--bg-primary)',
-            borderRadius: '12px',
-            padding: '2rem',
-            width: '90%',
+            backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
+            borderRadius: '24px',
+            border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+            padding: '1.5rem',
+            width: '92%',
             maxWidth: '600px',
-            maxHeight: '80vh',
+            maxHeight: '88vh',
             overflow: 'auto',
-            boxShadow: 'var(--shadow-lg)',
+            boxShadow: '0 28px 56px rgba(15, 23, 42, 0.22)',
           }}>
             <div style={{
               display: 'flex',
@@ -379,8 +384,9 @@ export default function DayReflection({ mode, onClose, onSave }: DayReflectionPr
                   border: 'none',
                   color: 'var(--text-secondary)',
                   cursor: 'pointer',
-                  padding: '0.25rem',
-                  borderRadius: '4px',
+                  padding: '0.45rem',
+                  borderRadius: '10px',
+                  backgroundColor: 'color-mix(in srgb, var(--bg-tertiary) 78%, white 22%)',
                 }}
               >
                 <X size={20} />

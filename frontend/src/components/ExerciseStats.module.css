@@ -159,18 +159,19 @@
 }
 
 .feelingCard {
-  margin-top: 14px;
-  border-radius: 16px;
-  padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent 28%);
-  background: color-mix(in srgb, var(--bg-tertiary) 80%, white 20%);
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
 }
 
 .feelingTitle {
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   margin-bottom: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.86;
 }
 
 .feelingGrid {
@@ -180,11 +181,11 @@
 }
 
 .feelingButton {
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
-  background: color-mix(in srgb, var(--bg-secondary) 90%, white 10%);
+  background: color-mix(in srgb, var(--bg-primary) 88%, white 12%);
   color: var(--text-primary);
-  padding: 9px 10px;
+  padding: 8px 10px;
   font-size: 13px;
   font-weight: 600;
   display: inline-flex;
@@ -192,12 +193,13 @@
   justify-content: center;
   gap: 6px;
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .feelingButton:hover {
   transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--border-color) 72%);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 
 .empty {
@@ -206,4 +208,3 @@
   padding: 22px 10px;
   font-size: 13px;
 }
-

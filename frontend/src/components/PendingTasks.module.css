@@ -132,54 +132,128 @@
 
 .list {
   margin-bottom: 18px;
+  position: relative;
+  overflow: visible;
 }
 
 .item {
   cursor: pointer;
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 15px 16px;
+  gap: 10px;
+  padding: 14px 15px;
   margin-bottom: 10px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent 28%);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--bg-primary) 78%, white 22%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-secondary) 92%, white 8%);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .item:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--border-color) 72%);
-  background: color-mix(in srgb, var(--bg-primary) 72%, white 28%);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+  z-index: 30;
+  border-color: color-mix(in srgb, var(--accent-primary) 20%, var(--border-color) 80%);
+  background: color-mix(in srgb, var(--bg-secondary) 88%, white 12%);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.045);
 }
 
 .itemBound {
-  border-color: color-mix(in srgb, var(--accent-primary) 34%, var(--border-color) 66%);
-  background: color-mix(in srgb, var(--accent-primary) 8%, var(--bg-primary) 92%);
+  border-color: color-mix(in srgb, var(--accent-primary) 26%, var(--border-color) 74%);
+  background: color-mix(in srgb, var(--accent-primary) 5%, var(--bg-secondary) 95%);
 }
 
 .dragging {
-  box-shadow: 0 22px 38px rgba(15, 23, 42, 0.14);
+  z-index: 40;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.12);
+}
+
+.list :global(.dnd-context) {
+  overflow: visible !important;
 }
 
 .dragHandle {
   cursor: grab;
-  padding: 8px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
+  justify-content: center;
   color: var(--text-muted);
-  opacity: 0.7;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--bg-tertiary) 72%, white 28%);
+  opacity: 0.5;
+  border-radius: 10px;
+  background: transparent;
+  transition: color 0.2s ease, opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.item:hover .dragHandle {
+  opacity: 0.85;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-tertiary) 70%, transparent 30%);
 }
 
 .checkbox {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent-primary);
+  width: 19px;
+  height: 19px;
+  margin: 0;
   cursor: pointer;
   flex-shrink: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1.5px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-primary) 90%, white 10%);
+  display: inline-grid;
+  place-content: center;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.16s ease;
+}
+
+.checkbox:hover {
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--border-color) 70%);
+  background: color-mix(in srgb, var(--bg-secondary) 92%, white 8%);
+}
+
+.checkbox:active {
+  transform: scale(0.96);
+}
+
+.checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 14%, transparent 86%);
+}
+
+.checkbox::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  border-right: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  transform: rotate(45deg) scale(0.65);
+  transform-origin: center;
+  opacity: 0;
+  transition: opacity 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+}
+
+.checkbox:checked {
+  border-color: color-mix(in srgb, var(--accent-primary) 72%, var(--border-color) 28%);
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--accent-primary) 86%, #0ea5e9 14%),
+    color-mix(in srgb, var(--accent-primary) 96%, black 4%)
+  );
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--accent-primary) 26%, transparent 74%);
+}
+
+.checkbox:checked::after {
+  border-right-color: #fff;
+  border-bottom-color: #fff;
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
 }
 
 .content {
@@ -194,10 +268,29 @@
 }
 
 .taskTitle {
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text-primary);
   font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+.editInput {
+  flex: 1;
+  min-width: 120px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%);
+  background: color-mix(in srgb, var(--bg-secondary) 90%, white 10%);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: 14px;
   line-height: 1.4;
+  outline: none;
+}
+
+.editInput:focus {
+  border-color: color-mix(in srgb, var(--accent-primary) 32%, var(--border-color) 68%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 12%, transparent 88%);
 }
 
 .taskTitleCompleted {
@@ -216,33 +309,61 @@
 .actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.item:hover .actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .actionButton {
-  width: 34px;
+  min-width: 34px;
   height: 34px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%);
-  background: color-mix(in srgb, var(--bg-secondary) 88%, white 12%);
-  color: var(--text-secondary);
+  padding: 0 10px;
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent 18%);
+  background: color-mix(in srgb, var(--bg-primary) 88%, white 12%);
+  color: var(--text-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .actionButton:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--border-color) 72%);
+  border-color: color-mix(in srgb, var(--accent-primary) 22%, var(--border-color) 78%);
   color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-secondary) 92%, white 8%);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
 }
 
 .actionButtonDanger:hover {
-  border-color: color-mix(in srgb, var(--error-color) 30%, var(--border-color) 70%);
+  border-color: color-mix(in srgb, var(--error-color) 24%, var(--border-color) 76%);
   color: var(--error-color);
+  background: color-mix(in srgb, var(--error-color) 7%, var(--bg-primary) 93%);
+}
+
+.actionButtonStart {
+  color: color-mix(in srgb, var(--accent-primary) 72%, var(--text-secondary) 28%);
+  background: color-mix(in srgb, var(--accent-primary) 8%, var(--bg-primary) 92%);
+  border-color: color-mix(in srgb, var(--accent-primary) 14%, var(--border-color) 86%);
+}
+
+.actionButtonStart:hover {
+  color: var(--accent-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--border-color) 72%);
+  background: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-primary) 88%);
+}
+
+.actionButtonEdit {
+  color: var(--text-secondary);
 }
 
 .badge {
