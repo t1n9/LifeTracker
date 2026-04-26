@@ -116,9 +116,10 @@ export class AgentService {
   async getMessages(userId: string, cursor?: string, limit = 30) {
     const where: any = {
       userId,
-      role: {
-        in: ['user', 'assistant', 'confirm'],
-      },
+      OR: [
+        { role: { in: ['user', 'assistant'] } },
+        { role: 'confirm', confirmed: null },
+      ],
     };
     if (cursor) {
       where.createdAt = { lt: (await this.prisma.agentMessage.findUnique({ where: { id: cursor } }))?.createdAt };
@@ -141,6 +142,18 @@ export class AgentService {
    * 主聊天接口
    */
   async chat(userId: string, message: string, confirmMode: boolean) {
+    // 新一轮对话开始时，自动作废上一轮未处理的确认卡片
+    await this.prisma.agentMessage.updateMany({
+      where: {
+        userId,
+        role: 'confirm',
+        confirmed: null,
+      },
+      data: {
+        confirmed: false,
+      },
+    });
+
     // 保存用户消息
     await this.prisma.agentMessage.create({
       data: { userId, role: 'user', content: message },
@@ -271,8 +284,9 @@ export class AgentService {
     // 确认模式：为每个写操作创建独立的确认消息
     if (confirmMode && pendingWriteOps.length > 0) {
       const normalizedPendingWriteOps = this.normalizePendingWriteOps(messageHints, pendingWriteOps);
+      const finalPendingWriteOps = this.sanitizePendingWriteOps(messageHints, normalizedPendingWriteOps);
       const confirms: Array<{ id: string; summary: string; action: any }> = [];
-      for (const op of normalizedPendingWriteOps) {
+      for (const op of finalPendingWriteOps) {
         const label = TOOL_LABELS[op.name] || op.name;
         const detail = await this.formatToolArgs(userId, op.name, op.args);
         const summary = `${label}：${detail}`;
@@ -288,7 +302,11 @@ export class AgentService {
         });
         confirms.push({ id: saved.id, summary, action: op });
       }
-      return { type: 'confirms', confirms };
+      return {
+        type: 'confirms',
+        confirms,
+        previewReply: await this.buildPendingWritePreview(userId, finalPendingWriteOps),
+      };
     }
 
     if (this.shouldSuppressAutoReply(confirmMode, toolResults)) {
@@ -446,6 +464,153 @@ export class AgentService {
     }
 
     return pendingWriteOps;
+  }
+
+  private sanitizePendingWriteOps(
+    hints: AgentMessageHints,
+    pendingWriteOps: Array<{ id: string; name: string; args: any }>,
+  ) {
+    if (!Array.isArray(pendingWriteOps) || pendingWriteOps.length === 0) {
+      return [];
+    }
+
+    const titlesInBatchCreate = new Set<string>();
+    for (const op of pendingWriteOps) {
+      if (op.name !== 'create_tasks' || !Array.isArray(op.args?.titles)) {
+        continue;
+      }
+      for (const title of op.args.titles) {
+        if (typeof title === 'string' && title.trim()) {
+          titlesInBatchCreate.add(toTaskMatchKey(title));
+        }
+      }
+    }
+
+    const filtered = pendingWriteOps.filter((op) => {
+      if (op.name === 'create_task') {
+        const titleKey = toTaskMatchKey(op.args?.title || '');
+        if (titleKey && titlesInBatchCreate.has(titleKey)) {
+          return false;
+        }
+      }
+
+      if (op.name === 'complete_task') {
+        const taskId = typeof op.args?.taskId === 'string' ? op.args.taskId.trim() : '';
+        const taskTitle = typeof op.args?.taskTitle === 'string' ? op.args.taskTitle.trim() : '';
+        const taskName = typeof op.args?.taskName === 'string' ? op.args.taskName.trim() : '';
+        if (!taskId && !taskTitle && !taskName) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    const seen = new Set<string>();
+    const deduped: Array<{ id: string; name: string; args: any }> = [];
+    for (const op of filtered) {
+      const key = `${op.name}:${JSON.stringify(op.args || {})}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      deduped.push(op);
+    }
+
+    const hasTool = (toolName: string) => deduped.some((op) => op.name === toolName);
+
+    // 补齐“完成任务”意图，避免模型漏掉时整轮只创建不完成
+    if (
+      hints.completionTaskTitle
+      && !hasTool('complete_task')
+      && !hasTool('create_and_complete_task')
+    ) {
+      deduped.push({
+        id: `fallback-complete-${Date.now()}`,
+        name: 'complete_task',
+        args: { taskTitle: hints.completionTaskTitle },
+      });
+    }
+
+    // 补齐“开启番茄钟”意图，避免模型漏掉时本轮没有番茄卡片
+    if (hints.pomodoro && !hasTool('start_pomodoro')) {
+      const pomodoroArgs: Record<string, any> = {
+        duration: hints.pomodoro.durationMinutes || 25,
+      };
+
+      if (hints.pomodoro.taskTitle) {
+        pomodoroArgs.taskTitle = hints.pomodoro.taskTitle;
+        pomodoroArgs.createTaskIfMissing = true;
+      }
+
+      deduped.push({
+        id: `fallback-pomodoro-${Date.now()}`,
+        name: 'start_pomodoro',
+        args: pomodoroArgs,
+      });
+    }
+
+    const priority: Record<string, number> = {
+      start_day: 10,
+      create_tasks: 20,
+      create_task: 30,
+      create_and_complete_task: 40,
+      complete_task: 50,
+      start_pomodoro: 60,
+      record_exercise: 70,
+      set_exercise_feeling: 80,
+      record_meal_expense: 90,
+      record_other_expense: 100,
+      update_important_info: 110,
+      update_day_reflection: 120,
+    };
+
+    return deduped.sort((left, right) => (priority[left.name] ?? 999) - (priority[right.name] ?? 999));
+  }
+
+  private async buildPendingWritePreview(userId: string, pendingWriteOps: Array<{ id: string; name: string; args: any }>) {
+    if (!Array.isArray(pendingWriteOps) || pendingWriteOps.length === 0) {
+      return '';
+    }
+
+    const descriptions = await Promise.all(pendingWriteOps.map(async (op) => {
+      const detail = await this.formatToolArgs(userId, op.name, op.args);
+      switch (op.name) {
+        case 'create_task':
+        case 'create_tasks':
+          return `创建 ${detail}`;
+        case 'complete_task':
+          return `完成 ${detail}`;
+        case 'start_pomodoro':
+          return `开启 ${detail} 的番茄钟`;
+        case 'record_exercise':
+          return `记录运动 ${detail}`;
+        case 'set_exercise_feeling':
+          return `记录运动感受为${detail}`;
+        case 'record_meal_expense':
+        case 'record_other_expense':
+          return `记录支出 ${detail}`;
+        case 'update_important_info':
+          return `更新重要信息 ${detail}`;
+        case 'update_day_reflection':
+          return `更新今日复盘 ${detail}`;
+        default:
+          return `${TOOL_LABELS[op.name] || op.name} ${detail}`;
+      }
+    }));
+
+    return `我理解你的这轮操作是：${this.joinChineseList(descriptions)}。请在上方任务区确认要执行的项目。`;
+  }
+
+  private joinChineseList(items: string[]) {
+    const filtered = items.map((item) => item.trim()).filter(Boolean);
+    if (filtered.length <= 1) {
+      return filtered[0] || '';
+    }
+    if (filtered.length === 2) {
+      return `${filtered[0]}，并${filtered[1]}`;
+    }
+    return `${filtered.slice(0, -1).join('，')}，并${filtered[filtered.length - 1]}`;
   }
 
   private async executePendingAction(
@@ -773,11 +938,12 @@ export class AgentService {
         },
       });
 
-      return {
-        type: 'confirms',
-        confirms: [{ id: saved.id, summary, action }],
-      };
-    }
+        return {
+          type: 'confirms',
+          confirms: [{ id: saved.id, summary, action }],
+          previewReply: '我已整理好本轮待执行操作，请在上方任务区确认。',
+        };
+      }
 
     let result: any;
     try {
@@ -857,11 +1023,12 @@ export class AgentService {
         },
       });
 
-      return {
-        type: 'confirms',
-        confirms: [{ id: saved.id, summary, action }],
-      };
-    }
+        return {
+          type: 'confirms',
+          confirms: [{ id: saved.id, summary, action }],
+          previewReply: '我已整理好本轮待执行操作，请在上方任务区确认。',
+        };
+      }
 
     const nextToolResults = [...toolResults];
     let taskId = createdTask?.id;
@@ -1129,10 +1296,19 @@ export class AgentService {
       case 'complete_task': {
         const taskTitle =
           result?.title ||
+          (typeof args.taskTitle === 'string' && args.taskTitle
+            ? args.taskTitle
+            : undefined) ||
+          (typeof args.taskName === 'string' && args.taskName
+            ? args.taskName
+            : undefined) ||
           (typeof args.taskId === 'string' && args.taskId
             ? (await this.agentToolsService.getTaskById(userId, args.taskId))?.title
             : undefined);
-        return taskTitle ? `"${taskTitle}"` : `任务ID ${args.taskId}`;
+        if (taskTitle) {
+          return `"${taskTitle}"`;
+        }
+        return typeof args.taskId === 'string' && args.taskId ? `任务ID ${args.taskId}` : '未指定任务';
       }
       case 'start_pomodoro':
         return `${args.duration || 25}分钟${await this.formatTaskReference(userId, args, result)}${args.createTaskIfMissing ? ' (不存在则自动创建)' : ''}`;

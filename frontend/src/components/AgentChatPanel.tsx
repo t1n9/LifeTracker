@@ -25,6 +25,12 @@ interface AgentMessage {
   createdAt: string;
 }
 
+interface ConfirmCard {
+  id: string;
+  content: string;
+  pendingAction?: any;
+}
+
 interface CaptureAnalysis {
   category: 'idea' | 'reflection' | 'method' | 'question' | 'quote' | 'mixed';
   summary: string;
@@ -80,6 +86,16 @@ const TOOL_LABELS: Record<string, string> = {
   update_day_reflection: '今日复盘',
 };
 
+const READ_ONLY_TOOLS = new Set([
+  'get_today_tasks',
+  'get_today_summary',
+  'get_tasks',
+  'get_pomodoro_status',
+  'get_today_expenses',
+  'get_exercise_types',
+  'get_today_exercise',
+]);
+
 const CAPTURE_CATEGORY_LABELS: Record<CaptureAnalysis['category'], string> = {
   idea: '观点',
   reflection: '感悟',
@@ -96,6 +112,7 @@ export default function AgentChatPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>('chat');
   const [messages, setMessages] = useState<AgentMessage[]>([]);
+  const [activeConfirmCards, setActiveConfirmCards] = useState<ConfirmCard[]>([]);
   const [captures, setCaptures] = useState<CaptureItem[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -117,6 +134,23 @@ export default function AgentChatPanel() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const shouldShowChatMessage = useCallback((message: AgentMessage) => {
+    if (message.role === 'confirm') return false;
+    if (message.role !== 'assistant') return true;
+    if (!Array.isArray(message.toolCalls) || message.toolCalls.length === 0) return true;
+
+    return !message.toolCalls.some((item: any) => item?.tool && !READ_ONLY_TOOLS.has(item.tool));
+  }, []);
+
+  const resizeInput = useCallback((textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    const maxHeight = 220;
+    const nextHeight = Math.min(textarea.scrollHeight, maxHeight);
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  }, []);
+
   useEffect(() => {
     const savedConfirmMode = localStorage.getItem(CONFIRM_MODE_KEY);
     if (savedConfirmMode !== null) {
@@ -133,7 +167,7 @@ export default function AgentChatPanel() {
     setLoadingHistory(true);
     try {
       const { data } = await api.get('/agent/messages', { params: { cursor, limit: 30 } });
-      const newMessages = data.messages || [];
+      const newMessages = (data.messages || []).filter(shouldShowChatMessage);
       setMessages((prev) => (cursor ? [...newMessages, ...prev] : newMessages));
       setHasMore(data.hasMore);
       if (!cursor) {
@@ -144,7 +178,7 @@ export default function AgentChatPanel() {
     } finally {
       setLoadingHistory(false);
     }
-  }, [loadingHistory]);
+  }, [loadingHistory, shouldShowChatMessage]);
 
   const loadCaptures = useCallback(async () => {
     if (loadingCaptures) return;
@@ -180,6 +214,13 @@ export default function AgentChatPanel() {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, panelMode]);
+
+  useEffect(() => {
+    if (!input && inputRef.current) {
+      inputRef.current.style.height = '38px';
+      inputRef.current.style.overflowY = 'hidden';
+    }
+  }, [input]);
 
   const getCaptureSourceType = useCallback(
     (capture: CaptureItem) => capture.sourceType || capture.analysis?.sourceType || null,
@@ -274,6 +315,9 @@ export default function AgentChatPanel() {
   };
 
   const sendChatMessage = async (text: string) => {
+    setActiveConfirmCards([]);
+    setMessages((prev) => prev.filter((message) => message.role !== 'confirm'));
+
     const tempUserMsg: AgentMessage = {
       id: `temp-${Date.now()}`,
       role: 'user',
@@ -283,41 +327,185 @@ export default function AgentChatPanel() {
     setMessages((prev) => [...prev, tempUserMsg]);
     setInput('');
     setLoading(true);
+    const thinkingId = `thinking-${Date.now()}`;
+    const removeThinkingMessage = () => {
+      setMessages((prev) => prev.filter((message) => message.id !== thinkingId));
+    };
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: thinkingId,
+        role: 'assistant',
+        content: '正在思考...',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
 
     try {
-      const { data } = await api.post('/agent/chat', { message: text, confirmMode });
-      if (data.type === 'confirms') {
-        const confirmMsgs: AgentMessage[] = (data.confirms as any[]).map((item) => ({
+      const baseURL = String(api.defaults.baseURL || '');
+      const streamUrl = `${baseURL.replace(/\/$/, '')}/agent/chat/stream`;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const response = await fetch(streamUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ message: text, confirmMode }),
+      });
+
+      if (!response.ok || !response.body) {
+        let fallbackError = `请求失败（${response.status}）`;
+        try {
+          const errorData = await response.json();
+          fallbackError = errorData?.message || fallbackError;
+        } catch {}
+        throw new Error(fallbackError);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let streamBuffer = '';
+      let currentAssistantId: string | null = null;
+
+      const ensureAssistantMessage = (messageId: string) => {
+        setMessages((prev) => {
+          if (prev.some((message) => message.id === messageId)) {
+            return prev;
+          }
+          return [
+            ...prev,
+            {
+              id: messageId,
+              role: 'assistant',
+              content: '',
+              createdAt: new Date().toISOString(),
+            },
+          ];
+        });
+      };
+
+      const appendAssistantChunk = (messageId: string, chunk: string) => {
+        setMessages((prev) => prev.map((message) => (
+          message.id === messageId ? { ...message, content: `${message.content}${chunk}` } : message
+        )));
+      };
+
+      const applyAssistantToolCalls = (messageId: string, toolCalls: any[]) => {
+        setMessages((prev) => prev.map((message) => (
+          message.id === messageId ? { ...message, toolCalls } : message
+        )));
+      };
+
+      const appendConfirmMessages = (confirms: any[]) => {
+        const confirmMsgs: ConfirmCard[] = confirms.map((item: any) => ({
           id: item.id,
-          role: 'confirm',
           content: item.summary,
           pendingAction: { action: item.action },
-          confirmed: null,
-          createdAt: new Date().toISOString(),
         }));
-        setMessages((prev) => [...prev, ...confirmMsgs]);
-      } else if (data.type === 'confirm') {
-        setMessages((prev) => [...prev, {
-          id: data.id,
-          role: 'confirm',
-          content: data.summary,
-          pendingAction: { actions: data.actions },
-          confirmed: null,
-          createdAt: new Date().toISOString(),
-        }]);
-      } else if (data.type === 'auto_write_applied') {
-        dispatchAgentDataChanged(getAgentChangedDomains(data.toolResults || []));
-      } else {
-        setMessages((prev) => [...prev, {
-          id: data.id,
-          role: 'assistant',
-          content: data.reply,
-          toolCalls: data.toolResults,
-          createdAt: new Date().toISOString(),
-        }]);
-        dispatchAgentDataChanged(getAgentChangedDomains(data.toolResults || []));
+        if (confirmMsgs.length > 0) {
+          setActiveConfirmCards(confirmMsgs);
+        }
+      };
+
+      const handleStreamEvent = (event: any) => {
+        switch (event?.type) {
+          case 'progress': {
+            setMessages((prev) => prev.map((message) => (
+              message.id === thinkingId
+                ? { ...message, content: String(event.text || '正在思考...') }
+                : message
+            )));
+            break;
+          }
+          case 'progress_done': {
+            removeThinkingMessage();
+            break;
+          }
+          case 'reply_start': {
+            removeThinkingMessage();
+            const messageId = String(event.id || `asst-${Date.now()}`);
+            currentAssistantId = messageId;
+            ensureAssistantMessage(messageId);
+            break;
+          }
+          case 'reply_delta': {
+            const messageId = String(event.id || currentAssistantId || `asst-${Date.now()}`);
+            if (!currentAssistantId) {
+              currentAssistantId = messageId;
+              ensureAssistantMessage(messageId);
+            }
+            appendAssistantChunk(messageId, String(event.chunk || ''));
+            break;
+          }
+          case 'reply_done': {
+            const messageId = String(event.id || currentAssistantId || `asst-${Date.now()}`);
+            const toolResults = Array.isArray(event.toolResults) ? event.toolResults : [];
+            applyAssistantToolCalls(messageId, toolResults);
+            dispatchAgentDataChanged(getAgentChangedDomains(toolResults));
+            break;
+          }
+          case 'confirms': {
+            removeThinkingMessage();
+            appendConfirmMessages(Array.isArray(event.confirms) ? event.confirms : []);
+            break;
+          }
+          case 'auto_write_applied': {
+            removeThinkingMessage();
+            dispatchAgentDataChanged(getAgentChangedDomains(Array.isArray(event.toolResults) ? event.toolResults : []));
+            break;
+          }
+          case 'error': {
+            removeThinkingMessage();
+            setMessages((prev) => [...prev, {
+              id: `err-${Date.now()}`,
+              role: 'assistant',
+              content: `出错了：${String(event.message || '未知错误')}`,
+              createdAt: new Date().toISOString(),
+            }]);
+            break;
+          }
+          case 'end': {
+            removeThinkingMessage();
+            break;
+          }
+          default:
+            break;
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        streamBuffer += decoder.decode(value, { stream: true });
+        const lines = streamBuffer.split('\n');
+        streamBuffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            continue;
+          }
+          try {
+            handleStreamEvent(JSON.parse(trimmed));
+          } catch (parseError) {
+            console.error('解析流事件失败:', parseError, trimmed);
+          }
+        }
+      }
+
+      const tail = streamBuffer.trim();
+      if (tail) {
+        try {
+          handleStreamEvent(JSON.parse(tail));
+        } catch (parseError) {
+          console.error('解析收尾流事件失败:', parseError, tail);
+        }
       }
     } catch (err: any) {
+      removeThinkingMessage();
       setMessages((prev) => [...prev, {
         id: `err-${Date.now()}`,
         role: 'assistant',
@@ -367,11 +555,10 @@ export default function AgentChatPanel() {
   };
 
   const handleConfirm = async (messageId: string) => {
-    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, confirmed: true } : m)));
+    setActiveConfirmCards((prev) => prev.filter((card) => card.id !== messageId));
     try {
       const { data } = await api.post('/agent/confirm', { messageId });
       if (data.type === 'confirm_error' || data.error) {
-        setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, confirmed: null } : m)));
         setMessages((prev) => [...prev, {
           id: `err-${Date.now()}`,
           role: 'assistant',
@@ -381,12 +568,10 @@ export default function AgentChatPanel() {
         return;
       }
       if (data.type === 'confirm_updated') {
-        setMessages((prev) => prev.map((m) => (
-          m.id === messageId
-            ? { ...m, confirmed: data.confirmed, content: data.summary || m.content, toolCalls: data.toolResults || m.toolCalls }
-            : m
-        )));
-        dispatchAgentDataChanged(getAgentChangedDomains(data.toolResults || []));
+        if (data.confirmed) {
+          dispatchAgentDataChanged(getAgentChangedDomains(data.toolResults || []));
+          return;
+        }
         return;
       }
       setMessages((prev) => [...prev, {
@@ -398,7 +583,6 @@ export default function AgentChatPanel() {
       }]);
       dispatchAgentDataChanged(getAgentChangedDomains(data.toolResults || []));
     } catch (err: any) {
-      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, confirmed: null } : m)));
       setMessages((prev) => [...prev, {
         id: `err-${Date.now()}`,
         role: 'assistant',
@@ -409,13 +593,10 @@ export default function AgentChatPanel() {
   };
 
   const handleReject = async (messageId: string) => {
-    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, confirmed: false } : m)));
+    setActiveConfirmCards((prev) => prev.filter((card) => card.id !== messageId));
     try {
       const { data } = await api.post('/agent/reject', { messageId });
       if (data.type === 'confirm_updated') {
-        setMessages((prev) => prev.map((m) => (
-          m.id === messageId ? { ...m, confirmed: data.confirmed, content: data.summary || m.content } : m
-        )));
         return;
       }
       setMessages((prev) => [...prev, {
@@ -511,6 +692,7 @@ export default function AgentChatPanel() {
     try {
       await api.delete('/agent/history');
       setMessages([]);
+      setActiveConfirmCards([]);
     } catch (err) {
       console.error('清空对话失败:', err);
     }
@@ -522,8 +704,11 @@ export default function AgentChatPanel() {
     return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
-  const renderChat = () => (
-    <div ref={messagesContainerRef} style={styles.body} onScroll={handleScroll}>
+  const renderChat = () => {
+    const hasThinkingMessage = messages.some((message) => message.id.startsWith('thinking-'));
+
+    return (
+      <div ref={messagesContainerRef} style={styles.body} onScroll={handleScroll}>
       {loadingHistory && messages.length > 0 && <div style={styles.hint}>加载中...</div>}
       {messages.length === 0 && !loadingHistory && (
         <div style={styles.emptyState}>
@@ -536,26 +721,7 @@ export default function AgentChatPanel() {
         if (msg.role === 'user') {
           return <div key={msg.id} style={{ ...styles.row, justifyContent: 'flex-end' }}><div style={styles.userBubble}>{msg.content}</div></div>;
         }
-        if (msg.role === 'confirm') {
-          const pending = msg.confirmed === null || msg.confirmed === undefined;
-          return (
-            <div key={msg.id} style={styles.row}>
-              <div style={styles.confirmBubble}>
-                <div style={styles.messageText}>{msg.content}</div>
-                {pending ? (
-                  <div style={styles.confirmActions}>
-                    <button onClick={() => handleConfirm(msg.id)} style={styles.confirmBtn}><Check size={12} />执行</button>
-                    <button onClick={() => handleReject(msg.id)} style={styles.rejectBtn}><X size={12} />取消</button>
-                  </div>
-                ) : (
-                  <div style={{ ...styles.confirmStatus, color: msg.confirmed ? 'var(--accent-primary)' : 'var(--text-muted)' }}>
-                    {msg.confirmed ? '已执行' : '已取消'}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        }
+        if (msg.role === 'confirm') return null;
         return (
           <div key={msg.id} style={styles.row}>
             <div style={styles.assistantBubble}>
@@ -571,7 +737,7 @@ export default function AgentChatPanel() {
           </div>
         );
       })}
-      {loading && (
+      {loading && !hasThinkingMessage && (
         <div style={styles.row}>
           <div style={styles.assistantBubble}>
             <div style={styles.hint}>处理中...</div>
@@ -579,8 +745,33 @@ export default function AgentChatPanel() {
         </div>
       )}
       <div ref={messagesEndRef} />
-    </div>
-  );
+      </div>
+    );
+  };
+
+  const renderTaskQueue = () => {
+    if (panelMode !== 'chat' || activeConfirmCards.length === 0) return null;
+
+    return (
+      <div style={styles.taskQueue}>
+        {activeConfirmCards.map((card) => (
+          <div key={card.id} style={styles.taskCard}>
+            <div style={styles.taskCardText}>{card.content}</div>
+            <div style={styles.taskCardActions}>
+              <button type="button" onClick={() => handleConfirm(card.id)} style={styles.confirmBtn}>
+                <Check size={12} />
+                执行
+              </button>
+              <button type="button" onClick={() => handleReject(card.id)} style={styles.rejectBtn}>
+                <X size={12} />
+                取消
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const renderCapture = () => (
     <div ref={messagesContainerRef} style={styles.body}>
@@ -791,11 +982,15 @@ export default function AgentChatPanel() {
               </button>
             </div>
           )}
+          {renderTaskQueue()}
           <div style={styles.inputBar}>
             <textarea
               ref={inputRef}
               value={input}
-              onChange={(event) => setInput(event.target.value)}
+              onChange={(event) => {
+                setInput(event.target.value);
+                resizeInput(event.target);
+              }}
               onKeyDown={handleKeyDown}
               placeholder={panelMode === 'chat' ? '输入消息...' : '直接记下整句话，原文会完整保存...'}
               style={styles.textarea}
@@ -999,7 +1194,40 @@ const styles: Record<string, CSSProperties> = {
   selectedSourceType: { padding: '2px 8px', borderRadius: '999px', background: 'var(--accent-primary-alpha)', color: 'var(--accent-primary)', fontSize: '10px', fontWeight: 600 },
   selectedSourceText: { fontSize: '12px', color: 'var(--text-primary)', fontWeight: 600 },
   clearSourceBtn: { marginLeft: 'auto', border: 'none', background: 'transparent', color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer' },
+  taskQueue: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    padding: '10px 12px 8px',
+    borderTop: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+    background: 'color-mix(in srgb, var(--bg-tertiary) 70%, white 30%)',
+  },
+  taskCard: {
+    border: '1px solid color-mix(in srgb, var(--accent-primary) 40%, var(--border-color) 60%)',
+    background: 'color-mix(in srgb, var(--bg-secondary) 92%, var(--accent-primary-alpha) 8%)',
+    borderRadius: '12px',
+    padding: '10px',
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: '10px',
+  },
+  taskCardText: {
+    flex: 1,
+    minWidth: 0,
+    color: 'var(--text-primary)',
+    fontSize: '12px',
+    lineHeight: 1.5,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  },
+  taskCardActions: {
+    display: 'flex',
+    gap: '6px',
+    width: 'auto',
+    flexShrink: 0,
+  },
   inputBar: { display: 'flex', alignItems: 'flex-end', gap: '8px', padding: '10px 12px 12px', borderTop: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)', background: 'color-mix(in srgb, var(--bg-tertiary) 78%, white 22%)' },
-  textarea: { flex: 1, border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)', outline: 'none', resize: 'none', background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)', color: 'var(--text-primary)', fontSize: '13px', lineHeight: 1.5, maxHeight: '100px', padding: '9px 12px', borderRadius: '12px', fontFamily: 'inherit' },
+  textarea: { flex: 1, border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)', outline: 'none', resize: 'none', overflowY: 'hidden', minHeight: '38px', background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)', color: 'var(--text-primary)', fontSize: '13px', lineHeight: 1.5, maxHeight: '220px', padding: '9px 12px', borderRadius: '12px', fontFamily: 'inherit' },
   sendBtn: { width: '36px', height: '36px', borderRadius: '50%', border: '1px solid color-mix(in srgb, var(--accent-primary) 56%, transparent 44%)', background: 'var(--accent-primary)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 10px 20px rgba(15, 118, 110, 0.24)' },
 };
