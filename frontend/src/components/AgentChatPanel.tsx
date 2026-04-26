@@ -7,6 +7,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent,
+  type ReactNode,
   type UIEvent,
 } from 'react';
 import { Bot, Check, Pencil, Save, Send, ShieldCheck, ShieldOff, Trash2, X } from 'lucide-react';
@@ -107,6 +108,224 @@ const CAPTURE_CATEGORY_LABELS: Record<CaptureAnalysis['category'], string> = {
 
 const CONFIRM_MODE_KEY = 'agent_confirm_mode';
 const PANEL_MODE_KEY = 'agent_panel_mode';
+
+const isSafeMarkdownUrl = (url: string) => /^(https?:\/\/|mailto:)/iu.test(url);
+
+const renderInlineTokens = (text: string, keyPrefix: string, tokenPattern: RegExp, renderToken: (match: RegExpExecArray, key: string) => ReactNode): ReactNode[] => {
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tokenPattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    nodes.push(renderToken(match, `${keyPrefix}-${match.index}`));
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes.length > 0 ? nodes : [text];
+};
+
+const renderMarkdownInline = (text: string, keyPrefix: string): ReactNode[] => {
+  const codeSplit = renderInlineTokens(
+    text,
+    `${keyPrefix}-code`,
+    /`([^`]+)`/gu,
+    (match, key) => <code key={key} style={styles.markdownInlineCode}>{match[1]}</code>,
+  );
+
+  return codeSplit.flatMap((node, nodeIndex) => {
+    if (typeof node !== 'string') return [node];
+
+    const linkSplit = renderInlineTokens(
+      node,
+      `${keyPrefix}-link-${nodeIndex}`,
+      /\[([^\]]+)\]\(([^)\s]+)\)/gu,
+      (match, key) => {
+        const href = match[2];
+        if (!isSafeMarkdownUrl(href)) {
+          return match[1];
+        }
+        return (
+          <a key={key} href={href} target="_blank" rel="noreferrer" style={styles.markdownLink}>
+            {match[1]}
+          </a>
+        );
+      },
+    );
+
+    return linkSplit.flatMap((linkNode, linkIndex) => {
+      if (typeof linkNode !== 'string') return [linkNode];
+
+      const styleSplit = renderInlineTokens(
+        linkNode,
+        `${keyPrefix}-style-${nodeIndex}-${linkIndex}`,
+        /(\*\*(.+?)\*\*|~~(.+?)~~)/gu,
+        (match, key) => {
+          if (match[2]) return <strong key={key}>{match[2]}</strong>;
+          return <del key={key} style={styles.markdownDeleted}>{match[3]}</del>;
+        },
+      );
+
+      return styleSplit;
+    });
+  });
+};
+
+const renderMarkdownContent = (content: string) => {
+  const lines = String(content || '').split(/\r?\n/u);
+  const blocks: ReactNode[] = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) {
+      index += 1;
+      continue;
+    }
+
+    const headingMatch = line.match(/^\s{0,3}(#{1,4})\s+(.+)$/u);
+    if (headingMatch) {
+      blocks.push(
+        <div key={`heading-${index}`} style={styles.markdownHeading}>
+          {renderMarkdownInline(headingMatch[2], `heading-${index}`)}
+        </div>,
+      );
+      index += 1;
+      continue;
+    }
+
+    if (/^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/u.test(line)) {
+      blocks.push(<div key={`divider-${index}`} style={styles.markdownDivider} />);
+      index += 1;
+      continue;
+    }
+
+    if (/^\s*```/u.test(line)) {
+      const language = line.replace(/^\s*```/u, '').trim();
+      index += 1;
+      const codeLines: string[] = [];
+
+      while (index < lines.length && !/^\s*```/u.test(lines[index])) {
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+      if (index < lines.length) {
+        index += 1;
+      }
+
+      blocks.push(
+        <pre key={`code-${index}`} style={styles.markdownCodeBlock}>
+          {language && <div style={styles.markdownCodeLanguage}>{language}</div>}
+          <code>{codeLines.join('\n')}</code>
+        </pre>,
+      );
+      continue;
+    }
+
+    if (/^\s*>\s?/u.test(line)) {
+      const quoteLines: string[] = [];
+      while (index < lines.length && /^\s*>\s?/u.test(lines[index])) {
+        quoteLines.push(lines[index].replace(/^\s*>\s?/u, ''));
+        index += 1;
+      }
+
+      blocks.push(
+        <blockquote key={`quote-${index}`} style={styles.markdownQuote}>
+          {quoteLines.map((quoteLine, quoteIndex) => (
+            <span key={`quote-${index}-${quoteIndex}`}>
+              {quoteIndex > 0 && <br />}
+              {renderMarkdownInline(quoteLine, `quote-${index}-${quoteIndex}`)}
+            </span>
+          ))}
+        </blockquote>,
+      );
+      continue;
+    }
+
+    const taskListMatch = line.match(/^\s*[-*]\s+\[( |x|X)\]\s+(.+)$/u);
+    const unorderedMatch = line.match(/^\s*[-*]\s+(.+)$/u);
+    const orderedMatch = line.match(/^\s*\d+[.)]\s+(.+)$/u);
+    if (taskListMatch || unorderedMatch || orderedMatch) {
+      const isTaskList = Boolean(taskListMatch);
+      const isOrdered = Boolean(orderedMatch);
+      const items: Array<{ text: string; checked?: boolean }> = [];
+
+      while (index < lines.length) {
+        const current = lines[index];
+        if (isTaskList) {
+          const currentTaskMatch = current.match(/^\s*[-*]\s+\[( |x|X)\]\s+(.+)$/u);
+          if (!currentTaskMatch) break;
+          items.push({ text: currentTaskMatch[2], checked: currentTaskMatch[1].toLowerCase() === 'x' });
+          index += 1;
+          continue;
+        }
+
+        const currentMatch = current.match(isOrdered ? /^\s*\d+[.)]\s+(.+)$/u : /^\s*[-*]\s+(.+)$/u);
+        if (!currentMatch) break;
+        items.push({ text: currentMatch[1] });
+        index += 1;
+      }
+
+      const ListTag = isOrdered ? 'ol' : 'ul';
+      blocks.push(
+        <ListTag key={`list-${index}`} style={styles.markdownList}>
+          {items.map((item, itemIndex) => (
+            <li key={`list-${index}-${itemIndex}`} style={isTaskList ? styles.markdownTaskItem : styles.markdownListItem}>
+              {isTaskList && (
+                <input
+                  type="checkbox"
+                  checked={Boolean(item.checked)}
+                  readOnly
+                  tabIndex={-1}
+                  style={styles.markdownCheckbox}
+                />
+              )}
+              <span>{renderMarkdownInline(item.text, `list-${index}-${itemIndex}`)}</span>
+            </li>
+          ))}
+        </ListTag>,
+      );
+      continue;
+    }
+
+    const paragraphLines: string[] = [];
+    while (index < lines.length) {
+      const current = lines[index];
+      if (
+        !current.trim()
+        || /^\s*[-*]\s+.+$/u.test(current)
+        || /^\s*\d+[.)]\s+.+$/u.test(current)
+        || /^\s*>\s?/u.test(current)
+        || /^\s*```/u.test(current)
+        || /^\s{0,3}#{1,4}\s+.+$/u.test(current)
+        || /^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/u.test(current)
+      ) {
+        break;
+      }
+      paragraphLines.push(current);
+      index += 1;
+    }
+
+    blocks.push(
+      <p key={`paragraph-${index}`} style={styles.markdownParagraph}>
+        {paragraphLines.map((paragraphLine, lineIndex) => (
+          <span key={`paragraph-${index}-${lineIndex}`}>
+            {lineIndex > 0 && <br />}
+            {renderMarkdownInline(paragraphLine, `paragraph-${index}-${lineIndex}`)}
+          </span>
+        ))}
+      </p>,
+    );
+  }
+
+  return <div style={styles.markdownContent}>{blocks}</div>;
+};
 
 export default function AgentChatPanel() {
   const [isOpen, setIsOpen] = useState(false);
@@ -725,7 +944,7 @@ export default function AgentChatPanel() {
         return (
           <div key={msg.id} style={styles.row}>
             <div style={styles.assistantBubble}>
-              <div style={styles.messageText}>{msg.content}</div>
+              {renderMarkdownContent(msg.content)}
               {Array.isArray(msg.toolCalls) && msg.toolCalls.length > 0 && (
                 <div style={styles.tagWrap}>
                   {msg.toolCalls.map((item: any, index: number) => (
@@ -1071,6 +1290,47 @@ const styles: Record<string, CSSProperties> = {
   assistantBubble: { maxWidth: '85%', padding: '8px 12px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', borderRadius: '14px 14px 14px 4px', fontSize: '13px', lineHeight: 1.5 },
   confirmBubble: { maxWidth: '88%', padding: '10px 12px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', borderRadius: '10px 10px 10px 4px', fontSize: '13px', lineHeight: 1.5, border: '1px solid var(--accent-primary-alpha)' },
   messageText: { whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
+  markdownContent: { display: 'flex', flexDirection: 'column', gap: '6px', wordBreak: 'break-word' },
+  markdownParagraph: { margin: 0, whiteSpace: 'normal' },
+  markdownHeading: { marginTop: '2px', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 700, lineHeight: 1.45 },
+  markdownDivider: { height: '1px', margin: '2px 0', background: 'color-mix(in srgb, var(--border-color) 78%, transparent 22%)' },
+  markdownList: { margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '4px' },
+  markdownListItem: { paddingLeft: '2px' },
+  markdownTaskItem: { listStyle: 'none', display: 'flex', alignItems: 'flex-start', gap: '6px', marginLeft: '-18px', paddingLeft: 0 },
+  markdownCheckbox: { width: '13px', height: '13px', margin: '3px 0 0', accentColor: 'var(--accent-primary)', flexShrink: 0 },
+  markdownInlineCode: {
+    padding: '1px 5px',
+    borderRadius: '5px',
+    background: 'color-mix(in srgb, var(--bg-secondary) 82%, var(--accent-primary-alpha) 18%)',
+    border: '1px solid color-mix(in srgb, var(--border-color) 70%, transparent 30%)',
+    color: 'var(--text-primary)',
+    fontSize: '12px',
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+  },
+  markdownCodeBlock: {
+    margin: 0,
+    padding: '9px 10px',
+    borderRadius: '8px',
+    background: 'color-mix(in srgb, var(--bg-secondary) 88%, black 12%)',
+    border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+    color: 'var(--text-primary)',
+    fontSize: '12px',
+    lineHeight: 1.55,
+    overflowX: 'auto',
+    whiteSpace: 'pre',
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+  },
+  markdownCodeLanguage: { marginBottom: '6px', color: 'var(--text-muted)', fontSize: '10px', fontFamily: 'inherit', textTransform: 'uppercase' },
+  markdownQuote: {
+    margin: 0,
+    padding: '7px 10px',
+    borderLeft: '3px solid var(--accent-primary)',
+    borderRadius: '0 8px 8px 0',
+    background: 'color-mix(in srgb, var(--bg-secondary) 88%, var(--accent-primary-alpha) 12%)',
+    color: 'var(--text-secondary)',
+  },
+  markdownLink: { color: 'var(--accent-primary)', textDecoration: 'underline', textUnderlineOffset: '2px', fontWeight: 600 },
+  markdownDeleted: { color: 'var(--text-muted)' },
   confirmActions: { display: 'flex', gap: '6px', marginTop: '8px' },
   confirmBtn: { flex: 1, padding: '4px 10px', background: 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' },
   rejectBtn: { flex: 1, padding: '4px 10px', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' },
