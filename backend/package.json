@@ -4,7 +4,7 @@
   "description": "LifeTracker Backend API built with NestJS",
   "author": "Your Name",
   "private": true,
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

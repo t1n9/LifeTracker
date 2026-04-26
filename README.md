@@ -6,7 +6,7 @@
 
 一个为学生设计的全栈Web应用，集成倒计时、学习计划、时间管理功能。
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Docker](https://img.shields.io/badge/Docker-支持-blue.svg)](https://www.docker.com/)
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-自动部署-green.svg)](https://github.com/features/actions)
 
@@ -223,7 +223,9 @@ LifeTracker/
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+本项目自当前版本起采用 GNU Affero General Public License v3.0 or later（AGPL-3.0-or-later）授权，查看 [LICENSE](LICENSE) 文件了解详情。项目版权和商业授权说明见 [NOTICE](NOTICE)。
+
+如果你希望在不遵守 AGPL 开源义务的情况下进行商业使用、闭源二次开发、SaaS 托管或私有化集成，请联系作者获取商业授权。
 
 ## 📞 联系方式
 

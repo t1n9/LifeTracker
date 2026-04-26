@@ -65,7 +65,7 @@
     "learning-analytics"
   ],
   "author": "TING WU",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "dependencies": {
     "pg": "^8.16.3"
   }

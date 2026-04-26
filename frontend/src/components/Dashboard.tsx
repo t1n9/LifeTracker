@@ -492,63 +492,58 @@ export default function Dashboard() {
         </section>
 
         <section className={styles.focusArea}>
-          <div className={styles.primaryColumn}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <p className={styles.sectionEyebrow}>Today focus</p>
-                <h2 className={styles.sectionTitle}>任务与专注</h2>
-              </div>
-              <button type="button" className={styles.inlineLink} onClick={() => router.push('/overview')}>
-                <span>查看更完整的数据概览</span>
-                <ArrowRight size={16} />
-              </button>
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className={styles.sectionEyebrow}>Today workspace</p>
+              <h2 className={styles.sectionTitle}>任务、专注与记录</h2>
             </div>
-
-            <PendingTasks
-              onTaskClick={handleTaskClick}
-              onStartCountUp={handleStartCountUp}
-              currentBoundTask={currentBoundTask}
-              isRunning={isPomodoroRunning}
-              dayStartRefreshTrigger={dayStartRefreshTrigger}
-              pomodoroCompleteRefreshTrigger={pomodoroCompleteRefreshTrigger}
-              onCompleteTaskWithPomodoro={handleCompleteTaskWithPomodoro}
-              onCompleteTaskCancelPomodoro={handleCompleteTaskCancelPomodoro}
-              pomodoroElapsedTime={pomodoroElapsedTime}
-              taskRefreshTrigger={taskRefreshTrigger}
-              onUpdatePomodoroTaskId={handleUpdatePomodoroTaskId}
-              onTaskAdded={handleTaskAdded}
-            />
-
-            <PomodoroTimer
-              ref={pomodoroTimerRef}
-              tasks={tasks}
-              currentBoundTask={currentBoundTask}
-              studyTime={studyTime}
-              pomodoroCount={pomodoroCount}
-              theme={theme}
-              startCountUpTrigger={startCountUpMode}
-              onToggleTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              onTaskBind={(taskId) => setCurrentBoundTask(taskId)}
-              onRunningStateChange={(isRunning) => setIsPomodoroRunning(isRunning)}
-              onElapsedTimeChange={(elapsedTime) => setPomodoroElapsedTime(elapsedTime)}
-              onPomodoroComplete={() => {
-                loadTodayStats();
-                loadTasks();
-                setPomodoroCompleteRefreshTrigger((current) => current + 1);
-              }}
-              onEnterFocusMode={() => undefined}
-            />
+            <button type="button" className={styles.inlineLink} onClick={() => router.push('/overview')}>
+              <span>查看更完整的数据概览</span>
+              <ArrowRight size={16} />
+            </button>
           </div>
 
-          <aside className={styles.secondaryColumn}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <p className={styles.sectionEyebrow}>Daily system</p>
-                <h2 className={styles.sectionTitle}>记录与反馈</h2>
-              </div>
+          <div className={styles.masonryGrid}>
+            <div className={styles.masonryItem}>
+              <PendingTasks
+                onTaskClick={handleTaskClick}
+                onStartCountUp={handleStartCountUp}
+                currentBoundTask={currentBoundTask}
+                isRunning={isPomodoroRunning}
+                dayStartRefreshTrigger={dayStartRefreshTrigger}
+                pomodoroCompleteRefreshTrigger={pomodoroCompleteRefreshTrigger}
+                onCompleteTaskWithPomodoro={handleCompleteTaskWithPomodoro}
+                onCompleteTaskCancelPomodoro={handleCompleteTaskCancelPomodoro}
+                pomodoroElapsedTime={pomodoroElapsedTime}
+                taskRefreshTrigger={taskRefreshTrigger}
+                onUpdatePomodoroTaskId={handleUpdatePomodoroTaskId}
+                onTaskAdded={handleTaskAdded}
+              />
             </div>
 
-            <div className={styles.studyCard}>
+            <div className={styles.masonryItem}>
+              <PomodoroTimer
+                ref={pomodoroTimerRef}
+                tasks={tasks}
+                currentBoundTask={currentBoundTask}
+                studyTime={studyTime}
+                pomodoroCount={pomodoroCount}
+                theme={theme}
+                startCountUpTrigger={startCountUpMode}
+                onToggleTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                onTaskBind={(taskId) => setCurrentBoundTask(taskId)}
+                onRunningStateChange={(isRunning) => setIsPomodoroRunning(isRunning)}
+                onElapsedTimeChange={(elapsedTime) => setPomodoroElapsedTime(elapsedTime)}
+                onPomodoroComplete={() => {
+                  loadTodayStats();
+                  loadTasks();
+                  setPomodoroCompleteRefreshTrigger((current) => current + 1);
+                }}
+                onEnterFocusMode={() => undefined}
+              />
+            </div>
+
+            <div className={`${styles.studyCard} ${styles.masonryItem}`}>
               <div className={styles.studyHeader}>
                 <div>
                   <p className={styles.studyEyebrow}>Manual log</p>
@@ -631,10 +626,16 @@ export default function Dashboard() {
               )}
             </div>
 
-            <ImportantInfo theme={theme} />
-            <ExerciseStats theme={theme} />
-            <ExpenseStats theme={theme} />
-          </aside>
+            <div className={styles.masonryItem}>
+              <ImportantInfo theme={theme} />
+            </div>
+            <div className={styles.masonryItem}>
+              <ExerciseStats theme={theme} />
+            </div>
+            <div className={styles.masonryItem}>
+              <ExpenseStats theme={theme} />
+            </div>
+          </div>
         </section>
       </main>
 
