@@ -104,7 +104,7 @@ export const AGENT_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'get_tasks',
-      description: '获取当前所有未完成任务列表，用于查找可关联的任务ID。这不是今日任务列表',
+      description: '获取今日未完成任务列表，用于查找番茄钟可绑定候选。全局完成任务不要依赖这个列表，应直接调用 complete_task',
       parameters: { type: 'object', properties: {}, required: [] },
     },
   },
@@ -112,7 +112,7 @@ export const AGENT_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'start_pomodoro',
-      description: '开启一个番茄钟计时。duration 单位为分钟，默认25分钟。优先传 taskId 关联已有任务；如果用户要立刻开始一个尚不存在的新任务，可传 taskTitle 并把 createTaskIfMissing 设为 true，工具会自动创建并关联该任务。如果 taskTitle 同时匹配多个未完成任务，工具会返回歧义错误，不会自动猜测',
+      description: '开启一个番茄钟计时。duration 单位为分钟，默认25分钟。只能关联今日有效且未完成的任务；如果用户要立刻开始一个尚不存在的新任务，可传 taskTitle 并把 createTaskIfMissing 设为 true，工具会自动创建今日新任务并关联。如果 taskTitle 同时匹配多个今日未完成任务，工具会返回歧义错误，不会自动猜测',
       parameters: {
         type: 'object',
         properties: {
@@ -300,7 +300,7 @@ export class AgentToolsService {
       case 'complete_task':
         return this.completeTask(userId, args);
       case 'get_tasks':
-        return this.tasksService.getPendingTasks(userId);
+        return this.getTodayPendingTaskCandidates(userId);
       case 'start_pomodoro':
         return this.startPomodoroWithTaskReference(userId, args);
       case 'stop_pomodoro':
@@ -341,6 +341,11 @@ export class AgentToolsService {
   async resolvePendingTask(userId: string, taskTitle: string) {
     const tasks = await this.tasksService.getPendingTasks(userId);
     return resolveTaskMatch(taskTitle, tasks as AgentTaskCandidate[]);
+  }
+
+  async resolveTodayPendingTask(userId: string, taskTitle: string) {
+    const tasks = await this.getTodayPendingTaskCandidates(userId);
+    return resolveTaskMatch(taskTitle, tasks);
   }
 
   async previewCompleteTask(userId: string, args: Record<string, any>) {
@@ -536,6 +541,11 @@ export class AgentToolsService {
         return { error: `任务"${existingTask.title}"已完成，不能绑定新的番茄钟` };
       }
 
+      const todayPendingTasks = await this.getTodayPendingTaskCandidates(userId);
+      if (!todayPendingTasks.some((task) => task.id === existingTask.id)) {
+        return { error: `任务"${existingTask.title}"不是今日未完成任务，番茄钟只能绑定当天任务` };
+      }
+
       return {
         taskId: existingTask.id,
         taskTitle: existingTask.title,
@@ -547,7 +557,7 @@ export class AgentToolsService {
       return {};
     }
 
-    const matched = await this.resolvePendingTask(userId, taskTitle);
+    const matched = await this.resolveTodayPendingTask(userId, taskTitle);
     if (matched.status === 'matched' && matched.match) {
       return {
         taskId: matched.match.taskId,
@@ -564,7 +574,7 @@ export class AgentToolsService {
 
     if (!args.createTaskIfMissing) {
       return {
-        error: `找不到待完成任务"${taskTitle}"。请先创建任务，或在 start_pomodoro 中传 createTaskIfMissing=true 让系统自动创建`,
+        error: `找不到今日未完成任务"${taskTitle}"。番茄钟只能绑定今日任务；请先创建今日任务，或传 createTaskIfMissing=true 让系统自动创建`,
       };
     }
 
@@ -585,6 +595,16 @@ export class AgentToolsService {
     const candidateLabels = resolution.candidates.map(candidate => `"${candidate.taskTitle}"`).join('、');
     const normalizedActionLabel = action === 'complete_task' ? '完成任务' : '开启番茄钟';
     return `任务"${taskTitle}"匹配到多个未完成任务：${candidateLabels}。请说得更具体一些，或先选择准确任务后再${normalizedActionLabel}`;
+  }
+
+  private async getTodayPendingTaskCandidates(userId: string): Promise<AgentTaskCandidate[]> {
+    const todayTasks = await this.tasksService.getTodayEffectiveTasks(userId);
+    return todayTasks
+      .filter((task: any) => !task.isCompleted)
+      .map((task: any) => ({
+        id: task.id,
+        title: task.title,
+      }));
   }
 
   private async recordExerciseByName(userId: string, exerciseName: string, value: number, notes?: string) {

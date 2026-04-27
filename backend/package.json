@@ -1,6 +1,6 @@
 {
   "name": "lifetracker-backend",
-  "version": "3.6.2",
+  "version": "3.7.0",
   "description": "LifeTracker Backend API built with NestJS",
   "author": "Your Name",
   "private": true,
@@ -18,6 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "agent:evals:validate": "node scripts/validate-agent-evals.js",
+    "agent:evals:run": "node scripts/run-agent-evals.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",

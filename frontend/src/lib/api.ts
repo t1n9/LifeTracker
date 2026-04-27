@@ -1,11 +1,11 @@
 import axios from 'axios';
 import { processApiTimeFields, toUTCForSubmit } from './time';
 
-// 开发环境和生产环境的API配置
-const API_URL = process.env.NODE_ENV === 'development'
-  ? 'http://localhost:3002/api'  // 开发环境直接连接后端
-  : process.env.NEXT_PUBLIC_API_URL ||
-    (typeof window !== 'undefined'
+// 开发环境优先读取本地 env，避免端口被系统保留时必须改源码。
+const API_URL = process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === 'development'
+    ? 'http://localhost:3002/api'
+    : typeof window !== 'undefined'
       ? `${window.location.protocol}//${window.location.host}/api`
       : 'http://localhost:3002/api');
 
@@ -275,6 +275,32 @@ export const captureAPI = {
   analyzeCapture: (id: string) => api.post(`/captures/${id}/analyze`),
   updateCapture: (id: string, data: { content?: string; sourceType?: string; sourceName?: string }) =>
     api.patch(`/captures/${id}`, data),
+};
+
+export const agentAPI = {
+  getMessages: (params?: { cursor?: string; limit?: number }) => api.get('/agent/messages', { params }),
+  getRuns: (limit?: number) => api.get('/agent/runs', { params: { limit } }),
+  getRun: (id: string) => api.get(`/agent/runs/${id}`),
+  getRunSteps: (id: string) => api.get(`/agent/runs/${id}/steps`),
+  getConfirmations: (params?: { status?: string; limit?: number }) => api.get('/agent/confirmations', { params }),
+  approveConfirmation: (id: string) => api.post(`/agent/confirmations/${id}/approve`),
+  rejectConfirmation: (id: string) => api.post(`/agent/confirmations/${id}/reject`),
+  retryConfirmation: (id: string) => api.post(`/agent/confirmations/${id}/retry`),
+  getMemories: () => api.get('/agent/memories'),
+  createMemory: (data: { type: string; content: string }) => api.post('/agent/memories', data),
+  updateMemory: (id: string, data: { type?: string; content?: string; status?: string }) =>
+    api.patch(`/agent/memories/${id}`, data),
+  deleteMemory: (id: string) => api.delete(`/agent/memories/${id}`),
+  getProfile: () => api.get('/agent/profile'),
+  updateProfile: (data: {
+    summary?: string | null;
+    goals?: string[];
+    preferences?: Record<string, unknown>;
+    routines?: Record<string, unknown>;
+    constraints?: string[];
+  }) => api.patch('/agent/profile', data),
+  rebuildProfile: () => api.post('/agent/profile/rebuild'),
+  clearHistory: () => api.delete('/agent/history'),
 };
 
 export const shareLinkAPI = {

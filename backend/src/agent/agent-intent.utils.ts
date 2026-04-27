@@ -254,10 +254,26 @@ export function extractCompletionTaskTitle(message: string) {
     }
   }
 
+  const directMatch = message.match(/(?:完成|做完|搞定|结束)([^，,。；;！!？?\n]+)/u);
+  if (directMatch?.[1]) {
+    const cleaned = sanitizeTaskTitle(directMatch[1]);
+    if (isLikelyTaskTitle(cleaned)) {
+      return cleaned;
+    }
+  }
+
   return undefined;
 }
 
 export function extractCreateAndCompleteTaskTitle(message: string) {
+  const directMatch = message.match(/(?:创建|新建|添加)(?:一个|一条|任务)?[：:\s]*([^，,。；;！!？?\n]+?)(?:，|,|\s)*(?:并|然后|同时)?(?:把它|将它|直接)?(?:标记(?:为)?完成|设为完成|完成)$/u);
+  if (directMatch?.[1]) {
+    const cleaned = sanitizeTaskTitle(directMatch[1].replace(/的$/u, ''));
+    if (isLikelyTaskTitle(cleaned)) {
+      return cleaned;
+    }
+  }
+
   for (const pattern of TASK_CREATE_AND_COMPLETE_PATTERNS) {
     const match = message.match(pattern);
     if (!match?.[1]) {
@@ -353,11 +369,25 @@ export function extractExerciseFeeling(
   return undefined;
 }
 
+function extractBoundPomodoroTaskTitle(message: string) {
+  if (!POMODORO_KEYWORDS.test(message)) {
+    return undefined;
+  }
+
+  const match = message.match(/(?:绑定|关联)?(?:番茄|专注|计时)(?:任务)?[：:\s]*([^，,。；;！!？?\n]+)/u);
+  if (!match?.[1]) {
+    return undefined;
+  }
+
+  const cleaned = sanitizeTaskTitle(match[1]);
+  return isLikelyTaskTitle(cleaned) ? cleaned : undefined;
+}
+
 export function extractAgentMessageHints(message: string): AgentMessageHints {
   const explicitTaskTitles = extractExplicitTaskTitles(message);
   const completionTaskTitle = extractCompletionTaskTitle(message);
   const createAndCompleteTaskTitle = extractCreateAndCompleteTaskTitle(message);
-  const taskTitle = extractPomodoroTaskTitle(message, explicitTaskTitles);
+  const taskTitle = extractBoundPomodoroTaskTitle(message) || extractPomodoroTaskTitle(message, explicitTaskTitles);
   const durationMinutes = POMODORO_KEYWORDS.test(message) ? extractDurationMinutes(message) : undefined;
   const exerciseRecord = extractExerciseRecord(message);
   const exerciseFeeling = extractExerciseFeeling(message, Boolean(exerciseRecord));

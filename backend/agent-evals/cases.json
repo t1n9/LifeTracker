@@ -1,0 +1,198 @@
+[
+  {
+    "name": "创建单个任务",
+    "input": "创建一个任务：整理 Agent 架构文档",
+    "confirmMode": true,
+    "expectedTools": ["create_task"],
+    "expectedConfirmationCount": 1,
+    "mustContain": ["整理 Agent 架构文档"],
+    "mustNotContain": ["任务ID undefined"]
+  },
+  {
+    "name": "批量创建任务不重复拆卡",
+    "input": "创建任务：流式测试A、流式测试B",
+    "confirmMode": true,
+    "expectedTools": ["create_tasks"],
+    "expectedConfirmationCount": 1,
+    "mustContain": ["流式测试A", "流式测试B"],
+    "mustNotContain": ["任务ID undefined"]
+  },
+  {
+    "name": "完成已有任务使用任务名展示",
+    "input": "完成测试任务A",
+    "confirmMode": true,
+    "taskSeed": ["测试任务A"],
+    "expectedTools": ["complete_task"],
+    "expectedConfirmationCount": 1,
+    "mustContain": ["测试任务A"],
+    "mustNotContain": ["任务ID undefined", "undefined"]
+  },
+  {
+    "name": "创建任务并完成应合并为链式操作",
+    "input": "创建任务：提交周报，并标记完成",
+    "confirmMode": true,
+    "expectedTools": ["create_and_complete_task"],
+    "expectedConfirmationCount": 1,
+    "mustContain": ["提交周报"],
+    "mustNotContain": ["任务ID undefined"]
+  },
+  {
+    "name": "创建任务后开启番茄",
+    "input": "创建测试任务J，绑定番茄测试任务J，25分钟",
+    "confirmMode": true,
+    "expectedTools": ["create_task", "start_pomodoro"],
+    "expectedConfirmationCount": 2,
+    "mustContain": ["测试任务J", "25分钟"],
+    "mustNotContain": ["任务ID undefined"]
+  },
+  {
+    "name": "完成任务后开启番茄",
+    "input": "完成测试任务J，然后开启番茄学习测试任务K",
+    "confirmMode": true,
+    "taskSeed": ["测试任务J", "测试任务K"],
+    "expectedTools": ["complete_task", "start_pomodoro"],
+    "expectedConfirmationCount": 2,
+    "mustContain": ["测试任务J", "测试任务K"],
+    "mustNotContain": ["任务ID undefined"]
+  },
+  {
+    "name": "一小时番茄时长识别",
+    "input": "帮我开启1小时番茄，任务是数据库迁移复盘",
+    "confirmMode": true,
+    "expectedTools": ["start_pomodoro"],
+    "expectedConfirmationCount": 1,
+    "mustContain": ["数据库迁移复盘", "60分钟"],
+    "mustNotContain": ["25分钟"]
+  },
+  {
+    "name": "只查询今日任务不生成确认卡",
+    "input": "今天有什么任务？",
+    "confirmMode": true,
+    "expectedTools": ["get_today_tasks"],
+    "expectedConfirmationCount": 0,
+    "mustContain": ["任务"],
+    "mustNotContain": ["执行"]
+  },
+  {
+    "name": "运动和运动感受拆成两个动作",
+    "input": "今天跑步5公里，运动感受不错",
+    "confirmMode": true,
+    "expectedTools": ["record_exercise", "set_exercise_feeling"],
+    "expectedConfirmationCount": 2,
+    "mustContain": ["跑步", "5", "不错"],
+    "mustNotContain": ["今日复盘"]
+  },
+  {
+    "name": "餐饮花费识别",
+    "input": "早餐花了12元，午餐花了25元",
+    "confirmMode": true,
+    "expectedTools": ["record_meal_expense"],
+    "expectedConfirmationCount": 2,
+    "mustContain": ["早餐", "午餐", "12", "25"],
+    "mustNotContain": ["其他花费"]
+  },
+  {
+    "name": "其他花费识别",
+    "input": "记录一下买书花了58元",
+    "confirmMode": true,
+    "expectedTools": ["record_other_expense"],
+    "expectedConfirmationCount": 1,
+    "mustContain": ["买书", "58"],
+    "mustNotContain": ["早餐", "午餐", "晚餐"]
+  },
+  {
+    "name": "开启今日带起床时间",
+    "input": "今天早上7:30起床，今天计划复习数据库和写复盘",
+    "confirmMode": true,
+    "expectedTools": ["start_day", "create_tasks"],
+    "expectedConfirmationCount": 2,
+    "mustContain": ["7:30", "复习数据库"],
+    "mustNotContain": ["wakeUpTime undefined"]
+  },
+  {
+    "name": "开启今日同时创建任务",
+    "input": "今天8点起床，任务是刷题、整理错题、背单词",
+    "confirmMode": true,
+    "expectedTools": ["start_day", "create_tasks"],
+    "expectedConfirmationCount": 2,
+    "mustContain": ["刷题", "整理错题", "背单词"],
+    "mustNotContain": ["任务ID undefined"]
+  },
+  {
+    "name": "重要信息不应创建任务",
+    "input": "添加重要信息：明天下午三点有面试",
+    "confirmMode": true,
+    "expectedTools": ["update_important_info"],
+    "expectedConfirmationCount": 1,
+    "mustContain": ["明天下午三点有面试"],
+    "mustNotContain": ["创建任务"]
+  },
+  {
+    "name": "今日复盘不应写入重要信息",
+    "input": "写今日复盘：今天状态一般，但完成了数据库迁移",
+    "confirmMode": true,
+    "expectedTools": ["update_day_reflection"],
+    "expectedConfirmationCount": 1,
+    "mustContain": ["数据库迁移"],
+    "mustNotContain": ["重要信息"]
+  },
+  {
+    "name": "长期记忆写入偏好",
+    "input": "记住：我喜欢默认用60分钟番茄钟",
+    "confirmMode": true,
+    "expectedTools": [],
+    "expectedConfirmationCount": 0,
+    "expectedMemoryWrite": true,
+    "mustContain": ["记住"],
+    "mustNotContain": ["执行", "取消"]
+  },
+  {
+    "name": "长期记忆影响番茄默认值",
+    "input": "帮我开启一个番茄钟",
+    "confirmMode": true,
+    "memorySeed": ["我喜欢默认用60分钟番茄钟"],
+    "expectedTools": ["start_pomodoro"],
+    "expectedConfirmationCount": 1,
+    "mustContain": ["60分钟"],
+    "mustNotContain": ["25分钟"]
+  },
+  {
+    "name": "番茄钟只能展示今日任务候选",
+    "input": "帮我开启番茄钟，看看可以绑定哪个任务",
+    "confirmMode": true,
+    "expectedTools": [],
+    "expectedConfirmationCount": 0,
+    "mustContain": ["今日"],
+    "mustNotContain": ["历史未完成任务", "之前的任务"]
+  },
+  {
+    "name": "忘掉长期记忆",
+    "input": "忘掉默认用60分钟番茄钟",
+    "confirmMode": true,
+    "memorySeed": ["默认用60分钟番茄钟"],
+    "expectedTools": [],
+    "expectedConfirmationCount": 0,
+    "expectedMemoryWrite": true,
+    "mustContain": ["忘"],
+    "mustNotContain": ["执行", "取消"]
+  },
+  {
+    "name": "拒绝代码请求并引导回生活记录",
+    "input": "帮我写一个爬虫脚本",
+    "confirmMode": true,
+    "expectedTools": [],
+    "expectedConfirmationCount": 0,
+    "mustContain": ["LifeTracker"],
+    "mustNotContain": ["```", "function", "import"]
+  },
+  {
+    "name": "确认卡不得进入聊天区域",
+    "input": "创建测试任务L，完成测试任务K，绑定番茄测试任务L，1小时",
+    "confirmMode": true,
+    "taskSeed": ["测试任务K"],
+    "expectedTools": ["create_task", "complete_task", "start_pomodoro"],
+    "expectedConfirmationCount": 3,
+    "mustContain": ["测试任务L", "测试任务K", "60分钟"],
+    "chatMustNotContain": ["创建任务：", "完成任务：", "开启番茄钟："]
+  }
+]

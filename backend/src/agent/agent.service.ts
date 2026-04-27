@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
+import { AgentConfirmationService } from './agent-confirmation.service';
+import { AgentContextService } from './agent-context.service';
+import { AgentMemoryService } from './agent-memory.service';
+import { AgentProfileService } from './agent-profile.service';
+import { AgentTraceService } from './agent-trace.service';
 import { AgentToolsService, AGENT_TOOLS } from './agent-tools.service';
 import { AgentMessageHints, extractAgentMessageHints, toTaskMatchKey } from './agent-intent.utils';
 
@@ -38,6 +43,9 @@ const TOOL_LABELS: Record<string, string> = {
   update_important_info: '更新重要信息',
   update_day_reflection: '更新今日复盘',
 };
+
+const AGENT_PROMPT_VERSION = 'lifetracker-agent-2026-04-27';
+const AGENT_TOOLSET_VERSION = 'lifetracker-tools-v1';
 
 const EXERCISE_FEELING_LABELS: Record<string, string> = {
   excellent: '非常棒',
@@ -76,7 +84,8 @@ const SYSTEM_PROMPT = `你是 LifeTracker 的专属助手，只服务于本网�
 5. 明确任务列表要拆开：用户说"今天任务是A+B+C"、"待办有..."时，这些是任务，不是单纯的 dayStart 文本。优先用 create_tasks，至少也要分别 create_task，不要整段塞进 start_day
 6. 番茄钟必须优先关联真实任务：
    - 已知 taskId 时，用 start_pomodoro 的 taskId
-   - 只有任务名时，先 get_tasks 找现有未完成任务
+   - 只有任务名时，先 get_today_tasks 找今日有效且未完成的任务；不要把历史未完成任务拿来询问或绑定
+   - 番茄钟只能绑定当天任务；历史未完成任务不应作为番茄候选项展示
    - 如果用户要立即开始一个不存在的新任务，直接调用 start_pomodoro，并传 taskTitle + createTaskIfMissing=true，让工具自动创建并绑定
    - 如果一个任务名同时匹配多个未完成任务，必须先澄清，不要猜测绑定哪一个
 7. 当一句话同时包含记录信息、建任务、开番茄时，按顺序执行：先记录事实，再准备任务，再开启番茄
@@ -85,7 +94,7 @@ const SYSTEM_PROMPT = `你是 LifeTracker 的专属助手，只服务于本网�
 10. 重要信息：用户说"添加重要信息"、"记一下重要的事"时，调用 update_important_info，不要创建任务
 11. 今日复盘：仅在用户明确说"写复盘"、"总结今天"时才调用 update_day_reflection
 12. 记录花费时，注意区分餐饮（早餐/午餐/晚餐用 record_meal_expense）和其他花费（用 record_other_expense）
-13. 番茄钟默认25分钟，用户可以指定时长
+13. 番茄钟默认25分钟；如果长期记忆里有用户明确保存的默认番茄时长，优先使用长期记忆；本轮用户明确指定时长时，以本轮指令为准
 14. 任务完成要走工具：用户说"资料分析任务完成"、"25.9福建事业单位完成了"、"这个任务做完了"这类话时，应调用 complete_task，不要把内部上下文或 UUID 原样回复给用户
 15. 永远不要向用户展示内部上下文标记，例如"【已执行操作】"、"最近工具结果"这类文字
 
@@ -107,6 +116,11 @@ export class AgentService {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    private agentConfirmationService: AgentConfirmationService,
+    private agentContextService: AgentContextService,
+    private agentMemoryService: AgentMemoryService,
+    private agentProfileService: AgentProfileService,
+    private agentTraceService: AgentTraceService,
     private agentToolsService: AgentToolsService,
   ) {}
 
@@ -138,6 +152,195 @@ export class AgentService {
     };
   }
 
+  async getRuns(userId: string, limit = 20) {
+    return this.prisma.agentRun.findMany({
+      where: { userId },
+      orderBy: { startedAt: 'desc' },
+      take: Math.min(Math.max(limit, 1), 100),
+      select: {
+        id: true,
+        input: true,
+        status: true,
+        model: true,
+        promptVersion: true,
+        toolsetVersion: true,
+        confirmMode: true,
+        errorCode: true,
+        errorMessage: true,
+        startedAt: true,
+        completedAt: true,
+        latencyMs: true,
+        _count: {
+          select: {
+            steps: true,
+            confirmations: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getRun(userId: string, runId: string) {
+    const run = await this.prisma.agentRun.findFirst({
+      where: { id: runId, userId },
+      include: {
+        steps: {
+          orderBy: { createdAt: 'asc' },
+        },
+        confirmations: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!run) {
+      return { run: null };
+    }
+
+    return { run };
+  }
+
+  async getRunSteps(userId: string, runId: string) {
+    const run = await this.prisma.agentRun.findFirst({
+      where: { id: runId, userId },
+      select: { id: true },
+    });
+    if (!run) {
+      return { steps: [] };
+    }
+
+    const steps = await this.prisma.agentRunStep.findMany({
+      where: { runId, userId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return { steps };
+  }
+
+  async getConfirmations(userId: string, status = 'pending', limit = 20) {
+    const confirmations = await this.agentConfirmationService.listForUser(userId, status, limit);
+    return {
+      confirmations: confirmations.map((confirmation) => ({
+        id: confirmation.id,
+        runId: confirmation.runId,
+        userId: confirmation.userId,
+        toolName: confirmation.toolName,
+        args: confirmation.args,
+        summary: confirmation.summary,
+        status: confirmation.status,
+        result: confirmation.result,
+        error: confirmation.error,
+        createdAt: confirmation.createdAt,
+        resolvedAt: confirmation.resolvedAt,
+        executedAt: confirmation.executedAt,
+        action: {
+          id: confirmation.id,
+          name: confirmation.toolName,
+          args: confirmation.args,
+        },
+      })),
+    };
+  }
+
+  async getMemories(userId: string) {
+    return this.prisma.agentMemory.findMany({
+      where: { userId },
+      orderBy: [
+        { status: 'asc' },
+        { updatedAt: 'desc' },
+      ],
+    });
+  }
+
+  async getProfile(userId: string) {
+    return this.agentProfileService.getOrRebuildProfile(userId);
+  }
+
+  async rebuildProfile(userId: string) {
+    return this.agentProfileService.rebuildProfile(userId);
+  }
+
+  async updateProfile(
+    userId: string,
+    patch: {
+      summary?: string | null;
+      goals?: unknown;
+      preferences?: unknown;
+      routines?: unknown;
+      constraints?: unknown;
+    },
+  ) {
+    return this.agentProfileService.updateProfile(userId, patch);
+  }
+
+  async createMemory(userId: string, type: string, content: string) {
+    const normalizedType = this.normalizeMemoryType(type);
+    const normalizedContent = String(content || '').trim();
+    if (!normalizedContent) {
+      throw new Error('记忆内容不能为空');
+    }
+
+    return this.prisma.agentMemory.create({
+      data: {
+        userId,
+        type: normalizedType,
+        content: normalizedContent,
+        source: 'manual_user',
+        confidence: 1,
+        status: 'active',
+      },
+    });
+  }
+
+  async updateMemory(
+    userId: string,
+    memoryId: string,
+    patch: { type?: string; content?: string; status?: string },
+  ) {
+    const existing = await this.prisma.agentMemory.findFirst({
+      where: { id: memoryId, userId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new Error('记忆不存在');
+    }
+
+    const data: Record<string, any> = {};
+    if (patch.type !== undefined) {
+      data.type = this.normalizeMemoryType(patch.type);
+    }
+    if (patch.content !== undefined) {
+      const content = String(patch.content || '').trim();
+      if (!content) {
+        throw new Error('记忆内容不能为空');
+      }
+      data.content = content;
+    }
+    if (patch.status !== undefined) {
+      data.status = this.normalizeMemoryStatus(patch.status);
+    }
+
+    return this.prisma.agentMemory.update({
+      where: { id: memoryId },
+      data,
+    });
+  }
+
+  async deleteMemory(userId: string, memoryId: string) {
+    const existing = await this.prisma.agentMemory.findFirst({
+      where: { id: memoryId, userId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new Error('记忆不存在');
+    }
+
+    return this.prisma.agentMemory.update({
+      where: { id: memoryId },
+      data: { status: 'archived' },
+    });
+  }
+
   /**
    * 主聊天接口
    */
@@ -153,6 +356,7 @@ export class AgentService {
         confirmed: false,
       },
     });
+    await this.agentConfirmationService.expirePendingForUser(userId);
 
     // 保存用户消息
     await this.prisma.agentMessage.create({
@@ -168,14 +372,84 @@ export class AgentService {
       throw new Error('AI_API_URL and AI_API_KEY must be configured');
     }
 
+    const runStartedAt = Date.now();
+    const runId = await this.agentTraceService.startRun({
+      userId,
+      input: message,
+      confirmMode,
+      model,
+      promptVersion: AGENT_PROMPT_VERSION,
+      toolsetVersion: AGENT_TOOLSET_VERSION,
+    });
+    const finishRun = async <T>(result: T, status: 'completed' | 'waiting_confirmation' = 'completed') => {
+      await this.agentTraceService.finishRun(runId, status, runStartedAt);
+      return { ...(result as any), runId };
+    };
+    const persistConfirmPreview = async <T extends { type?: string; previewReply?: string; previewMessageId?: string }>(result: T) => {
+      if (result?.type !== 'confirms' || !result.previewReply || result.previewMessageId) {
+        return result;
+      }
+
+      const saved = await this.prisma.agentMessage.create({
+        data: {
+          userId,
+          role: 'assistant',
+          content: result.previewReply,
+        },
+      });
+      return { ...result, previewMessageId: saved.id };
+    };
+
+    try {
     // 从 DB 加载最近的对话作为 LLM 上下文
     const messageHints = extractAgentMessageHints(message);
-    const llmContext = await this.buildLLMContext(userId);
+    const memoryWrite = await this.agentMemoryService.processExplicitMemory(userId, message);
+    await this.agentTraceService.recordStep({
+      runId,
+      userId,
+      type: 'memory_write',
+      status: memoryWrite.action === 'skipped' ? 'skipped' : 'success',
+      input: { message },
+      output: memoryWrite,
+    });
+    const memoryContext = await this.agentMemoryService.buildMemoryContext(userId);
+    await this.agentTraceService.recordStep({
+      runId,
+      userId,
+      type: 'memory_read',
+      output: {
+        count: memoryContext.memories.length,
+        preferredPomodoroMinutes: memoryContext.preferredPomodoroMinutes,
+      },
+    });
+    if (['created', 'updated', 'forgotten'].includes(memoryWrite.action)) {
+      await this.agentProfileService.rebuildProfile(userId);
+    }
+    const profileContext = await this.agentProfileService.buildProfileContext(userId);
+    await this.agentTraceService.recordStep({
+      runId,
+      userId,
+      type: 'profile_read',
+      output: {
+        hasProfile: Boolean(profileContext.profile),
+        hasContext: Boolean(profileContext.contextText),
+      },
+    });
+    const shortTermContext = await this.agentContextService.buildShortTermContext(userId);
+    await this.agentTraceService.recordStep({
+      runId,
+      userId,
+      type: 'context_build',
+      output: shortTermContext.stats,
+    });
     const structuredGuidance = await this.buildStructuredGuidance(userId, message, messageHints);
     const llmMessages: LLMMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },
+      ...(memoryContext.contextText ? [{ role: 'system' as const, content: memoryContext.contextText }] : []),
+      ...(profileContext.contextText ? [{ role: 'system' as const, content: profileContext.contextText }] : []),
+      ...(shortTermContext.toolSummary ? [{ role: 'system' as const, content: shortTermContext.toolSummary }] : []),
       ...(structuredGuidance ? [{ role: 'system' as const, content: structuredGuidance }] : []),
-      ...llmContext,
+      ...shortTermContext.messages,
     ];
 
     const toolResults: any[] = [];
@@ -185,6 +459,7 @@ export class AgentService {
     // 循环处理 tool calls
     let maxRounds = 8;
     while (maxRounds-- > 0) {
+      const llmStartedAt = Date.now();
       const response = await axios.post(
         apiUrl,
         { model, messages: llmMessages, tools: AGENT_TOOLS, tool_choice: 'auto' },
@@ -193,6 +468,22 @@ export class AgentService {
           timeout,
         },
       );
+      await this.agentTraceService.recordStep({
+        runId,
+        userId,
+        type: 'llm_call',
+        input: {
+          model,
+          messageCount: llmMessages.length,
+          toolCount: AGENT_TOOLS.length,
+        },
+        output: {
+          finishReason: response.data?.choices?.[0]?.finish_reason,
+          hasToolCalls: Boolean(response.data?.choices?.[0]?.message?.tool_calls?.length),
+          toolCallCount: response.data?.choices?.[0]?.message?.tool_calls?.length || 0,
+        },
+        durationMs: Date.now() - llmStartedAt,
+      });
 
       const assistantMsg = response.data.choices[0].message;
       llmMessages.push(assistantMsg);
@@ -210,7 +501,7 @@ export class AgentService {
           toolResults,
         );
         if (todayTasksFallback) {
-          return todayTasksFallback;
+          return finishRun(todayTasksFallback);
         }
         const completionFallback = await this.handleDirectCompletionFallback(
           userId,
@@ -220,7 +511,10 @@ export class AgentService {
           toolResults,
         );
         if (completionFallback) {
-          return completionFallback;
+          return finishRun(
+            await persistConfirmPreview(completionFallback),
+            completionFallback.type === 'confirms' ? 'waiting_confirmation' : 'completed',
+          );
         }
         const createAndCompleteFallback = await this.handleCreateAndCompleteFallback(
           userId,
@@ -230,10 +524,27 @@ export class AgentService {
           toolResults,
         );
         if (createAndCompleteFallback) {
-          return createAndCompleteFallback;
+          return finishRun(
+            await persistConfirmPreview(createAndCompleteFallback),
+            createAndCompleteFallback.type === 'confirms' ? 'waiting_confirmation' : 'completed',
+          );
         }
         if (this.shouldSuppressAutoReply(confirmMode, toolResults)) {
-          return this.createAutoWriteApplied(userId, toolResults);
+          return finishRun(await this.createAutoWriteApplied(userId, toolResults));
+        }
+        const deterministicConfirmFallback = await this.handleDeterministicConfirmFallback(
+          userId,
+          message,
+          confirmMode,
+          messageHints,
+          memoryContext.preferredPomodoroMinutes,
+          runId,
+        );
+        if (deterministicConfirmFallback) {
+          return finishRun(
+            await persistConfirmPreview(deterministicConfirmFallback),
+            'waiting_confirmation',
+          );
         }
         const saved = await this.prisma.agentMessage.create({
           data: {
@@ -243,7 +554,7 @@ export class AgentService {
             toolCalls: toolResults.length > 0 ? toolResults : undefined,
           },
         });
-        return { id: saved.id, reply: assistantMsg.content || '', toolResults, type: 'reply' };
+        return finishRun({ id: saved.id, reply: assistantMsg.content || '', toolResults, type: 'reply' });
       }
 
       // 解析 tool calls
@@ -260,12 +571,23 @@ export class AgentService {
         if (!confirmMode || isReadOnly) {
           // 直接执行
           this.logger.log(`Executing tool: ${call.name} args: ${JSON.stringify(call.args)}`);
+          const toolStartedAt = Date.now();
           let result: any;
           try {
             result = await this.agentToolsService.executeTool(userId, call.name, call.args);
           } catch (error) {
             result = { error: error.message || 'Tool execution failed' };
           }
+          await this.agentTraceService.recordStep({
+            runId,
+            userId,
+            type: 'tool_call',
+            status: result?.error ? 'failed' : 'success',
+            input: { tool: call.name, args: call.args, readOnly: isReadOnly },
+            output: result,
+            error: result?.error ? { message: result.error } : undefined,
+            durationMs: Date.now() - toolStartedAt,
+          });
           toolResults.push({ tool: call.name, args: call.args, result });
           llmMessages.push({ role: 'tool', content: JSON.stringify(result), tool_call_id: call.id });
         } else {
@@ -284,45 +606,156 @@ export class AgentService {
     // 确认模式：为每个写操作创建独立的确认消息
     if (confirmMode && pendingWriteOps.length > 0) {
       const normalizedPendingWriteOps = this.normalizePendingWriteOps(messageHints, pendingWriteOps);
-      const finalPendingWriteOps = this.sanitizePendingWriteOps(messageHints, normalizedPendingWriteOps);
+      const hasReflectionWrite = normalizedPendingWriteOps.some((op) => op.name === 'update_day_reflection');
+      const reflectionSafePendingWriteOps = (this.isReflectionIntentMessage(message) || hasReflectionWrite)
+        ? normalizedPendingWriteOps.filter((op) => op.name === 'update_day_reflection')
+        : normalizedPendingWriteOps;
+      const memorySafePendingWriteOps = this.isExplicitMemoryIntent(message)
+        ? reflectionSafePendingWriteOps.filter((op) => op.name !== 'start_pomodoro')
+        : reflectionSafePendingWriteOps;
+      const intentSafePendingWriteOps = this.isPomodoroCandidateIntentQuery(message)
+        ? []
+        : memorySafePendingWriteOps;
+      const finalPendingWriteOps = this.sanitizePendingWriteOps(
+        messageHints,
+        intentSafePendingWriteOps,
+        memoryContext.preferredPomodoroMinutes,
+      );
+      if (finalPendingWriteOps.length === 0) {
+        return finishRun(await this.createAssistantReply(
+          userId,
+          this.isPomodoroCandidateIntentQuery(message)
+            ? '我会只查看今日可绑定的任务候选，不会自动创建任务或开启番茄钟。'
+            : '这轮没有需要确认执行的写操作。',
+          toolResults,
+        ));
+      }
       const confirms: Array<{ id: string; summary: string; action: any }> = [];
       for (const op of finalPendingWriteOps) {
         const label = TOOL_LABELS[op.name] || op.name;
         const detail = await this.formatToolArgs(userId, op.name, op.args);
         const summary = `${label}：${detail}`;
 
-        const saved = await this.prisma.agentMessage.create({
-          data: {
-            userId,
-            role: 'confirm',
-            content: summary,
-            pendingAction: { toolCall: op },
-            confirmed: null,
-          },
+        const saved = await this.agentConfirmationService.create({
+          runId,
+          userId,
+          toolName: op.name,
+          args: op.args,
+          summary,
         });
-        confirms.push({ id: saved.id, summary, action: op });
+        if (saved) {
+          confirms.push({ id: saved.id, summary, action: op });
+        }
       }
-      return {
+      await this.agentTraceService.recordStep({
+        runId,
+        userId,
+        type: 'confirmation_generation',
+        input: { pendingCount: pendingWriteOps.length },
+        output: { confirmationCount: confirms.length, tools: finalPendingWriteOps.map((op) => op.name) },
+      });
+      const previewReply = await this.buildPendingWritePreview(userId, finalPendingWriteOps);
+      return finishRun(await persistConfirmPreview({
         type: 'confirms',
         confirms,
-        previewReply: await this.buildPendingWritePreview(userId, finalPendingWriteOps),
-      };
+        previewReply,
+      }), 'waiting_confirmation');
     }
 
     if (this.shouldSuppressAutoReply(confirmMode, toolResults)) {
-      return this.createAutoWriteApplied(userId, toolResults);
+      return finishRun(await this.createAutoWriteApplied(userId, toolResults));
     }
 
     const saved = await this.prisma.agentMessage.create({
       data: { userId, role: 'assistant', content: '操作完成，但处理轮次过多，请简化你的请求。' },
     });
-    return { id: saved.id, reply: '操作完成，但处理轮次过多，请简化你的请求。', toolResults, type: 'reply' };
+    return finishRun({ id: saved.id, reply: '操作完成，但处理轮次过多，请简化你的请求。', toolResults, type: 'reply' });
+    } catch (error) {
+      await this.agentTraceService.finishRun(runId, 'failed', runStartedAt, {
+        code: 'AGENT_CHAT_FAILED',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   /**
    * 确认执行单个待定操作
    */
   async confirmAction(userId: string, messageId: string) {
+    const confirmation = await this.agentConfirmationService.findPending(userId, messageId);
+    if (confirmation) {
+      const call = {
+        id: confirmation.id,
+        name: confirmation.toolName,
+        args: confirmation.args as Record<string, any>,
+      };
+
+      this.logger.log(`Confirmed executing: ${call.name} args: ${JSON.stringify(call.args)}`);
+      const executeStartedAt = Date.now();
+      await this.agentConfirmationService.markApproved(messageId);
+      await this.agentTraceService.recordStep({
+        runId: confirmation.runId,
+        userId,
+        type: 'confirmation_approval',
+        input: {
+          confirmationId: messageId,
+          tool: call.name,
+          args: call.args,
+        },
+      });
+      const toolResults = await this.executePendingAction(userId, call);
+      const hasSuccessfulWrite = toolResults.some(({ result }) => !result?.error);
+      const firstError = toolResults.find(({ result }) => Boolean(result?.error))?.result?.error;
+
+      if (firstError && !hasSuccessfulWrite) {
+        await this.agentConfirmationService.markFailed(messageId, { message: firstError }, toolResults);
+        await this.agentTraceService.recordStep({
+          runId: confirmation.runId,
+          userId,
+          type: 'confirmation_execution',
+          status: 'failed',
+          input: {
+            confirmationId: messageId,
+            tool: call.name,
+            args: call.args,
+          },
+          output: toolResults,
+          error: { message: firstError },
+          durationMs: Date.now() - executeStartedAt,
+        });
+        return {
+          type: 'confirm_error',
+          messageId,
+          error: firstError,
+        };
+      }
+
+      const summary = await this.formatExecutedActionSummary(userId, call, toolResults);
+      await this.agentConfirmationService.markExecuted(messageId, { summary, toolResults });
+      await this.agentTraceService.recordStep({
+        runId: confirmation.runId,
+        userId,
+        type: 'confirmation_execution',
+        input: {
+          confirmationId: messageId,
+          tool: call.name,
+          args: call.args,
+        },
+        output: { summary, toolResults },
+        durationMs: Date.now() - executeStartedAt,
+      });
+
+      return {
+        id: messageId,
+        messageId,
+        summary,
+        toolResults,
+        confirmed: true,
+        type: 'confirm_updated',
+      };
+    }
+
     const msg = await this.prisma.agentMessage.findFirst({
       where: { id: messageId, userId, role: 'confirm', confirmed: null },
     });
@@ -367,10 +800,109 @@ export class AgentService {
     };
   }
 
+  async retryConfirmation(userId: string, confirmationId: string) {
+    const confirmation = await this.agentConfirmationService.findRetriable(userId, confirmationId);
+    if (!confirmation) {
+      throw new Error('没有找到可重试的确认操作');
+    }
+
+    const call = {
+      id: confirmation.id,
+      name: confirmation.toolName,
+      args: confirmation.args as Record<string, any>,
+    };
+
+    const executeStartedAt = Date.now();
+    await this.agentConfirmationService.markApproved(confirmationId);
+    await this.agentTraceService.recordStep({
+      runId: confirmation.runId,
+      userId,
+      type: 'confirmation_retry',
+      input: {
+        confirmationId,
+        tool: call.name,
+        args: call.args,
+      },
+    });
+
+    const toolResults = await this.executePendingAction(userId, call);
+    const hasSuccessfulWrite = toolResults.some(({ result }) => !result?.error);
+    const firstError = toolResults.find(({ result }) => Boolean(result?.error))?.result?.error;
+
+    if (firstError && !hasSuccessfulWrite) {
+      await this.agentConfirmationService.markFailed(confirmationId, { message: firstError }, toolResults);
+      await this.agentTraceService.recordStep({
+        runId: confirmation.runId,
+        userId,
+        type: 'confirmation_execution',
+        status: 'failed',
+        input: {
+          confirmationId,
+          tool: call.name,
+          args: call.args,
+        },
+        output: toolResults,
+        error: { message: firstError },
+        durationMs: Date.now() - executeStartedAt,
+      });
+      return {
+        type: 'confirm_error',
+        messageId: confirmationId,
+        error: firstError,
+      };
+    }
+
+    const summary = await this.formatExecutedActionSummary(userId, call, toolResults);
+    await this.agentConfirmationService.markExecuted(confirmationId, { summary, toolResults });
+    await this.agentTraceService.recordStep({
+      runId: confirmation.runId,
+      userId,
+      type: 'confirmation_execution',
+      input: {
+        confirmationId,
+        tool: call.name,
+        args: call.args,
+      },
+      output: { summary, toolResults },
+      durationMs: Date.now() - executeStartedAt,
+    });
+
+    return {
+      id: confirmationId,
+      messageId: confirmationId,
+      summary,
+      toolResults,
+      confirmed: true,
+      type: 'confirm_updated',
+    };
+  }
+
   /**
    * 拒绝待定操作
    */
   async rejectAction(userId: string, messageId: string) {
+    const confirmation = await this.agentConfirmationService.findPending(userId, messageId);
+    if (confirmation) {
+      await this.agentConfirmationService.markRejected(messageId);
+      await this.agentTraceService.recordStep({
+        runId: confirmation.runId,
+        userId,
+        type: 'confirmation_rejection',
+        input: {
+          confirmationId: messageId,
+          tool: confirmation.toolName,
+          args: confirmation.args,
+        },
+      });
+      return {
+        id: messageId,
+        messageId,
+        summary: confirmation.summary,
+        confirmed: false,
+        type: 'confirm_updated',
+      };
+    }
+
     const msg = await this.prisma.agentMessage.findFirst({
       where: { id: messageId, userId, role: 'confirm', confirmed: null },
     });
@@ -389,6 +921,190 @@ export class AgentService {
       summary: msg.content,
       confirmed: false,
       type: 'confirm_updated',
+    };
+  }
+
+  private async handleDeterministicConfirmFallback(
+    userId: string,
+    message: string,
+    confirmMode: boolean,
+    hints: AgentMessageHints,
+    preferredPomodoroMinutes: number | null,
+    runId: string | null,
+  ) {
+    if (!confirmMode || !runId) {
+      return null;
+    }
+    if (this.isExplicitMemoryIntent(message)) {
+      return null;
+    }
+    if (this.isPomodoroCandidateIntentQuery(message)) {
+      return null;
+    }
+
+    const pendingWriteOps: Array<{ id: string; name: string; args: any }> = [];
+    const importantInfo = this.extractImportantInfoIntentContent(message);
+    const dayReflection = this.extractDayReflectionIntentContent(message);
+
+    if (hints.wakeUpTime || this.looksLikeStartDayIntent(message)) {
+      pendingWriteOps.push({
+        id: `fallback-start-day-${Date.now()}`,
+        name: 'start_day',
+        args: {
+          wakeUpTime: hints.wakeUpTime,
+          dayStart: this.extractDayStartContent(message, hints),
+        },
+      });
+    }
+
+    if (hints.explicitTaskTitles.length > 0) {
+      pendingWriteOps.push({
+        id: `fallback-create-tasks-${Date.now()}`,
+        name: 'create_tasks',
+        args: { titles: hints.explicitTaskTitles },
+      });
+    }
+
+    const mealExpenses = this.extractMealExpenseIntents(message);
+    for (const mealExpense of mealExpenses) {
+      pendingWriteOps.push({
+        id: `fallback-meal-expense-${mealExpense.category}-${Date.now()}`,
+        name: 'record_meal_expense',
+        args: mealExpense,
+      });
+    }
+
+    if (!this.isReflectionIntentMessage(message) && hints.createAndCompleteTaskTitle) {
+      pendingWriteOps.push({
+        id: `fallback-create-complete-${Date.now()}`,
+        name: 'create_and_complete_task',
+        args: {
+          title: hints.createAndCompleteTaskTitle,
+          createArgs: { title: hints.createAndCompleteTaskTitle },
+        },
+      });
+    } else if (!this.isReflectionIntentMessage(message) && hints.completionTaskTitle) {
+      pendingWriteOps.push({
+        id: `fallback-complete-${Date.now()}`,
+        name: 'complete_task',
+        args: { taskTitle: hints.completionTaskTitle },
+      });
+    }
+
+    if (hints.pomodoro) {
+      pendingWriteOps.push({
+        id: `fallback-pomodoro-${Date.now()}`,
+        name: 'start_pomodoro',
+        args: {
+          duration: hints.pomodoro.durationMinutes || preferredPomodoroMinutes || 25,
+          ...(hints.pomodoro.taskTitle
+            ? { taskTitle: hints.pomodoro.taskTitle, createTaskIfMissing: true }
+            : {}),
+        },
+      });
+    } else if (this.isSimplePomodoroStartIntent(message)) {
+      pendingWriteOps.push({
+        id: `fallback-pomodoro-${Date.now()}`,
+        name: 'start_pomodoro',
+        args: { duration: preferredPomodoroMinutes || 25 },
+      });
+    }
+
+    if (
+      hints.pomodoro?.taskTitle
+      && !pendingWriteOps.some((op) => (
+        (op.name === 'create_task' && this.matchesTaskTitleKey(op.args?.title, toTaskMatchKey(hints.pomodoro?.taskTitle || '')))
+        || (op.name === 'create_tasks' && Array.isArray(op.args?.titles) && op.args.titles.some((title: string) => this.matchesTaskTitleKey(title, toTaskMatchKey(hints.pomodoro?.taskTitle || ''))))
+      ))
+    ) {
+      pendingWriteOps.push({
+        id: `fallback-create-pomodoro-task-${Date.now()}`,
+        name: 'create_task',
+        args: { title: hints.pomodoro.taskTitle },
+      });
+    }
+
+    if (hints.exerciseRecord) {
+      pendingWriteOps.push({
+        id: `fallback-exercise-${Date.now()}`,
+        name: 'record_exercise',
+        args: {
+          exerciseName: hints.exerciseRecord.exerciseName,
+          value: hints.exerciseRecord.value,
+        },
+      });
+    }
+
+    if (hints.exerciseFeeling) {
+      pendingWriteOps.push({
+        id: `fallback-exercise-feeling-${Date.now()}`,
+        name: 'set_exercise_feeling',
+        args: { feeling: hints.exerciseFeeling },
+      });
+    }
+
+    if (importantInfo) {
+      pendingWriteOps.push({
+        id: `fallback-important-info-${Date.now()}`,
+        name: 'update_important_info',
+        args: { content: importantInfo },
+      });
+    }
+
+    if (dayReflection) {
+      pendingWriteOps.push({
+        id: `fallback-day-reflection-${Date.now()}`,
+        name: 'update_day_reflection',
+        args: { dayReflection },
+      });
+    }
+
+    const normalizedPendingWriteOps = this.normalizePendingWriteOps(hints, pendingWriteOps);
+    const reflectionSafePendingWriteOps = normalizedPendingWriteOps.some((op) => op.name === 'update_day_reflection')
+      ? normalizedPendingWriteOps.filter((op) => op.name === 'update_day_reflection')
+      : normalizedPendingWriteOps;
+    const finalPendingWriteOps = this.sanitizePendingWriteOps(
+      hints,
+      reflectionSafePendingWriteOps,
+      preferredPomodoroMinutes,
+    );
+    if (finalPendingWriteOps.length === 0) {
+      return null;
+    }
+
+    const confirms: Array<{ id: string; summary: string; action: any }> = [];
+    for (const op of finalPendingWriteOps) {
+      const label = TOOL_LABELS[op.name] || op.name;
+      const detail = await this.formatToolArgs(userId, op.name, op.args);
+      const summary = `${label}：${detail}`;
+      const saved = await this.agentConfirmationService.create({
+        runId,
+        userId,
+        toolName: op.name,
+        args: op.args,
+        summary,
+      });
+      if (saved) {
+        confirms.push({ id: saved.id, summary, action: op });
+      }
+    }
+
+    if (confirms.length === 0) {
+      return null;
+    }
+
+    await this.agentTraceService.recordStep({
+      runId,
+      userId,
+      type: 'confirmation_generation',
+      input: { source: 'deterministic_fallback', pendingCount: finalPendingWriteOps.length },
+      output: { confirmationCount: confirms.length, tools: finalPendingWriteOps.map((op) => op.name) },
+    });
+
+    return {
+      type: 'confirms' as const,
+      confirms,
+      previewReply: await this.buildPendingWritePreview(userId, finalPendingWriteOps),
     };
   }
 
@@ -469,6 +1185,7 @@ export class AgentService {
   private sanitizePendingWriteOps(
     hints: AgentMessageHints,
     pendingWriteOps: Array<{ id: string; name: string; args: any }>,
+    preferredPomodoroMinutes?: number | null,
   ) {
     if (!Array.isArray(pendingWriteOps) || pendingWriteOps.length === 0) {
       return [];
@@ -519,6 +1236,53 @@ export class AgentService {
 
     const hasTool = (toolName: string) => deduped.some((op) => op.name === toolName);
 
+    if (hints.completionTaskTitle) {
+      for (const op of deduped) {
+        if (
+          op.name === 'complete_task'
+          && !op.args?.taskTitle
+          && !op.args?.taskName
+        ) {
+          op.args = {
+            ...op.args,
+            taskTitle: hints.completionTaskTitle,
+          };
+        }
+      }
+    }
+
+    if (preferredPomodoroMinutes && !hints.pomodoro?.durationMinutes) {
+      for (const op of deduped) {
+        if (op.name === 'start_pomodoro') {
+          op.args = {
+            ...op.args,
+            duration: preferredPomodoroMinutes,
+          };
+        }
+      }
+    }
+
+    if (hints.pomodoro?.taskTitle) {
+      const pomodoroTitleKey = toTaskMatchKey(hints.pomodoro.taskTitle);
+      const hasMatchingCreate = deduped.some((op) => (
+        (op.name === 'create_task' && this.matchesTaskTitleKey(op.args?.title, pomodoroTitleKey))
+        || (op.name === 'create_tasks' && Array.isArray(op.args?.titles) && op.args.titles.some((title: string) => this.matchesTaskTitleKey(title, pomodoroTitleKey)))
+      ));
+      const hasPomodoroWithAutoCreate = deduped.some((op) => (
+        op.name === 'start_pomodoro'
+        && op.args?.createTaskIfMissing
+        && this.matchesTaskTitleKey(op.args?.taskTitle ?? op.args?.taskName, pomodoroTitleKey)
+      ));
+
+      if (hasPomodoroWithAutoCreate && !hasMatchingCreate) {
+        deduped.push({
+          id: `fallback-create-pomodoro-task-${Date.now()}`,
+          name: 'create_task',
+          args: { title: hints.pomodoro.taskTitle },
+        });
+      }
+    }
+
     // 补齐“完成任务”意图，避免模型漏掉时整轮只创建不完成
     if (
       hints.completionTaskTitle
@@ -535,7 +1299,7 @@ export class AgentService {
     // 补齐“开启番茄钟”意图，避免模型漏掉时本轮没有番茄卡片
     if (hints.pomodoro && !hasTool('start_pomodoro')) {
       const pomodoroArgs: Record<string, any> = {
-        duration: hints.pomodoro.durationMinutes || 25,
+        duration: hints.pomodoro.durationMinutes || preferredPomodoroMinutes || 25,
       };
 
       if (hints.pomodoro.taskTitle) {
@@ -547,6 +1311,14 @@ export class AgentService {
         id: `fallback-pomodoro-${Date.now()}`,
         name: 'start_pomodoro',
         args: pomodoroArgs,
+      });
+    }
+
+    if (hints.exerciseFeeling && !hasTool('set_exercise_feeling')) {
+      deduped.push({
+        id: `fallback-exercise-feeling-${Date.now()}`,
+        name: 'set_exercise_feeling',
+        args: { feeling: hints.exerciseFeeling },
       });
     }
 
@@ -1222,13 +1994,13 @@ export class AgentService {
       }
 
       if (hints.pomodoro.taskTitle) {
-        const matched = await this.agentToolsService.resolvePendingTask(userId, hints.pomodoro.taskTitle);
+        const matched = await this.agentToolsService.resolveTodayPendingTask(userId, hints.pomodoro.taskTitle);
         if (matched.status === 'matched' && matched.match) {
-          notes.push(`番茄目标任务已匹配到未完成任务：taskId="${matched.match.taskId}"，title="${matched.match.taskTitle}"。调用 start_pomodoro 时优先传 taskId。`);
+          notes.push(`番茄目标任务已匹配到今日未完成任务：taskId="${matched.match.taskId}"，title="${matched.match.taskTitle}"。调用 start_pomodoro 时优先传 taskId。`);
         } else if (matched.status === 'ambiguous') {
-          notes.push(`番茄目标任务 "${hints.pomodoro.taskTitle}" 存在歧义，候选有：${matched.candidates.map(candidate => `"${candidate.taskTitle}"`).join('、')}。不要猜测绑定，优先向用户澄清。`);
+          notes.push(`番茄目标任务 "${hints.pomodoro.taskTitle}" 在今日未完成任务中存在歧义，候选有：${matched.candidates.map(candidate => `"${candidate.taskTitle}"`).join('、')}。不要猜测绑定，优先向用户澄清。`);
         } else {
-          notes.push(`番茄目标任务候选为 "${hints.pomodoro.taskTitle}"。如果当前没有匹配到未完成任务，不要先 create_task 等待返回 taskId；直接调用 start_pomodoro，并传 taskTitle="${hints.pomodoro.taskTitle}"、createTaskIfMissing=true。`);
+          notes.push(`番茄目标任务候选为 "${hints.pomodoro.taskTitle}"。如果今日未完成任务中没有匹配项，不要展示历史未完成任务；直接调用 start_pomodoro，并传 taskTitle="${hints.pomodoro.taskTitle}"、createTaskIfMissing=true。`);
         }
       }
     }
@@ -1387,6 +2159,121 @@ export class AgentService {
   /**
    * 清空历史
    */
+  private normalizeMemoryType(type: string) {
+    const normalized = String(type || 'fact').trim();
+    const allowed = new Set(['preference', 'fact', 'goal', 'habit', 'constraint', 'procedure']);
+    return allowed.has(normalized) ? normalized : 'fact';
+  }
+
+  private normalizeMemoryStatus(status: string) {
+    const normalized = String(status || 'active').trim();
+    const allowed = new Set(['active', 'archived']);
+    return allowed.has(normalized) ? normalized : 'active';
+  }
+
+  private extractImportantInfoIntentContent(message: string) {
+    const match = message.match(/(?:\u8bb0\u5f55|\u4fdd\u5b58|\u91cd\u8981\u4fe1\u606f|\u628a|\u5c06)(?:\u91cd\u8981\u4fe1\u606f|\u91cd\u8981\u4e8b\u9879|\u5173\u952e\u4fe1\u606f)?[\uff1a:\s]*(.+)$/u);
+    return match?.[1]?.trim() || '';
+  }
+
+  private extractDayReflectionIntentContent(message: string) {
+    const match = message.match(/(?:\u5199|\u66f4\u65b0|\u8bb0\u5f55)?(?:\u4eca\u65e5\u590d\u76d8|\u4eca\u5929\u590d\u76d8|\u590d\u76d8)[\uff1a:\s]*(.+)$/u);
+    return match?.[1]?.trim() || '';
+  }
+
+  private isReflectionIntentMessage(message: string) {
+    return /(?:\u4eca\u65e5\u590d\u76d8|\u4eca\u5929\u590d\u76d8|\u5199\u590d\u76d8|\u66f4\u65b0\u590d\u76d8|\u8bb0\u5f55\u590d\u76d8|\u603b\u7ed3\u4eca\u5929)/u.test(message);
+  }
+
+  private isExplicitMemoryIntent(message: string) {
+    return /^(?:\u8bf7\u4f60)?(?:\u4ee5\u540e)?(?:\u8bb0\u4f4f|\u5fd8\u6389|\u5fd8\u8bb0|\u6211\u7684\u504f\u597d|\u4ee5\u540e\u6211|\u6211\u4e60\u60ef|\u6211\u559c\u6b22)/u.test(message.trim());
+  }
+
+  private extractMealExpenseIntents(message: string) {
+    const categories = [
+      { category: 'breakfast', pattern: /\u65e9\u9910(?:\u82b1\u4e86|\u82b1\u8d39|\u6d88\u8d39|\u7528\u4e86|\u5403\u4e86)?\s*(\d+(?:\.\d+)?)\s*\u5143?/u },
+      { category: 'lunch', pattern: /\u5348\u9910(?:\u82b1\u4e86|\u82b1\u8d39|\u6d88\u8d39|\u7528\u4e86|\u5403\u4e86)?\s*(\d+(?:\.\d+)?)\s*\u5143?/u },
+      { category: 'dinner', pattern: /\u665a\u9910(?:\u82b1\u4e86|\u82b1\u8d39|\u6d88\u8d39|\u7528\u4e86|\u5403\u4e86)?\s*(\d+(?:\.\d+)?)\s*\u5143?/u },
+    ] as const;
+
+    return categories.flatMap(({ category, pattern }) => {
+      const match = message.match(pattern);
+      if (!match?.[1]) {
+        return [];
+      }
+      return [{ category, amount: Number(match[1]) }];
+    });
+  }
+
+  private looksLikeStartDayIntent(message: string) {
+    return /(?:\u5f00\u542f\u4eca\u5929|\u5f00\u59cb\u4eca\u5929|\u4eca\u65e5\u5f00\u542f|\u4eca\u5929\u8ba1\u5212|\u4eca\u65e5\u8ba1\u5212|\u8d77\u5e8a)/u.test(message);
+  }
+
+  private isSimplePomodoroStartIntent(message: string) {
+    const normalized = message.replace(/\s+/gu, '');
+    return /^(?:\u5f00\u542f|\u5f00\u59cb|\u6765\u4e2a)?(?:\u4e00\u4e2a)?(?:\u756a\u8304\u949f|\u756a\u8304|\u4e13\u6ce8)(?:\u5427)?$/u.test(normalized);
+  }
+
+  private isPomodoroCandidateIntentQuery(message: string) {
+    return /(?:\u756a\u8304\u949f|\u756a\u8304|\u4e13\u6ce8)/u.test(message)
+      && /(?:\u7ed1\u5b9a\u54ea\u4e9b\u4eca\u65e5\u4efb\u52a1|\u7ed1\u5b9a\u4ec0\u4e48\u4eca\u65e5\u4efb\u52a1|\u53ef\u4ee5\u7ed1\u5b9a\u54ea\u4e2a\u4efb\u52a1|\u80fd\u7ed1\u5b9a\u54ea\u4e9b|\u5019\u9009|\u4efb\u52a1\u5019\u9009|\u5173\u8054\u54ea\u4e2a)/u.test(message);
+  }
+
+  private extractImportantInfoContent(message: string) {
+    const match = message.match(/(?:添加|更新|记录|记一下)(?:重要信息|重要的事|重要事项)[：:\s]*(.+)$/u);
+    return match?.[1]?.trim() || '';
+  }
+
+  private extractDayReflectionContent(message: string) {
+    const match = message.match(/(?:写|更新|记录)?(?:今日复盘|今天复盘|复盘)[：:\s]*(.+)$/u);
+    return match?.[1]?.trim() || '';
+  }
+
+  private isReflectionMessage(message: string) {
+    return /(?:今日复盘|今天复盘|复盘)/u.test(message);
+  }
+
+  private isExplicitMemoryMessage(message: string) {
+    return /^(?:请你)?(?:帮我)?(?:记住|忘掉|忘记|删除记忆|不要记住)/u.test(message.trim());
+  }
+
+  private extractMealExpenses(message: string) {
+    const categories = [
+      { category: 'breakfast', pattern: /早餐(?:花了|花费|消费|用了)?\s*(\d+(?:\.\d+)?)\s*元/u },
+      { category: 'lunch', pattern: /午餐(?:花了|花费|消费|用了)?\s*(\d+(?:\.\d+)?)\s*元/u },
+      { category: 'dinner', pattern: /晚餐(?:花了|花费|消费|用了)?\s*(\d+(?:\.\d+)?)\s*元/u },
+    ] as const;
+
+    return categories.flatMap(({ category, pattern }) => {
+      const match = message.match(pattern);
+      if (!match?.[1]) {
+        return [];
+      }
+      return [{ category, amount: Number(match[1]) }];
+    });
+  }
+
+  private extractDayStartContent(message: string, hints: AgentMessageHints) {
+    const withoutWakeUpTime = hints.wakeUpTime
+      ? message.replace(/\d{1,2}(?::|点)\d{0,2}\s*(?:起床|醒来|起来)?/u, '').trim()
+      : message.trim();
+    return withoutWakeUpTime || undefined;
+  }
+
+  private looksLikeStartDayMessage(message: string) {
+    return /(?:开启今天|开启今日|新的一天|今天计划|今日计划|今天安排|今日安排|起床)/u.test(message);
+  }
+
+  private isSimplePomodoroStart(message: string) {
+    const normalized = message.replace(/\s+/gu, '');
+    return /^(?:帮我|给我|请)?(?:开启|开|开始)(?:一个|一轮)?(?:番茄钟|番茄|专注)(?:计时)?$/u.test(normalized);
+  }
+
+  private isPomodoroCandidateQuery(message: string) {
+    return /(?:番茄|专注|计时)/u.test(message)
+      && /(?:哪个任务|哪些任务|可绑定|可以绑定|候选|看看|查看|列出)/u.test(message);
+  }
+
   async clearHistory(userId: string) {
     await this.prisma.agentMessage.deleteMany({ where: { userId } });
     return { message: '会话历史已清除' };

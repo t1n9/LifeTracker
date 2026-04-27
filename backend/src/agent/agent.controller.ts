@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, Body, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AgentService } from './agent.service';
@@ -15,6 +15,88 @@ export class AgentController {
     @Query('limit') limit?: string,
   ) {
     return this.agentService.getMessages(req.user.id, cursor, limit ? parseInt(limit, 10) : 30);
+  }
+
+  @Get('runs')
+  async getRuns(@Req() req, @Query('limit') limit?: string) {
+    return this.agentService.getRuns(req.user.id, limit ? parseInt(limit, 10) : 20);
+  }
+
+  @Get('runs/:id')
+  async getRun(@Req() req, @Param('id') runId: string) {
+    return this.agentService.getRun(req.user.id, runId);
+  }
+
+  @Get('runs/:id/steps')
+  async getRunSteps(@Req() req, @Param('id') runId: string) {
+    return this.agentService.getRunSteps(req.user.id, runId);
+  }
+
+  @Get('confirmations')
+  async getConfirmations(
+    @Req() req,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.agentService.getConfirmations(req.user.id, status || 'pending', limit ? parseInt(limit, 10) : 20);
+  }
+
+  @Get('memories')
+  async getMemories(@Req() req) {
+    return this.agentService.getMemories(req.user.id);
+  }
+
+  @Post('memories')
+  async createMemory(
+    @Req() req,
+    @Body('type') type: string,
+    @Body('content') content: string,
+  ) {
+    return this.agentService.createMemory(req.user.id, type, content);
+  }
+
+  @Patch('memories/:id')
+  async updateMemory(
+    @Req() req,
+    @Param('id') memoryId: string,
+    @Body('type') type?: string,
+    @Body('content') content?: string,
+    @Body('status') status?: string,
+  ) {
+    return this.agentService.updateMemory(req.user.id, memoryId, { type, content, status });
+  }
+
+  @Delete('memories/:id')
+  async deleteMemory(@Req() req, @Param('id') memoryId: string) {
+    return this.agentService.deleteMemory(req.user.id, memoryId);
+  }
+
+  @Get('profile')
+  async getProfile(@Req() req) {
+    return this.agentService.getProfile(req.user.id);
+  }
+
+  @Post('profile/rebuild')
+  async rebuildProfile(@Req() req) {
+    return this.agentService.rebuildProfile(req.user.id);
+  }
+
+  @Patch('profile')
+  async updateProfile(
+    @Req() req,
+    @Body('summary') summary?: string | null,
+    @Body('goals') goals?: unknown,
+    @Body('preferences') preferences?: unknown,
+    @Body('routines') routines?: unknown,
+    @Body('constraints') constraints?: unknown,
+  ) {
+    return this.agentService.updateProfile(req.user.id, {
+      summary,
+      goals,
+      preferences,
+      routines,
+      constraints,
+    });
   }
 
   @Post('chat')
@@ -56,8 +138,7 @@ export class AgentController {
       writeEvent({ type: 'reply_start', id: messageId });
 
       for (let index = 0; index < content.length; index += chunkSize) {
-        const chunk = content.slice(index, index + chunkSize);
-        writeEvent({ type: 'reply_delta', id: messageId, chunk });
+        writeEvent({ type: 'reply_delta', id: messageId, chunk: content.slice(index, index + chunkSize) });
         await new Promise((resolve) => setTimeout(resolve, 30));
       }
 
@@ -70,11 +151,11 @@ export class AgentController {
       writeEvent({ type: 'start' });
 
       const progressMessages = [
-        '正在理解你的输入...',
-        '正在提取意图并检查上下文...',
-        '正在规划本轮操作...',
-        '正在准备确认卡片...',
-      ];
+        "正在理解你的输入...",
+        "正在读取今天的上下文...",
+        "正在判断是否需要调用工具...",
+        "正在整理可确认的操作..."
+];
 
       let progressIndex = 0;
       writeEvent({ type: 'progress', text: progressMessages[progressIndex] });
@@ -95,7 +176,7 @@ export class AgentController {
         await streamReply(result.reply || '', result.id, result.toolResults || []);
       } else if (result.type === 'confirms') {
         if (result.previewReply) {
-          await streamReply(String(result.previewReply), `preview-${Date.now()}`, []);
+          await streamReply(String(result.previewReply), result.previewMessageId || `preview-${Date.now()}`, []);
         }
         writeEvent({ type: 'confirms', confirms: result.confirms || [] });
       } else if (result.type === 'auto_write_applied') {
@@ -127,9 +208,24 @@ export class AgentController {
     return this.agentService.confirmAction(req.user.id, messageId);
   }
 
+  @Post('confirmations/:id/approve')
+  async approveConfirmation(@Req() req, @Param('id') confirmationId: string) {
+    return this.agentService.confirmAction(req.user.id, confirmationId);
+  }
+
   @Post('reject')
   async reject(@Req() req, @Body('messageId') messageId: string) {
     return this.agentService.rejectAction(req.user.id, messageId);
+  }
+
+  @Post('confirmations/:id/reject')
+  async rejectConfirmation(@Req() req, @Param('id') confirmationId: string) {
+    return this.agentService.rejectAction(req.user.id, confirmationId);
+  }
+
+  @Post('confirmations/:id/retry')
+  async retryConfirmation(@Req() req, @Param('id') confirmationId: string) {
+    return this.agentService.retryConfirmation(req.user.id, confirmationId);
   }
 
   @Delete('history')

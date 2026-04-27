@@ -32,6 +32,14 @@ interface ConfirmCard {
   pendingAction?: any;
 }
 
+interface AgentConfirmationQueueItem {
+  id: string;
+  summary: string;
+  action?: any;
+  toolName?: string;
+  args?: any;
+}
+
 interface CaptureAnalysis {
   category: 'idea' | 'reflection' | 'method' | 'question' | 'quote' | 'mixed';
   summary: string;
@@ -399,6 +407,31 @@ export default function AgentChatPanel() {
     }
   }, [loadingHistory, shouldShowChatMessage]);
 
+  const mapConfirmationsToCards = useCallback((items: AgentConfirmationQueueItem[]): ConfirmCard[] => (
+    items.map((item) => ({
+      id: item.id,
+      content: item.summary,
+      pendingAction: {
+        action: item.action || {
+          id: item.id,
+          name: item.toolName,
+          args: item.args,
+        },
+      },
+    }))
+  ), []);
+
+  const loadConfirmations = useCallback(async () => {
+    try {
+      const { data } = await api.get('/agent/confirmations', {
+        params: { status: 'pending', limit: 20 },
+      });
+      setActiveConfirmCards(mapConfirmationsToCards(data.confirmations || []));
+    } catch (err) {
+      console.error('加载确认队列失败:', err);
+    }
+  }, [mapConfirmationsToCards]);
+
   const loadCaptures = useCallback(async () => {
     if (loadingCaptures) return;
     setLoadingCaptures(true);
@@ -418,13 +451,14 @@ export default function AgentChatPanel() {
     if (!isOpen) return;
     if (panelMode === 'chat' && !historyLoaded) {
       void loadHistory();
+      void loadConfirmations();
       setHistoryLoaded(true);
     }
     if (panelMode === 'capture' && !capturesLoaded) {
       void loadCaptures();
     }
     inputRef.current?.focus();
-  }, [capturesLoaded, historyLoaded, isOpen, loadCaptures, loadHistory, panelMode]);
+  }, [capturesLoaded, historyLoaded, isOpen, loadCaptures, loadConfirmations, loadHistory, panelMode]);
 
   useEffect(() => {
     if (panelMode !== 'chat' || messages.length === 0) return;
@@ -617,11 +651,7 @@ export default function AgentChatPanel() {
       };
 
       const appendConfirmMessages = (confirms: any[]) => {
-        const confirmMsgs: ConfirmCard[] = confirms.map((item: any) => ({
-          id: item.id,
-          content: item.summary,
-          pendingAction: { action: item.action },
-        }));
+        const confirmMsgs = mapConfirmationsToCards(confirms);
         if (confirmMsgs.length > 0) {
           setActiveConfirmCards(confirmMsgs);
         }
@@ -667,6 +697,7 @@ export default function AgentChatPanel() {
           case 'confirms': {
             removeThinkingMessage();
             appendConfirmMessages(Array.isArray(event.confirms) ? event.confirms : []);
+            void loadConfirmations();
             break;
           }
           case 'auto_write_applied': {
@@ -723,6 +754,7 @@ export default function AgentChatPanel() {
           console.error('解析收尾流事件失败:', parseError, tail);
         }
       }
+      void loadConfirmations();
     } catch (err: any) {
       removeThinkingMessage();
       setMessages((prev) => [...prev, {
@@ -776,7 +808,7 @@ export default function AgentChatPanel() {
   const handleConfirm = async (messageId: string) => {
     setActiveConfirmCards((prev) => prev.filter((card) => card.id !== messageId));
     try {
-      const { data } = await api.post('/agent/confirm', { messageId });
+      const { data } = await api.post(`/agent/confirmations/${messageId}/approve`);
       if (data.type === 'confirm_error' || data.error) {
         setMessages((prev) => [...prev, {
           id: `err-${Date.now()}`,
@@ -784,13 +816,16 @@ export default function AgentChatPanel() {
           content: `执行失败：${data.error || '未知错误'}`,
           createdAt: new Date().toISOString(),
         }]);
+        void loadConfirmations();
         return;
       }
       if (data.type === 'confirm_updated') {
         if (data.confirmed) {
           dispatchAgentDataChanged(getAgentChangedDomains(data.toolResults || []));
+          void loadConfirmations();
           return;
         }
+        void loadConfirmations();
         return;
       }
       setMessages((prev) => [...prev, {
@@ -801,21 +836,24 @@ export default function AgentChatPanel() {
         createdAt: new Date().toISOString(),
       }]);
       dispatchAgentDataChanged(getAgentChangedDomains(data.toolResults || []));
+      void loadConfirmations();
     } catch (err: any) {
       setMessages((prev) => [...prev, {
         id: `err-${Date.now()}`,
         role: 'assistant',
         content: `执行失败：${err.response?.data?.message || err.message}`,
         createdAt: new Date().toISOString(),
-      }]);
+        }]);
+      void loadConfirmations();
     }
   };
 
   const handleReject = async (messageId: string) => {
     setActiveConfirmCards((prev) => prev.filter((card) => card.id !== messageId));
     try {
-      const { data } = await api.post('/agent/reject', { messageId });
+      const { data } = await api.post(`/agent/confirmations/${messageId}/reject`);
       if (data.type === 'confirm_updated') {
+        void loadConfirmations();
         return;
       }
       setMessages((prev) => [...prev, {
@@ -824,8 +862,10 @@ export default function AgentChatPanel() {
         content: data.reply,
         createdAt: new Date().toISOString(),
       }]);
+      void loadConfirmations();
     } catch (err) {
       console.error(err);
+      void loadConfirmations();
     }
   };
 

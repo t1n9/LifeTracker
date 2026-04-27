@@ -1,7 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AgentController } from './agent.controller';
+import { AgentConfirmationService } from './agent-confirmation.service';
+import { AgentContextService } from './agent-context.service';
+import { AgentMemoryService } from './agent-memory.service';
+import { AgentProfileService } from './agent-profile.service';
 import { AgentService } from './agent.service';
+import { AgentTraceService } from './agent-trace.service';
 import { AgentToolsService } from './agent-tools.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { TasksModule } from '../tasks/tasks.module';
@@ -27,6 +32,14 @@ import { ImportantInfoModule } from '../important-info/important-info.module';
     ImportantInfoModule,
   ],
   controllers: [AgentController],
-  providers: [AgentService, AgentToolsService],
+  providers: [
+    AgentService,
+    AgentConfirmationService,
+    AgentContextService,
+    AgentMemoryService,
+    AgentProfileService,
+    AgentTraceService,
+    AgentToolsService,
+  ],
 })
 export class AgentModule {}
