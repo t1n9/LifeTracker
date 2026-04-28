@@ -228,6 +228,72 @@ export class AgentController {
     return this.agentService.retryConfirmation(req.user.id, confirmationId);
   }
 
+  @Post('proactive')
+  async proactive(
+    @Req() req,
+    @Body('trigger') trigger: string,
+    @Body('context') context?: { taskId?: string; taskTitle?: string; pomodoroCount?: number },
+  ) {
+    return this.agentService.handleProactive(req.user.id, trigger, context);
+  }
+
+  @Post('proactive/stream')
+  async proactiveStream(
+    @Req() req,
+    @Res() res: Response,
+    @Body('trigger') trigger: string,
+    @Body('context') context?: { taskId?: string; taskTitle?: string; pomodoroCount?: number },
+  ) {
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const writeEvent = (event: Record<string, any>) => {
+      res.write(`${JSON.stringify(event)}\n`);
+      if (typeof (res as any).flush === 'function') {
+        (res as any).flush();
+      }
+    };
+
+    const streamReply = async (text: string, messageId: string) => {
+      const content = String(text || '');
+      const chunkSize = 20;
+      writeEvent({ type: 'reply_start', id: messageId });
+
+      for (let index = 0; index < content.length; index += chunkSize) {
+        writeEvent({ type: 'reply_delta', id: messageId, chunk: content.slice(index, index + chunkSize) });
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      }
+
+      writeEvent({ type: 'reply_done', id: messageId });
+    };
+
+    try {
+      writeEvent({ type: 'start' });
+      writeEvent({ type: 'progress', text: '正在生成主动消息...' });
+
+      const result: any = await this.agentService.handleProactive(req.user.id, trigger, context);
+
+      writeEvent({ type: 'progress_done' });
+
+      if (result.type === 'reply') {
+        await streamReply(result.reply || '', result.id);
+      } else {
+        writeEvent({ type: 'unknown', payload: result });
+      }
+    } catch (error) {
+      writeEvent({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    } finally {
+      writeEvent({ type: 'end' });
+      res.end();
+    }
+  }
+
   @Delete('history')
   clearHistory(@Req() req) {
     return this.agentService.clearHistory(req.user.id);

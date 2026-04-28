@@ -33,6 +33,8 @@ export class AgentContextService {
         where: {
           userId,
           role: { in: ['user', 'assistant'] },
+          // 排除主动推送消息，避免 LLM 把旧对话重新当成指令
+          NOT: { toolCalls: { path: ['proactive'], equals: true } },
         },
         orderBy: { createdAt: 'desc' },
         take: 14,

@@ -2298,6 +2298,260 @@ export class AgentService {
       && /(?:哪个任务|哪些任务|可绑定|可以绑定|候选|看看|查看|列出)/u.test(message);
   }
 
+  /**
+   * 主动触发：根据触发类型生成 AI 消息
+   */
+  async handleProactive(
+    userId: string,
+    trigger: string,
+    context?: { taskId?: string; taskTitle?: string; pomodoroCount?: number },
+  ) {
+    const apiUrl = this.configService.get<string>('AI_API_URL');
+    const apiKey = this.configService.get<string>('AI_API_KEY');
+    const model = this.configService.get<string>('AI_MODEL', 'GLM-4-Flash');
+    const timeout = parseInt(this.configService.get<string>('AI_TIMEOUT', '60000'), 10);
+
+    if (!apiUrl || !apiKey) {
+      throw new Error('AI_API_URL and AI_API_KEY must be configured');
+    }
+
+    // 根据 trigger 构建专属 system prompt
+    const systemPrompt = this.buildProactiveSystemPrompt(trigger);
+
+    // 加载触发相关的上下文数据
+    const contextData = await this.buildProactiveContext(userId, trigger, context);
+    const contextPrompt = contextData ? [{ role: 'system' as const, content: contextData }] : [];
+
+    const messages: LLMMessage[] = [
+      { role: 'system', content: systemPrompt },
+      ...contextPrompt,
+      {
+        role: 'user',
+        content: trigger === 'morning'
+          ? '请向用户发送晨间问候，引导开启今天。'
+          : trigger === 'pomodoro_done'
+            ? `用户刚完成一个番茄钟。请发送一条简短的消息。`
+            : trigger === 'task_done'
+              ? `用户刚完成一个任务。请发送一条简短的消息。`
+              : '请向用户发送晚间复盘引导。',
+      },
+    ];
+
+    const response = await axios.post(
+      apiUrl,
+      { model, messages },
+      {
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        timeout,
+      },
+    );
+
+    const assistantContent = response.data?.choices?.[0]?.message?.content || '';
+
+    // 存入 agent_messages，标记为主动消息（不进入后续 LLM 上下文）
+    const saved = await this.prisma.agentMessage.create({
+      data: {
+        userId,
+        role: 'assistant',
+        content: assistantContent,
+        toolCalls: { proactive: true },
+      },
+    });
+
+    return {
+      id: saved.id,
+      reply: assistantContent,
+      trigger,
+      type: 'reply' as const,
+    };
+  }
+
+  /**
+   * 构建主动触发专用的 system prompt
+   */
+  private buildProactiveSystemPrompt(trigger: string): string {
+    const basePrompt = `你是 LifeTracker 的专属陪伴助手。你现在需要主动向用户发送一条消息。
+
+【核心规则】
+- 用中文回复，简洁、温暖、有情绪
+- 消息长度控制在 2-4 句话，不要长篇大论
+- 像一个关心用户的朋友，不是冷冰冰的工具
+- 不要使用任何工具调用，只生成纯文本消息
+- 不要用"你可以..."、"建议你..."这种说教语气
+- 使用自然的语气，可以带一点轻松和鼓励`;
+
+    switch (trigger) {
+      case 'morning':
+        return `${basePrompt}
+
+【场景】晨间问候
+用户刚打开 LifeTracker，今天还没有"开启今日"的记录。你需要：
+1. 用温暖但不油腻的语气问候（可以说"早上好"、"新的一天开始了"等）
+2. 自然地引导用户说说今天的起床时间
+3. 暗示可以帮用户规划今天的任务
+
+注意：不要直接说"请告诉我你今天几点起床"，要用更自然的方式引导。`;
+
+      case 'pomodoro_done':
+        return `${basePrompt}
+
+【场景】番茄钟完成
+用户刚完成了一个番茄钟（25分钟专注）。根据上下文中的番茄完成次数和任务信息，选择合适的语气：
+- 第1个番茄：祝贺并询问任务进展
+- 第3个番茄：提醒休息和活动
+- 其他：简短鼓励
+
+消息要非常简短（1-2句话），像即时通讯的消息一样轻松。`;
+
+      case 'task_done':
+        return `${basePrompt}
+
+【场景】任务完成
+用户刚完成了一个任务。根据剩下的任务数量：
+- 还有任务：简短祝贺 + 提示还剩几个
+- 全部完成：恭喜 + 可以引导复盘
+
+消息要非常简短（1-2句话），不要过度夸奖。`;
+
+      case 'evening':
+        return `${basePrompt}
+
+【场景】晚间复盘
+一天结束，用户准备复盘。你需要：
+1. 总结今天的数据（学习时间、完成的任务数）
+2. 引导用户说说今天的收获
+3. 用温暖的方式结束
+
+语气要温和、有总结感，不要催促。`;
+
+      default:
+        return basePrompt;
+    }
+  }
+
+  /**
+   * 构建主动触发的上下文数据
+   */
+  private async buildProactiveContext(
+    userId: string,
+    trigger: string,
+    context?: { taskId?: string; taskTitle?: string; pomodoroCount?: number },
+  ): Promise<string | null> {
+    const today = new Date().toISOString().slice(0, 10);
+    const parts: string[] = [];
+
+    try {
+      // 获取今日日常数据
+      const dailyData = await this.prisma.dailyData.findUnique({
+        where: { userId_date: { userId, date: today } },
+      });
+
+      if (trigger === 'morning') {
+        parts.push(`当前日期: ${today}`);
+        if (dailyData?.dayStart) {
+          parts.push(`今天的计划: ${dailyData.dayStart}`);
+        }
+
+        // 获取当前目标
+        const goal = await this.prisma.userGoal.findFirst({
+          where: { userId, isActive: true },
+          select: { goalName: true },
+        });
+        if (goal) {
+          parts.push(`用户当前目标: ${goal.goalName}`);
+        }
+
+        // 获取今日任务数量
+        const pendingTasks = await this.prisma.task.count({
+          where: { userId, isCompleted: false },
+        });
+        if (pendingTasks > 0) {
+          parts.push(`待完成任务数: ${pendingTasks}`);
+        }
+      }
+
+      if (trigger === 'pomodoro_done') {
+        const pomodoroCount = context?.pomodoroCount ?? (dailyData?.pomodoroCount ?? 0);
+        parts.push(`今日第 ${pomodoroCount} 个番茄钟`);
+
+        if (context?.taskTitle) {
+          parts.push(`关联任务: "${context.taskTitle}"`);
+        } else if (context?.taskId) {
+          const task = await this.prisma.task.findFirst({
+            where: { id: context.taskId, userId },
+            select: { title: true },
+          });
+          if (task) {
+            parts.push(`关联任务: "${task.title}"`);
+          }
+        }
+
+        // 今日运动记录
+        const exerciseCount = await this.prisma.exerciseLog.count({
+          where: { userId, date: today },
+        });
+        parts.push(`今日运动记录: ${exerciseCount > 0 ? '已记录' : '未记录'}`);
+
+        // 剩余任务数
+        const pendingCount = await this.prisma.task.count({
+          where: { userId, isCompleted: false },
+        });
+        if (pendingCount > 0) {
+          parts.push(`剩余待完成任务: ${pendingCount} 个`);
+        }
+      }
+
+      if (trigger === 'task_done') {
+        if (context?.taskTitle) {
+          parts.push(`刚完成的任务: "${context.taskTitle}"`);
+        }
+
+        const pendingCount = await this.prisma.task.count({
+          where: { userId, isCompleted: false },
+        });
+        parts.push(`剩余待完成任务: ${pendingCount} 个`);
+
+        if (dailyData) {
+          parts.push(`今日已专注: ${dailyData.totalMinutes || 0} 分钟`);
+          parts.push(`今日番茄数: ${dailyData.pomodoroCount || 0}`);
+        }
+      }
+
+      if (trigger === 'evening') {
+        if (dailyData) {
+          parts.push(`今日学习时长: ${dailyData.totalMinutes || 0} 分钟`);
+          parts.push(`今日番茄数: ${dailyData.pomodoroCount || 0}`);
+          if (dailyData.dayReflection) {
+            parts.push(`已有复盘内容: ${dailyData.dayReflection}`);
+          }
+        }
+
+        // 今日完成任务数
+        const completedCount = await this.prisma.task.count({
+          where: { userId, isCompleted: true },
+        });
+        const totalCount = await this.prisma.task.count({
+          where: { userId },
+        });
+        parts.push(`今日任务: 完成 ${completedCount}/${totalCount}`);
+
+        // 运动记录
+        const exerciseCount = await this.prisma.exerciseLog.count({
+          where: { userId, date: today },
+        });
+        parts.push(`运动记录: ${exerciseCount > 0 ? '有' : '无'}`);
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to build proactive context for ${trigger}:`, error);
+    }
+
+    if (parts.length === 0) {
+      return null;
+    }
+
+    return `【当前上下文数据】\n${parts.map((p) => `- ${p}`).join('\n')}`;
+  }
+
   async clearHistory(userId: string) {
     await this.prisma.agentMessage.deleteMany({ where: { userId } });
     return { message: '会话历史已清除' };
