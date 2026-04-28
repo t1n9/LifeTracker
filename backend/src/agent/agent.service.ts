@@ -24,7 +24,6 @@ const READ_ONLY_TOOLS = new Set([
   'get_tasks',
   'get_pomodoro_status',
   'get_today_expenses',
-  'get_exercise_types',
   'get_today_exercise',
 ]);
 
@@ -2002,7 +2001,7 @@ export class AgentService {
     }
 
     if (hints.exerciseRecord) {
-      notes.push(`检测到运动记录：${hints.exerciseRecord.exerciseName} ${hints.exerciseRecord.value}。优先调用 record_exercise，参数应为 exerciseName="${hints.exerciseRecord.exerciseName}"、value=${hints.exerciseRecord.value}。`);
+      notes.push(`检测到运动记录：${hints.exerciseRecord.exerciseName} ${hints.exerciseRecord.value}。优先调用 record_exercise，参数应为 exerciseName="${hints.exerciseRecord.exerciseName}"、value=${hints.exerciseRecord.value}，并自行补充合适的 emoji 和 unit（如"次"、"km"、"分钟"）。`);
     }
 
     if (hints.exerciseFeeling) {
@@ -2057,7 +2056,7 @@ export class AgentService {
         case 'start_pomodoro':
           return `- start_pomodoro: duration=${toolCall.args?.duration || toolCall.result?.session?.duration || 25} task="${toolCall.result?.boundTaskTitle ?? toolCall.args?.taskTitle ?? toolCall.args?.taskName ?? ''}" taskId="${toolCall.result?.boundTaskId ?? toolCall.args?.taskId ?? ''}"`;
         case 'record_exercise':
-          return `- record_exercise: ${toolCall.args?.exerciseName ?? ''} ${toolCall.args?.value ?? ''}`;
+          return `- record_exercise: ${toolCall.args?.emoji ?? ''}${toolCall.args?.exerciseName ?? ''} ${toolCall.args?.value ?? ''}${toolCall.args?.unit ?? ''}`;
         case 'set_exercise_feeling':
           return `- set_exercise_feeling: ${toolCall.args?.feeling ?? ''}`;
         default:
@@ -2118,7 +2117,7 @@ export class AgentService {
       case 'record_other_expense':
         return `${args.description} ${args.amount}元`;
       case 'record_exercise':
-        return `${args.exerciseName} ${args.value}`;
+        return `${args.emoji ?? ''}${args.exerciseName} ${args.value}${args.unit ?? ''}`;
       case 'set_exercise_feeling': {
         const feelings: Record<string, string> = { excellent: '非常棒', good: '不错', normal: '一般', tired: '疲惫' };
         return feelings[args.feeling] || args.feeling;

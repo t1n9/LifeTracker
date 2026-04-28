@@ -68,15 +68,14 @@ export class HistoryService {
         uniqueDates.add(date);
       });
 
-      // 从运动记录表获取日期（使用用户时区）
-      const exerciseRecords = await this.prisma.exerciseRecord.findMany({
+      // 从运动日志表获取日期（date 字段已是 YYYY-MM-DD 字符串）
+      const exerciseLogs = await this.prisma.exerciseLog.findMany({
         where: { userId },
         select: { date: true },
         distinct: ['date'],
       });
-      exerciseRecords.forEach(record => {
-        const date = formatDateString(record.date, timezone);
-        uniqueDates.add(date);
+      exerciseLogs.forEach(log => {
+        uniqueDates.add(log.date);
       });
 
       // 从消费记录表获取日期（使用用户时区）
@@ -90,7 +89,7 @@ export class HistoryService {
         uniqueDates.add(date);
       });
 
-      console.log(`📅 用户 ${userId} 的历史数据: 找到 ${tasks.length} 个任务, ${studyRecords.length} 个学习记录, ${pomodoroSessions.length} 个番茄钟, ${dailyData.length} 个每日数据, ${exerciseRecords.length} 个运动记录, ${expenseRecords.length} 个消费记录, 共 ${uniqueDates.size} 个不同日期`);
+      console.log(`📅 用户 ${userId} 的历史数据: 找到 ${tasks.length} 个任务, ${studyRecords.length} 个学习记录, ${pomodoroSessions.length} 个番茄钟, ${dailyData.length} 个每日数据, ${exerciseLogs.length} 个运动记录, ${expenseRecords.length} 个消费记录, 共 ${uniqueDates.size} 个不同日期`);
 
       return Array.from(uniqueDates).sort((a, b) => b.localeCompare(a));
     } catch (error) {
@@ -187,53 +186,30 @@ export class HistoryService {
           wakeUpTime: true,
         },
       });
-      const exerciseRecords = await this.prisma.exerciseRecord.findMany({
-        where: {
-          userId,
-          date: targetDate,
-        },
-        include: {
-          exercise: true,
-        },
+      const exerciseLogs = await this.prisma.exerciseLog.findMany({
+        where: { userId, date },
+        orderBy: { loggedAt: 'asc' },
       });
 
-
-
-      // 将运动记录按类型分组，动态生成运动数据
+      // 将运动日志按名称分组汇总
       const exerciseData: {
-        exercises: Array<{
-          id: string;
-          name: string;
-          value: number;
-          unit: string;
-        }>;
+        exercises: Array<{ id: string; name: string; value: number; unit: string }>;
         feeling: string | null;
-      } = {
-        exercises: [],
-        feeling: null,
-      };
+      } = { exercises: [], feeling: null };
 
-      // 按运动类型分组并汇总
-      const exerciseMap = new Map<string, { name: string; value: number; unit: string }>();
-
-      exerciseRecords.forEach(record => {
-        const key = record.exercise.id;
+      const exerciseMap = new Map<string, { name: string; emoji: string | null; value: number; unit: string }>();
+      exerciseLogs.forEach(log => {
+        const key = log.exerciseName;
         if (exerciseMap.has(key)) {
-          const existing = exerciseMap.get(key)!;
-          existing.value += record.value;
+          exerciseMap.get(key)!.value += log.value;
         } else {
-          exerciseMap.set(key, {
-            name: record.exercise.name,
-            value: record.value,
-            unit: record.unit || record.exercise.unit || '',
-          });
+          exerciseMap.set(key, { name: log.exerciseName, emoji: log.emoji, value: log.value, unit: log.unit });
         }
       });
 
-      // 转换为数组格式
-      exerciseData.exercises = Array.from(exerciseMap.entries()).map(([id, data]) => ({
-        id,
-        name: data.name,
+      exerciseData.exercises = Array.from(exerciseMap.entries()).map(([key, data]) => ({
+        id: key,
+        name: `${data.emoji ?? ''}${data.name}`,
         value: data.value,
         unit: data.unit,
       }));
@@ -322,7 +298,7 @@ export class HistoryService {
         expenseData.total += record.amount;
       });
 
-      console.log(`📅 ${date}: 找到数据 - 任务:${tasks.length}, 学习:${studyRecords.length}, 番茄钟:${pomodoroSessions.length}, 运动:${exerciseRecords.length}, 消费:${expenseRecords.length}条, 复盘:${dailyData ? '有' : '无'}`);
+      console.log(`📅 ${date}: 找到数据 - 任务:${tasks.length}, 学习:${studyRecords.length}, 番茄钟:${pomodoroSessions.length}, 运动:${exerciseLogs.length}, 消费:${expenseRecords.length}条, 复盘:${dailyData ? '有' : '无'}`);
 
       // 调试消费数据
       if (expenseRecords.length > 0) {
@@ -345,7 +321,7 @@ export class HistoryService {
       });
 
       // 如果没有任何数据，返回null
-      if (tasks.length === 0 && studyRecords.length === 0 && pomodoroSessions.length === 0 && !dailyData && exerciseRecords.length === 0 && !expenseData) {
+      if (tasks.length === 0 && studyRecords.length === 0 && pomodoroSessions.length === 0 && !dailyData && exerciseLogs.length === 0 && !expenseData) {
         console.log(`📅 ${date}: 没有找到任何数据`);
         return null;
       }
@@ -465,14 +441,14 @@ export class HistoryService {
           },
         }),
 
-        // 运动记录
-        this.prisma.exerciseRecord.findMany({
+        // 运动日志
+        this.prisma.exerciseLog.findMany({
           where: {
             userId,
-            date: { gte: startDate, lte: endDate },
-          },
-          include: {
-            exercise: true,
+            date: {
+              gte: formatDateString(startDate, timezone),
+              lte: formatDateString(endDate, timezone),
+            },
           },
         }),
 
@@ -500,17 +476,17 @@ export class HistoryService {
       const totalPomodoroCount = pomodoroSessions.length;
       const totalExpense = expenseRecords.reduce((sum, record) => sum + record.amount, 0);
 
-      // 按运动类型汇总
+      // 按运动名称汇总
       const exerciseStats = new Map<string, { name: string; total: number; unit: string }>();
-      exerciseRecords.forEach(record => {
-        const key = record.exercise.id;
+      exerciseRecords.forEach((log: any) => {
+        const key = log.exerciseName;
         if (exerciseStats.has(key)) {
-          exerciseStats.get(key)!.total += record.value;
+          exerciseStats.get(key)!.total += log.value;
         } else {
           exerciseStats.set(key, {
-            name: record.exercise.name,
-            total: record.value,
-            unit: record.unit || record.exercise.unit || '',
+            name: `${log.emoji ?? ''}${log.exerciseName}`,
+            total: log.value,
+            unit: log.unit,
           });
         }
       });

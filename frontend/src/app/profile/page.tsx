@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Save, Edit, Activity, Settings, LogOut, Shield, MessageSquare } from 'lucide-react';
+import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Save, Edit, Settings, LogOut, Shield, MessageSquare } from 'lucide-react';
 import { userAPI, api } from '@/lib/api';
 import '@/styles/theme.css';
 import { useAuthStore } from '@/store/auth';
 import SystemConfigPanel from '@/components/admin/SystemConfigPanel';
 import SuggestionManagement from '@/components/admin/SuggestionManagement';
-import ExerciseConfigManager from '@/components/ExerciseConfigManager';
 import GoalManagement from '@/components/GoalManagement';
 import SystemSuggestion from '@/components/SystemSuggestion';
 import { VERSION_INFO, getVersionString } from '@/lib/version';
@@ -28,7 +27,7 @@ interface PasswordData {
 export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading, hasInitialized, initializeAuth, logout } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'exercise' | 'account' | 'suggestion' | 'admin'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'account' | 'suggestion' | 'admin'>('profile');
   const [adminSubTab, setAdminSubTab] = useState<'config' | 'suggestions'>('config');
   const [isLoading, setIsLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -255,13 +254,6 @@ export default function ProfilePage() {
             </button>
 
             <button
-              className={`tab-button ${activeTab === 'exercise' ? 'active' : ''}`}
-              onClick={() => setActiveTab('exercise')}
-            >
-              <Activity size={18} />
-              运动配置
-            </button>
-            <button
               className={`tab-button ${activeTab === 'password' ? 'active' : ''}`}
               onClick={() => setActiveTab('password')}
             >
@@ -367,16 +359,6 @@ export default function ProfilePage() {
           )}
 
 
-
-          {/* 运动配置标签页 */}
-          {activeTab === 'exercise' && (
-            <div className="form-container">
-              <ExerciseConfigManager onUpdate={() => {
-                // 运动配置更新后的回调，可以用来刷新其他相关数据
-                console.log('运动配置已更新');
-              }} />
-            </div>
-          )}
 
           {/* 修改密码标签页 */}
           {activeTab === 'password' && (

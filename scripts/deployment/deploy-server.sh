@@ -79,7 +79,10 @@ cd "$BACKEND_DIR"
 npm ci --include=dev --no-audit --no-fund
 
 log "syncing database schema"
-npx prisma db push
+npx prisma db push --accept-data-loss
+
+log "running manual migrations"
+node "$SOURCE_ROOT/scripts/deployment/run-migrations.js"
 
 log "building backend"
 npm run build

@@ -13,16 +13,27 @@
 
 .topbar {
   flex-shrink: 0;
-  height: 56px;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--bg-1), var(--bg-0));
+  position: relative;
+  z-index: 5;
+}
+
+/* 第一行（宽屏：品牌 + statusStrip + 工具） */
+.topbarRow1 {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 18px;
   padding: 0 22px;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--bg-1), var(--bg-0));
-  position: relative;
-  z-index: 5;
+  height: 56px;
+}
+
+/* 第二行（仅窄屏显示） */
+.topbarRow2 {
+  display: none;
 }
 
 /* 品牌 */
@@ -330,24 +341,69 @@
     grid-template-columns: 1fr 1fr;
   }
 
-  .topbar {
-    grid-template-columns: auto 1fr auto;
-    gap: 12px;
+  /* 第一行窄屏：隐藏 statusStrip，品牌+工具紧凑布局 */
+  .topbarRow1 {
+    grid-template-columns: auto auto;
+    justify-content: space-between;
     padding: 0 14px;
+    height: 48px;
+  }
+
+  .statusStrip {
+    display: none;
+  }
+
+  /* 第二行：显示时钟 + 目标 */
+  .topbarRow2 {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    padding: 0 14px;
+    border-top: 1px solid var(--line);
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: var(--bg-0);
+    font-size: 11px;
+  }
+
+  .topbarRow2 .clock {
+    font-size: 13px;
+  }
+
+  .topbarRow2 .clockSec {
+    font-size: 10px;
+  }
+
+  .topbarRow2 .segVal {
+    font-size: 11px;
+  }
+
+  .topbarRow2 .segLabel {
+    font-size: 8.5px;
+  }
+
+  .topbarRow2 .goalPill {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .topbarRow2 .seg {
+    padding: 0 12px;
+    height: 24px;
+  }
+
+  .topbarRow2::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 第二行的 seg 第一个不要左边框 */
+  .topbarRow2 .seg:first-child {
+    border-left: 0;
+    padding-left: 0;
   }
 
   .brandSub,
   .toolDivider {
-    display: none;
-  }
-
-  .statusStrip {
-    min-width: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .statusStrip::-webkit-scrollbar {
     display: none;
   }
 

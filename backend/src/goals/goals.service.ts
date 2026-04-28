@@ -7,38 +7,34 @@ export class GoalsService {
 
   // 获取用户当前活跃目标
   async getCurrentGoal(userId: string) {
-    // 获取最新的活跃目标
-    const activeGoal = await this.prisma.userGoal.findFirst({
-      where: {
-        userId,
-        isActive: true,
-        status: 'ACTIVE',
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+    const now = new Date();
+
+    // 获取所有活跃目标
+    const activeGoals = await this.prisma.userGoal.findMany({
+      where: { userId, isActive: true, status: 'ACTIVE' },
     });
 
-    // 如果有活跃目标，检查是否已过期
-    if (activeGoal) {
-      const now = new Date();
-      const targetDate = activeGoal.targetDate ? new Date(activeGoal.targetDate) : null;
-
-      // 如果目标日期已过，自动将目标标记为已完成
-      if (targetDate && targetDate < now) {
-        await this.prisma.userGoal.update({
-          where: { id: activeGoal.id },
-          data: {
-            status: 'COMPLETED',
-            endDate: targetDate,
-            isActive: false,
-          },
-        });
-        return null; // 返回null表示没有当前活跃目标
-      }
+    // 过期的自动标记完成
+    const expired = activeGoals.filter(g => g.targetDate && new Date(g.targetDate) < now);
+    if (expired.length > 0) {
+      await this.prisma.userGoal.updateMany({
+        where: { id: { in: expired.map(g => g.id) } },
+        data: { status: 'COMPLETED', isActive: false, endDate: now },
+      });
     }
 
-    return activeGoal;
+    const valid = activeGoals.filter(g => !expired.find(e => e.id === g.id));
+    if (valid.length === 0) return null;
+
+    // 优先返回截止日期最近的；没有截止日期的排最后
+    valid.sort((a, b) => {
+      if (!a.targetDate && !b.targetDate) return 0;
+      if (!a.targetDate) return 1;
+      if (!b.targetDate) return -1;
+      return new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime();
+    });
+
+    return valid[0];
   }
 
   // 获取用户目标历史
@@ -51,16 +47,13 @@ export class GoalsService {
     });
   }
 
-  // 开启新目标
+  // 开启新目标（允许多目标并存，不终止旧目标）
   async startNewGoal(userId: string, goalData: {
     goalName: string;
     targetDate?: string;
     examDate?: string;
     description?: string;
   }) {
-    // 首先终止当前活跃的目标
-    await this.terminateCurrentGoal(userId);
-
     // 创建新目标
     const newGoal = await this.prisma.userGoal.create({
       data: {

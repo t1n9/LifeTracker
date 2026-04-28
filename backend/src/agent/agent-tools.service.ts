@@ -186,24 +186,18 @@ export const AGENT_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'record_exercise',
-      description: '记录运动数据。用运动名称（如"跑步"、"俯卧撑"、"深蹲"、"引体向上"、"游泳"、"骑行"）来指定运动类型，系统会自动匹配',
+      description: '记录一次运动。AI 自行决定运动名称、emoji 和单位，无需预配置类型。',
       parameters: {
         type: 'object',
         properties: {
-          exerciseName: { type: 'string', description: '运动名称，如"跑步"、"俯卧撑"、"深蹲"、"引体向上"、"游泳"、"骑行"' },
-          value: { type: 'number', description: '运动量（次数或距离，如公里数）' },
-          notes: { type: 'string', description: '备注' },
+          exerciseName: { type: 'string', description: '运动名称，如"俯卧撑"、"跑步"、"深蹲"、"游泳"' },
+          emoji: { type: 'string', description: '代表该运动的 emoji，如 💪 🏃 🏊 🚴' },
+          value: { type: 'number', description: '数值，如 30（次）、5.2（公里）' },
+          unit: { type: 'string', description: '单位，如 次、km、分钟、组' },
+          note: { type: 'string', description: '可选备注' },
         },
-        required: ['exerciseName', 'value'],
+        required: ['exerciseName', 'value', 'unit'],
       },
-    },
-  },
-  {
-    type: 'function' as const,
-    function: {
-      name: 'get_exercise_types',
-      description: '获取用户的运动类型列表（如俯卧撑、跑步等），返回每种运动的ID和名称',
-      parameters: { type: 'object', properties: {}, required: [] },
     },
   },
   {
@@ -254,6 +248,30 @@ export const AGENT_TOOLS = [
           phoneUsage: { type: 'number', description: '今日手机使用时间（分钟）' },
         },
         required: ['dayReflection'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_current_goal',
+      description: '获取用户当前活跃的系统目标，包括目标名称、目标日期、描述等',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'set_goal',
+      description: '设置或更新用户的系统目标。用户说"设定目标"、"我的目标是..."、"备考..."等时调用。会自动终止旧目标并创建新目标',
+      parameters: {
+        type: 'object',
+        properties: {
+          goalName: { type: 'string', description: '目标名称，如"备考法考"、"雅思7分"' },
+          targetDate: { type: 'string', description: '目标截止日期，ISO格式，如"2025-12-01"' },
+          description: { type: 'string', description: '目标描述（可选）' },
+        },
+        required: ['goalName'],
       },
     },
   },
@@ -314,17 +332,29 @@ export class AgentToolsService {
       case 'get_today_expenses':
         return this.expenseService.getTodayExpenses(userId);
       case 'record_exercise':
-        return this.recordExerciseByName(userId, args.exerciseName, args.value, args.notes);
-      case 'get_exercise_types':
-        return this.exerciseService.getExerciseTypes(userId);
+        return this.exerciseService.addLog(userId, {
+          exerciseName: args.exerciseName,
+          emoji: args.emoji,
+          value: args.value,
+          unit: args.unit,
+          note: args.note,
+        });
       case 'get_today_exercise':
-        return this.exerciseService.getTodayRecords(userId);
+        return this.exerciseService.getTodayLogs(userId);
       case 'set_exercise_feeling':
         return this.exerciseService.setTodayExerciseFeeling(userId, args.feeling);
       case 'update_important_info':
         return this.importantInfoService.updateInfo(userId, args.content);
       case 'update_day_reflection':
         return this.dailyService.updateDayReflection(userId, { dayReflection: args.dayReflection, phoneUsage: args.phoneUsage });
+      case 'get_current_goal':
+        return this.goalsService.getCurrentGoal(userId);
+      case 'set_goal':
+        return this.goalsService.startNewGoal(userId, {
+          goalName: args.goalName,
+          targetDate: args.targetDate,
+          description: args.description,
+        });
       default:
         return { error: `Unknown tool: ${toolName}` };
     }
@@ -353,12 +383,13 @@ export class AgentToolsService {
   }
 
   private async getTodaySummary(userId: string) {
-    const [dailyData, todayTasks, todayExpenses, todayExercise, activePomodoro] = await Promise.all([
+    const [dailyData, todayTasks, todayExpenses, todayExercise, activePomodoro, currentGoal] = await Promise.all([
       this.dailyService.getTodayStatus(userId),
       this.tasksService.getTodayEffectiveTasks(userId),
       this.expenseService.getTodayExpenses(userId),
-      this.exerciseService.getTodayRecords(userId),
+      this.exerciseService.getTodayLogs(userId),
       this.pomodoroService.getActiveSession(userId),
+      this.goalsService.getCurrentGoal(userId),
     ]);
 
     return {
@@ -367,6 +398,7 @@ export class AgentToolsService {
       expenses: todayExpenses,
       exercise: todayExercise,
       activePomodoro,
+      currentGoal,
     };
   }
 
@@ -605,25 +637,6 @@ export class AgentToolsService {
         id: task.id,
         title: task.title,
       }));
-  }
-
-  private async recordExerciseByName(userId: string, exerciseName: string, value: number, notes?: string) {
-    const types = await this.exerciseService.getExerciseTypes(userId);
-
-    // 模糊匹配：包含关系
-    const matched = types.find((t: any) =>
-      t.name.includes(exerciseName) || exerciseName.includes(t.name)
-    );
-
-    if (!matched) {
-      return { error: `找不到运动类型"${exerciseName}"，可用的类型有: ${types.map((t: any) => t.name).join('、')}` };
-    }
-
-    return this.exerciseService.incrementTodayExerciseValue(userId, {
-      exerciseId: matched.id,
-      deltaValue: value,
-      notes,
-    });
   }
 
   private async stopActivePomodoro(userId: string) {

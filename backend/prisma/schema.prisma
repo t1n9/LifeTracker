@@ -18,12 +18,6 @@ model User {
   emailVerified       Boolean             @default(false) @map("email_verified")
   createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  showPullUps         Boolean?            @default(true) @map("show_pull_ups")
-  showSquats          Boolean?            @default(true) @map("show_squats")
-  showPushUps         Boolean?            @default(true) @map("show_push_ups")
-  showRunning         Boolean?            @default(true) @map("show_running")
-  showSwimming        Boolean?            @default(false) @map("show_swimming")
-  showCycling         Boolean?            @default(false) @map("show_cycling")
   isAdmin             Boolean             @default(false) @map("is_admin")
   agentConfirmations  AgentConfirmation[]
   agentMemories       AgentMemory[]
@@ -33,6 +27,7 @@ model User {
   captures            Capture[]
   countdowns          Countdown[]
   dailyData           DailyData[]
+  exerciseLogs        ExerciseLog[]
   exerciseRecords     ExerciseRecord[]    @relation("UserExerciseRecords")
   exerciseTypes       ExerciseType[]      @relation("UserExerciseTypes")
   expenseRecords      ExpenseRecord[]     @relation("UserExpenseRecords")
@@ -175,6 +170,22 @@ model ImportantInfo {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("important_info")
+}
+
+model ExerciseLog {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  exerciseName String   @map("exercise_name")
+  emoji        String?
+  value        Float
+  unit         String
+  note         String?
+  loggedAt     DateTime @default(now()) @map("logged_at") @db.Timestamptz(6)
+  date         String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@map("exercise_logs")
 }
 
 model ExerciseRecord {

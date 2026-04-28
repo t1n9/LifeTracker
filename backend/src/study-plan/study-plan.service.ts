@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
+import { GoalsService } from '../goals/goals.service';
 import {
   AiAssistDto,
   ConfirmOcrDto,
@@ -30,6 +31,7 @@ export class StudyPlanService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly goalsService: GoalsService,
   ) {}
 
   getTemplates() {
@@ -37,8 +39,8 @@ export class StudyPlanService {
   }
 
   async create(userId: string, dto: CreateStudyPlanDto) {
-    return this.prisma.$transaction(async (tx) => {
-      const plan = await tx.studyPlan.create({
+    const plan = await this.prisma.$transaction(async (tx) => {
+      const newPlan = await tx.studyPlan.create({
         data: {
           userId,
           title: dto.title,
@@ -53,9 +55,31 @@ export class StudyPlanService {
         },
       });
 
-      await this.upsertSubjectsAndChapters(tx, plan.id, dto.subjects || []);
-      await this.regeneratePlanSchedule(tx, userId, plan.id, true);
-      return this.getPlanDetailTx(tx, userId, plan.id);
+      await this.upsertSubjectsAndChapters(tx, newPlan.id, dto.subjects || []);
+      await this.regeneratePlanSchedule(tx, userId, newPlan.id, true);
+      return this.getPlanDetailTx(tx, userId, newPlan.id);
+    });
+
+    // 学习计划创建后自动同步系统目标（不阻塞主流程）
+    this.syncGoalFromPlan(userId, plan).catch(() => {});
+
+    return plan;
+  }
+
+  private async syncGoalFromPlan(userId: string, plan: any) {
+    const examDate = plan.examDate ?? plan.exam_date;
+    const goalName = plan.examName ?? plan.exam_name ?? plan.title ?? '学习目标';
+
+    // 同名活跃目标已存在则跳过，避免重复创建
+    const existing = await this.prisma.userGoal.findFirst({
+      where: { userId, goalName, isActive: true, status: 'ACTIVE' },
+    });
+    if (existing) return;
+
+    await this.goalsService.startNewGoal(userId, {
+      goalName,
+      targetDate: examDate ? new Date(examDate).toISOString() : undefined,
+      description: `备考 ${goalName}，来自学习计划「${plan.title}」`,
     });
   }
 

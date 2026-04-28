@@ -5,12 +5,12 @@ import { Activity, Wallet } from 'lucide-react';
 import { exerciseAPI, expenseAPI } from '@/lib/api';
 
 /* ── types ── */
-interface ExerciseRecord {
-  exerciseId: string;
+interface ExerciseLog {
   exerciseName: string;
-  exerciseType: string;
-  unit: string;
+  emoji: string | null;
   totalValue: number;
+  unit: string;
+  count: number;
 }
 interface OtherExpense { id: string; description: string; amount: number; }
 interface ExpenseData {
@@ -22,22 +22,16 @@ interface ExpenseData {
 
 function fmt(n: number) { return n % 1 === 0 ? String(n) : n.toFixed(1); }
 
-const EXERCISE_ICONS: Record<string, string> = {
-  DISTANCE: '🏃',
-  COUNT: '💪',
-};
-
 /* ── combined panel ── */
 function CombinedPanel() {
-  const [exercise, setExercise] = useState<ExerciseRecord[] | null>(null);
+  const [exercise, setExercise] = useState<ExerciseLog[] | null>(null);
   const [expense, setExpense] = useState<ExpenseData | null>(null);
   const [loadingEx, setLoadingEx] = useState(true);
   const [loadingExp, setLoadingExp] = useState(true);
 
   useEffect(() => {
-    exerciseAPI.getTodayRecords()
+    exerciseAPI.getTodayLogs()
       .then(r => {
-        // controller returns { data: [...] }, axios wraps in r.data
         const payload = r.data?.data ?? r.data;
         setExercise(Array.isArray(payload) ? payload : []);
       })
@@ -55,6 +49,7 @@ function CombinedPanel() {
   }, []);
 
   const activeEx = (exercise ?? []).filter(r => r.totalValue > 0);
+
   const mealLabels: Record<string, string> = { breakfast: '早', lunch: '午', dinner: '晚' };
   const total = (expense?.totalMeal ?? 0) + (expense?.totalOther ?? 0);
 
@@ -70,8 +65,8 @@ function CombinedPanel() {
             : (
               <div className="qs-grid">
                 {activeEx.map(r => (
-                  <div key={r.exerciseId} className="qs-stat">
-                    <span className="qs-stat-icon">{EXERCISE_ICONS[r.exerciseType] ?? '🏃'}</span>
+                  <div key={r.exerciseName} className="qs-stat">
+                    <span className="qs-stat-icon">{r.emoji ?? '🏃'}</span>
                     <span className="qs-stat-name">{r.exerciseName}</span>
                     <span className="qs-stat-val">
                       {fmt(r.totalValue)}<span className="qs-stat-unit">{r.unit}</span>

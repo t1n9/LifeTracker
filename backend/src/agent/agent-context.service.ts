@@ -14,7 +14,6 @@ const READ_ONLY_TOOLS = new Set([
   'get_tasks',
   'get_pomodoro_status',
   'get_today_expenses',
-  'get_exercise_types',
   'get_today_exercise',
 ]);
 

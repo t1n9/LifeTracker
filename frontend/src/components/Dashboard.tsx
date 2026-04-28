@@ -247,29 +247,104 @@ export default function Dashboard() {
       {/* ── 顶栏 ── */}
       <header className={styles.topbar}>
 
-        {/* 品牌 */}
-        <div className={styles.brand}>
-          <span className={styles.brandDot} />
-          LifeTracker
+        {/* 第一行：品牌 + 状态（宽屏）+ 工具 */}
+        <div className={styles.topbarRow1}>
+          {/* 品牌 */}
+          <div className={styles.brand}>
+            <span className={styles.brandDot} />
+            LifeTracker
+          </div>
+
+          {/* 状态分段（宽屏显示在第一行） */}
+          <div className={styles.statusStrip}>
+            <div className={styles.seg}>
+              <span className={styles.clock}>
+                {hh}<span style={{ color: 'var(--fg-3)', fontWeight: 300 }}>:</span>{mm}
+                <span className={styles.clockSec}> :{ss}</span>
+              </span>
+            </div>
+            <div className={styles.seg}>
+              <span className={styles.segLabel}>今天</span>
+              <span className={styles.segVal}>{md} · {wd}</span>
+            </div>
+            {currentGoal && (
+              <div className={styles.seg}>
+                <span className={styles.segLabel}>目标</span>
+                <span className={styles.segVal}>{goalSummary.title}</span>
+                {goalSummary.daysLeft !== null && (
+                  <span className={styles.goalPill}>
+                    <span className={styles.goalDays}>{goalSummary.daysLeft}</span>
+                  </span>
+                )}
+              </div>
+            )}
+            {dayStarted && (
+              <>
+                <div className={styles.seg}>
+                  <span className={styles.segLabel}>番茄</span>
+                  <span className={styles.segValMono}>{pomodoroCount}</span>
+                </div>
+                <div className={styles.seg}>
+                  <span className={styles.segLabel}>专注</span>
+                  <span className={styles.segValMono}>{focusH}h {focusM}m</span>
+                </div>
+                {isPomodoroRunning && (
+                  <div className={styles.seg} style={{ color: 'var(--danger)' }}>
+                    <span className={styles.liveDot} />
+                    <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.08em' }}>FOCUSING</span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* 右侧工具 */}
+          <div className={styles.rightTools}>
+            <button className={styles.iconBtn} title="开启今日"
+              onClick={() => { setDayReflectionMode('start'); setIsDayReflectionOpen(true); }}>
+              <Sunrise size={14} />
+            </button>
+            <button className={styles.iconBtn} title="今日总结"
+              onClick={() => { setDayReflectionMode('reflection'); setIsDayReflectionOpen(true); }}>
+              <Sunset size={16} />
+            </button>
+            <button className={styles.iconBtn} title="学习计划"
+              onClick={() => studyPlanSidebarRef.current?.open()}>
+              <CalendarClock size={16} />
+            </button>
+            <button className={styles.iconBtn} title="历史记录"
+              onClick={() => setIsHistoryOpen(true)}>
+              <History size={16} />
+            </button>
+            <button className={styles.iconBtn} title="学习概览"
+              onClick={() => router.push('/overview')}>
+              <LayoutDashboard size={16} />
+            </button>
+            <button className={styles.iconBtn} title="设置"
+              onClick={() => router.push('/profile')}>
+              <Settings2 size={16} />
+            </button>
+            <span className={styles.toolDivider} />
+            <QuickStatsHover />
+            <span className={styles.toolDivider} />
+            <button className={styles.iconBtn} title="切换主题" onClick={handleThemeToggle}>
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          </div>
         </div>
 
-        {/* 状态分段 */}
-        <div className={styles.statusStrip}>
-          {/* 时钟 */}
+        {/* 第二行：窄屏时显示时钟 + 目标（对应中列位置） */}
+        <div className={styles.topbarRow2}>
           <div className={styles.seg}>
             <span className={styles.clock}>
               {hh}<span style={{ color: 'var(--fg-3)', fontWeight: 300 }}>:</span>{mm}
               <span className={styles.clockSec}> :{ss}</span>
             </span>
           </div>
-
-          {/* 日期 */}
           <div className={styles.seg}>
             <span className={styles.segLabel}>今天</span>
             <span className={styles.segVal}>{md} · {wd}</span>
           </div>
-
-          {/* 目标 */}
           {currentGoal && (
             <div className={styles.seg}>
               <span className={styles.segLabel}>目标</span>
@@ -281,73 +356,14 @@ export default function Dashboard() {
               )}
             </div>
           )}
-
-          {/* 今日统计（开启后显示） */}
-          {dayStarted && (
-            <>
-              <div className={styles.seg}>
-                <span className={styles.segLabel}>番茄</span>
-                <span className={styles.segValMono}>{pomodoroCount}</span>
-              </div>
-              <div className={styles.seg}>
-                <span className={styles.segLabel}>专注</span>
-                <span className={styles.segValMono}>{focusH}h {focusM}m</span>
-              </div>
-              {isPomodoroRunning && (
-                <div className={styles.seg} style={{ color: 'var(--danger)' }}>
-                  <span className={styles.liveDot} />
-                  <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.08em' }}>FOCUSING</span>
-                </div>
-              )}
-            </>
+          {dayStarted && isPomodoroRunning && (
+            <div className={styles.seg} style={{ color: 'var(--danger)' }}>
+              <span className={styles.liveDot} />
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.08em' }}>FOCUSING</span>
+            </div>
           )}
         </div>
 
-        {/* 右侧工具 */}
-        <div className={styles.rightTools}>
-          <button
-            className={styles.iconBtn}
-            title="开启今日"
-            onClick={() => { setDayReflectionMode('start'); setIsDayReflectionOpen(true); }}
-          >
-            <Sunrise size={14} />
-          </button>
-
-          <button className={styles.iconBtn} title="今日总结"
-            onClick={() => { setDayReflectionMode('reflection'); setIsDayReflectionOpen(true); }}>
-            <Sunset size={16} />
-          </button>
-
-          <button className={styles.iconBtn} title="学习计划"
-            onClick={() => studyPlanSidebarRef.current?.open()}>
-            <CalendarClock size={16} />
-          </button>
-
-          <button className={styles.iconBtn} title="历史记录"
-            onClick={() => setIsHistoryOpen(true)}>
-            <History size={16} />
-          </button>
-
-          <button className={styles.iconBtn} title="学习概览"
-            onClick={() => router.push('/overview')}>
-            <LayoutDashboard size={16} />
-          </button>
-
-          <button className={styles.iconBtn} title="设置"
-            onClick={() => router.push('/profile')}>
-            <Settings2 size={16} />
-          </button>
-
-          <span className={styles.toolDivider} />
-
-          <QuickStatsHover />
-
-          <span className={styles.toolDivider} />
-
-          <button className={styles.iconBtn} title="切换主题" onClick={handleThemeToggle}>
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-        </div>
       </header>
 
       {/* ── 三列主区 ── */}

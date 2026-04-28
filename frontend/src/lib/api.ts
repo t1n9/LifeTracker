@@ -107,7 +107,6 @@ export const userAPI = {
   updateProfile: (data: Record<string, unknown>) => api.patch('/users/profile', data),
   getStats: () => api.get('/users/stats'),
   updateTheme: (theme: string) => api.patch('/users/theme', { theme }),
-  getExerciseConfig: () => api.get('/users/exercise-config'),
   getUserSettings: () => api.get('/users/settings'),
   updateUserSettings: (data: Record<string, unknown>) => api.patch('/users/settings', data),
 };
@@ -178,31 +177,19 @@ export const importantInfoAPI = {
 };
 
 export const exerciseAPI = {
-  getExerciseTypes: (includeInactive = false) => api.get(`/exercise/types${includeInactive ? '?includeInactive=true' : ''}`),
-  createExerciseType: (data: {
-    name: string;
-    type: 'COUNT' | 'DISTANCE';
-    unit: string;
-    increment?: number;
-    icon?: string;
-    color?: string;
-  }) => api.post('/exercise/types', data),
-  updateExerciseType: (id: string, data: any) => api.put(`/exercise/types/${id}`, data),
-  deleteExerciseType: (id: string) => api.delete(`/exercise/types/${id}`),
-  getTodayRecords: () => api.get('/exercise/today'),
-  addExerciseRecord: (data: {
-    exerciseId: string;
+  getTodayLogs: () => api.get('/exercise/today'),
+  addLog: (data: {
+    exerciseName: string;
+    emoji?: string;
     value: number;
-    notes?: string;
-  }) => api.post('/exercise/records', data),
-  setTodayExerciseValue: (data: {
-    exerciseId: string;
-    totalValue: number;
-    notes?: string;
-  }) => api.put('/exercise/records/today', data),
+    unit: string;
+    note?: string;
+    date?: string;
+  }) => api.post('/exercise/logs', data),
+  deleteLog: (id: string) => api.delete(`/exercise/logs/${id}`),
+  getLogsByRange: (from: string, to: string) => api.get('/exercise/range', { params: { from, to } }),
   setExerciseFeeling: (feeling: string) => api.put('/exercise/feeling', { feeling }),
   getExerciseFeeling: () => api.get('/exercise/feeling'),
-  getExerciseStats: (days?: number) => api.get('/exercise/stats', { params: { days } }),
 };
 
 export const expenseAPI = {
