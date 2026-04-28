@@ -24,6 +24,7 @@ export interface AgentPomodoroHint {
 export interface AgentExerciseRecordHint {
   exerciseName: string;
   value: number;
+  mode: 'record' | 'increment';
 }
 
 export type AgentExerciseFeelingHint = 'excellent' | 'good' | 'normal' | 'tired';
@@ -335,6 +336,7 @@ export function extractExerciseRecord(message: string): AgentExerciseRecordHint 
     return {
       exerciseName,
       value,
+      mode: /(又|再|追加|多做了|多拉了|再来|再做|又做了|又拉了|再拉)/u.test(message) ? 'increment' : 'record',
     };
   }
 

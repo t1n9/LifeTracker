@@ -8,11 +8,10 @@ datasource db {
 }
 
 model User {
-  id           String  @id @default(uuid())
-  email        String  @unique
-  passwordHash String  @map("password_hash")
-  name         String?
-
+  id                  String              @id @default(uuid())
+  email               String              @unique
+  passwordHash        String              @map("password_hash")
+  name                String?
   timezone            String              @default("Asia/Shanghai")
   theme               String              @default("dark")
   isActive            Boolean             @default(true) @map("is_active")
@@ -26,6 +25,12 @@ model User {
   showSwimming        Boolean?            @default(false) @map("show_swimming")
   showCycling         Boolean?            @default(false) @map("show_cycling")
   isAdmin             Boolean             @default(false) @map("is_admin")
+  agentConfirmations  AgentConfirmation[]
+  agentMemories       AgentMemory[]
+  agentMessages       AgentMessage[]
+  agentRunSteps       AgentRunStep[]
+  agentRuns           AgentRun[]
+  captures            Capture[]
   countdowns          Countdown[]
   dailyData           DailyData[]
   exerciseRecords     ExerciseRecord[]    @relation("UserExerciseRecords")
@@ -42,17 +47,12 @@ model User {
   reviewedSuggestions SystemSuggestion[]  @relation("ReviewedSuggestions")
   systemSuggestions   SystemSuggestion[]
   tasks               Task[]
+  agentProfile        UserAgentProfile?
+  entitlements        UserEntitlement[]
   userGoals           UserGoal[]
   userSettings        UserSettings?
-  agentMessages       AgentMessage[]
-  agentRuns           AgentRun[]
-  agentRunSteps       AgentRunStep[]
-  agentConfirmations  AgentConfirmation[]
-  agentMemories       AgentMemory[]
-  agentProfile        UserAgentProfile?
   subscription        UserSubscription?
-  entitlements        UserEntitlement[]
-  captures            Capture[]
+  studyPlans          StudyPlan[]
 
   @@map("users")
 }
@@ -88,6 +88,7 @@ model Task {
   sortOrder        Int               @default(0) @map("sort_order")
   pomodoroSessions PomodoroSession[]
   studyRecords     StudyRecord[]
+  dailyStudySlots  DailyStudySlot[]
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("tasks")
@@ -374,11 +375,10 @@ model SystemSuggestion {
 }
 
 model UserGoal {
-  id         String    @id @default(uuid())
-  userId     String    @map("user_id")
-  goalName   String    @map("goal_name")
-  targetDate DateTime? @map("target_date") @db.Timestamptz(6)
-
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  goalName    String    @map("goal_name")
+  targetDate  DateTime? @map("target_date") @db.Timestamptz(6)
   startDate   DateTime  @map("start_date") @db.Timestamptz(6)
   endDate     DateTime? @map("end_date") @db.Timestamptz(6)
   isActive    Boolean   @default(true) @map("is_active")
@@ -393,40 +393,10 @@ model UserGoal {
   @@map("user_goals")
 }
 
-enum ExerciseTypeEnum {
-  COUNT
-  DISTANCE
-}
-
-enum ExpenseTypeEnum {
-  MEAL
-  OTHER
-}
-
-enum PomodoroStatus {
-  PENDING
-  RUNNING
-  PAUSED
-  COMPLETED
-  CANCELLED
-}
-
-enum PomodoroType {
-  WORK
-  SHORT_BREAK
-  LONG_BREAK
-}
-
-enum DeviceType {
-  DESKTOP
-  MOBILE
-  TABLET
-}
-
 model AgentMessage {
   id            String   @id @default(uuid())
   userId        String   @map("user_id")
-  role          String // user, assistant, confirm, action_result
+  role          String
   content       String
   toolCalls     Json?    @map("tool_calls")
   pendingAction Json?    @map("pending_action")
@@ -452,9 +422,9 @@ model AgentRun {
   startedAt      DateTime            @default(now()) @map("started_at") @db.Timestamptz(6)
   completedAt    DateTime?           @map("completed_at") @db.Timestamptz(6)
   latencyMs      Int?                @map("latency_ms")
-  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  steps          AgentRunStep[]
   confirmations  AgentConfirmation[]
+  steps          AgentRunStep[]
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, startedAt])
   @@index([status])
@@ -576,14 +546,14 @@ model Capture {
   id         String        @id @default(uuid())
   userId     String        @map("user_id")
   rawContent String        @map("raw_content")
-  sourceType String?       @map("source_type")
-  sourceName String?       @map("source_name")
-  sourceHint String?       @map("source_hint")
   status     CaptureStatus @default(RAW)
   analysis   Json?
   analyzedAt DateTime?     @map("analyzed_at") @db.Timestamptz(6)
   createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sourceHint String?       @map("source_hint")
+  sourceName String?       @map("source_name")
+  sourceType String?       @map("source_type")
   user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
@@ -591,8 +561,195 @@ model Capture {
   @@map("captures")
 }
 
+enum ExerciseTypeEnum {
+  COUNT
+  DISTANCE
+}
+
+enum ExpenseTypeEnum {
+  MEAL
+  OTHER
+}
+
+enum PomodoroStatus {
+  PENDING
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum PomodoroType {
+  WORK
+  SHORT_BREAK
+  LONG_BREAK
+}
+
+enum DeviceType {
+  DESKTOP
+  MOBILE
+  TABLET
+}
+
 enum CaptureStatus {
   RAW
   ANALYZED
   ARCHIVED
+}
+
+// ─── Study Plan ───────────────────────────────────────────────────────────────
+
+model StudyPlan {
+  id               String           @id @default(uuid())
+  userId           String           @map("user_id")
+  title            String
+  examType         String           @map("exam_type")
+  examName         String           @map("exam_name")
+  examDate         DateTime         @map("exam_date") @db.Date
+  employmentType   String           @default("fulltime") @map("employment_type")
+  weekdayHours     Float            @default(3) @map("weekday_hours")
+  weekendHours     Float            @default(6) @map("weekend_hours")
+  holidayEnabled   Boolean          @default(true) @map("holiday_enabled")
+  status           String           @default("active")
+  promptVersion    String?          @map("prompt_version")
+  generatedAt      DateTime?        @map("generated_at") @db.Timestamptz(6)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjects         StudySubject[]
+  weeklyPlans      WeeklyPlan[]
+  dailySlots       DailyStudySlot[]
+  ocrUploads       OcrUpload[]
+
+  @@index([userId, status])
+  @@map("study_plans")
+}
+
+model StudySubject {
+  id          String          @id @default(uuid())
+  planId      String          @map("plan_id")
+  name        String
+  weight      Float           @default(0.5)
+  level       String          @default("beginner")
+  sortOrder   Int             @default(0) @map("sort_order")
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  plan        StudyPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  chapters    StudyChapter[]
+
+  @@index([planId, sortOrder])
+  @@map("study_subjects")
+}
+
+model StudyChapter {
+  id             String          @id @default(uuid())
+  subjectId      String          @map("subject_id")
+  title          String
+  estimatedHours Float           @map("estimated_hours")
+  actualHours    Float           @default(0) @map("actual_hours")
+  status         String          @default("pending")
+  source         String          @default("manual")
+  sortOrder      Int             @default(0) @map("sort_order")
+  completedAt    DateTime?       @map("completed_at") @db.Timestamptz(6)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  subject        StudySubject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  dailySlots     DailyStudySlot[]
+
+  @@index([subjectId, sortOrder])
+  @@map("study_chapters")
+}
+
+model WeeklyPlan {
+  id             String          @id @default(uuid())
+  planId         String          @map("plan_id")
+  weekNumber     Int             @map("week_number")
+  weekStart      DateTime        @map("week_start") @db.Date
+  weekEnd        DateTime        @map("week_end") @db.Date
+  phase          String          @default("foundation")
+  targetHours    Float           @default(0) @map("target_hours")
+  actualHours    Float           @default(0) @map("actual_hours")
+  completionRate Float           @default(0) @map("completion_rate")
+  status         String          @default("pending")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  plan           StudyPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dailySlots     DailyStudySlot[]
+
+  @@unique([planId, weekNumber])
+  @@index([planId, weekStart])
+  @@map("weekly_plans")
+}
+
+model DailyStudySlot {
+  id            String        @id @default(uuid())
+  planId        String        @map("plan_id")
+  userId        String        @map("user_id")
+  weeklyPlanId  String?       @map("weekly_plan_id")
+  chapterId     String        @map("chapter_id")
+  subjectName   String        @default("") @map("subject_name")
+  chapterTitle  String        @default("") @map("chapter_title")
+  date          DateTime      @db.Date
+  plannedHours  Float         @map("planned_hours")
+  actualHours   Float         @default(0) @map("actual_hours")
+  status        String        @default("pending")
+  taskId        String?       @map("task_id")
+  isInjected    Boolean       @default(false) @map("is_injected")
+  isRescheduled Boolean       @default(false) @map("is_rescheduled")
+  originalDate  DateTime?     @map("original_date") @db.Date
+  injectedAt    DateTime?     @map("injected_at") @db.Timestamptz(6)
+  completedAt   DateTime?     @map("completed_at") @db.Timestamptz(6)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  plan          StudyPlan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  weeklyPlan    WeeklyPlan?   @relation(fields: [weeklyPlanId], references: [id])
+  chapter       StudyChapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  task          Task?         @relation(fields: [taskId], references: [id])
+
+  @@index([planId, date])
+  @@index([planId, status])
+  @@index([userId, taskId])
+  @@map("daily_study_slots")
+}
+
+model OcrUpload {
+  id           String     @id @default(uuid())
+  userId       String     @map("user_id")
+  planId       String?    @map("plan_id")
+  imageUrl     String     @map("image_url")
+  rawText      String     @map("raw_text")
+  parsedResult Json?      @map("parsed_result")
+  status       String     @default("pending")
+  subjectId    String?    @map("subject_id")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  plan         StudyPlan? @relation(fields: [planId], references: [id])
+
+  @@index([userId, status])
+  @@map("ocr_uploads")
+}
+
+model TrustedSource {
+  id               String                      @id @default(uuid())
+  url              String
+  title            String
+  summary          String?
+  query            String
+  useCount         Int                         @default(1) @map("use_count")
+  lastUsedAt       DateTime                    @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  lastConfirmedAt  DateTime?                   @map("last_confirmed_at") @db.Timestamptz(6)
+  expiresAt        DateTime                    @map("expires_at") @db.Timestamptz(6)
+  status           String                      @default("active")
+  createdAt        DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  confirmations    TrustedSourceConfirmation[]
+
+  @@unique([query, url], name: "query_url")
+  @@index([query])
+  @@map("trusted_sources")
+}
+
+model TrustedSourceConfirmation {
+  id        String        @id @default(uuid())
+  sourceId  String        @map("source_id")
+  userId    String        @map("user_id")
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  source    TrustedSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, userId])
+  @@map("trusted_source_confirmations")
 }

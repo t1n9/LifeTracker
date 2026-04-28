@@ -1,75 +1,118 @@
-/* LifeTracker 高级极简主题系统 - 冷调方案 (2026) */
+/* LifeTracker 主题系统 — DashboardV2 色板 (2026) */
 
 :root {
-  /* ========== 浅色主题（默认） - 冷调极简 ========== */
-  --bg-primary: #f5f8f6;          /* 柔和灰绿底 */
-  --bg-secondary: #edf3f0;        /* 卡片浅灰绿 */
-  --bg-tertiary: #e3ebe7;         /* 次层浅灰绿 */
-  --bg-navbar: rgba(245, 248, 246, 0.92);
+  /* ── 字体栈 ── */
+  --font-sans: "Manrope", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* 文字色系 - 高对比 */
-  --text-primary: #17212b;        /* 深灰蓝 */
-  --text-secondary: #52606d;      /* 中灰蓝 */
-  --text-muted: #83919d;          /* 浅灰蓝 */
-
-  /* 单一强调色 - 深青绿 */
-  --accent-primary: #0f766e;      /* 深青绿 - 高级感 */
-  --accent-primary-alpha: rgba(15, 118, 110, 0.1);
-  --accent-secondary: #14b8a6;    /* 浅青绿 - 交互态 */
-
-  /* 反馈色 */
-  --success-color: #059669;
-  --warning-color: #d97706;
-  --error-color: #dc2626;
-
-  /* 精致阴影 - 最小化 */
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
-
-  /* 边框 - 极浅 */
-  --border-color: #d7e1dc;
-
-  /* 圆角 - 现代但不过度 */
+  /* ── 圆角 ── */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
   --border-radius-sm: 6px;
   --border-radius: 8px;
   --border-radius-lg: 12px;
 
-  /* 字体设置：Inter + Noto Sans SC */
-  font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* ── 强调色 H 值（用于参考，具体颜色直接设置） ── */
+  --accent-h: 185;
+
+  /* ========== 浅色主题（默认）— 暖米色系 ========== */
+  --bg-0: #f3f1ec;
+  --bg-1: #ebe8e1;
+  --bg-2: #e1ddd3;
+  --bg-3: #d6d2c7;
+  --line:   rgba(0, 0, 0, .07);
+  --line-2: rgba(0, 0, 0, .12);
+  --fg:   #1d2320;
+  --fg-2: #4d534f;
+  --fg-3: #7a807c;
+  --fg-4: #a3a8a3;
+
+  --accent:      #0f766e;
+  --accent-soft: rgba(15, 118, 110, 0.12);
+  --accent-glow: rgba(15, 118, 110, 0.22);
+  --accent-ink:  #ffffff;
+
+  --warn:   #d97706;
+  --danger: #dc2626;
+
+  /* ── 旧变量别名（兼容其他组件）── */
+  --bg-primary:   var(--bg-0);
+  --bg-secondary: var(--bg-1);
+  --bg-tertiary:  var(--bg-2);
+  --bg-navbar:    rgba(243, 241, 236, 0.92);
+
+  --text-primary:   var(--fg);
+  --text-secondary: var(--fg-2);
+  --text-muted:     var(--fg-3);
+
+  --accent-primary:       var(--accent);
+  --accent-primary-alpha: rgba(15, 118, 110, 0.12);
+  --accent-secondary:     #14b8a6;
+
+  --success-color: #059669;
+  --warning-color: #d97706;
+  --error-color:   #dc2626;
+
+  --shadow:    0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+  --border-color: var(--line-2);
+
+  font-family: var(--font-sans);
   line-height: 1.6;
   font-weight: 400;
-
-  /* 字体渲染优化 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01", "cv11";
 }
 
 [data-theme="dark"] {
-  /* ========== 深色主题 - 冷调极简深色 ========== */
-  --bg-primary: #121a24;          /* 深灰蓝底 */
-  --bg-secondary: #1d2733;        /* 深卡片底 */
-  --bg-tertiary: #2a3644;         /* 次层深蓝灰 */
-  --bg-navbar: rgba(18, 26, 36, 0.92);
+  /* ========== 深色主题 — 暖深绿系 ========== */
+  --bg-0: #0e1311;
+  --bg-1: #131915;
+  --bg-2: #1a211c;
+  --bg-3: #222a25;
+  --line:   rgba(255, 255, 255, .07);
+  --line-2: rgba(255, 255, 255, .12);
+  --fg:   #ecefe9;
+  --fg-2: #b3bbb1;
+  --fg-3: #7d857c;
+  --fg-4: #555c54;
 
-  --text-primary: #edf3f0;        /* 柔和浅白 */
-  --text-secondary: #c7d2db;      /* 中灰白 */
-  --text-muted: #95a5b2;          /* 浅灰 */
+  --accent:      #14b8a6;
+  --accent-soft: rgba(20, 184, 166, 0.10);
+  --accent-glow: rgba(20, 184, 166, 0.18);
+  --accent-ink:  #0a2420;
 
-  --accent-primary: #14b8a6;      /* 冰青绿 */
+  --warn:   #f59e0b;
+  --danger: #ef4444;
+
+  /* 旧变量别名 */
+  --bg-primary:   var(--bg-0);
+  --bg-secondary: var(--bg-1);
+  --bg-tertiary:  var(--bg-2);
+  --bg-navbar:    rgba(14, 19, 17, 0.92);
+
+  --text-primary:   var(--fg);
+  --text-secondary: var(--fg-2);
+  --text-muted:     var(--fg-3);
+
+  --accent-primary:       var(--accent);
   --accent-primary-alpha: rgba(20, 184, 166, 0.15);
-  --accent-secondary: #2dd4bf;
+  --accent-secondary:     #2dd4bf;
 
   --success-color: #10b981;
   --warning-color: #f59e0b;
-  --error-color: #ef4444;
+  --error-color:   #ef4444;
 
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow:    0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.5);
 
-  --border-color: #344253;
+  --border-color: var(--line-2);
 }
 
 /* 通用样式 */

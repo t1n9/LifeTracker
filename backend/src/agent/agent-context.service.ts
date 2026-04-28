@@ -8,6 +8,16 @@ interface LLMMessage {
   tool_calls?: any[];
 }
 
+const READ_ONLY_TOOLS = new Set([
+  'get_today_summary',
+  'get_today_tasks',
+  'get_tasks',
+  'get_pomodoro_status',
+  'get_today_expenses',
+  'get_exercise_types',
+  'get_today_exercise',
+]);
+
 interface AgentMessageRecord {
   role: string;
   content: string;
@@ -71,6 +81,9 @@ export class AgentContextService {
     for (const message of messages) {
       const toolCalls = Array.isArray(message.toolCalls) ? message.toolCalls : [];
       for (const toolCall of toolCalls as Array<{ tool?: string; args?: any; result?: any }>) {
+        if (!toolCall.tool || !READ_ONLY_TOOLS.has(toolCall.tool)) {
+          continue;
+        }
         const line = this.summarizeToolCall(toolCall);
         if (line) {
           lines.push(line);

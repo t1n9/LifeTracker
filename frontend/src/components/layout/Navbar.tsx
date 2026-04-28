@@ -81,6 +81,16 @@ export default function Navbar({
                 {theme === 'dark' ? <SunMedium size={18} /> : <MoonStar size={18} />}
               </button>
 
+              <button
+                type="button"
+                className={styles.iconButton}
+                onClick={handleOpenProfile}
+                aria-label="设置"
+                title="设置"
+              >
+                <Settings2 size={18} />
+              </button>
+
               <div ref={menuRef} className={styles.menuWrap}>
                 <button
                   type="button"

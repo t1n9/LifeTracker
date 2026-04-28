@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Save, Edit, Activity, Settings, LogOut, Shield } from 'lucide-react';
+import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Save, Edit, Activity, Settings, LogOut, Shield, MessageSquare } from 'lucide-react';
 import { userAPI, api } from '@/lib/api';
 import '@/styles/theme.css';
 import { useAuthStore } from '@/store/auth';
@@ -10,6 +10,7 @@ import SystemConfigPanel from '@/components/admin/SystemConfigPanel';
 import SuggestionManagement from '@/components/admin/SuggestionManagement';
 import ExerciseConfigManager from '@/components/ExerciseConfigManager';
 import GoalManagement from '@/components/GoalManagement';
+import SystemSuggestion from '@/components/SystemSuggestion';
 import { VERSION_INFO, getVersionString } from '@/lib/version';
 
 interface UserData {
@@ -27,7 +28,7 @@ interface PasswordData {
 export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading, hasInitialized, initializeAuth, logout } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'exercise' | 'account' | 'admin'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'exercise' | 'account' | 'suggestion' | 'admin'>('profile');
   const [adminSubTab, setAdminSubTab] = useState<'config' | 'suggestions'>('config');
   const [isLoading, setIsLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -54,6 +55,14 @@ export default function ProfilePage() {
     new: false,
     confirm: false,
   });
+
+  const pageShellStyle: React.CSSProperties = {
+    backgroundColor: 'var(--bg-primary)',
+    height: '100vh',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    WebkitOverflowScrolling: 'touch',
+  };
 
   // 检查认证状态
   useEffect(() => {
@@ -211,7 +220,7 @@ export default function ProfilePage() {
   // 页面加载中
   if (isAuthLoading || !hasInitialized || isPageLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={pageShellStyle}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p style={{ color: 'var(--text-secondary)' }}>加载用户信息中...</p>
@@ -221,7 +230,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div className="min-h-screen" style={pageShellStyle}>
 
       <div className="profile-container">
         {/* 页面头部 */}
@@ -265,6 +274,13 @@ export default function ProfilePage() {
             >
               <Shield size={18} />
               账户管理
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'suggestion' ? 'active' : ''}`}
+              onClick={() => setActiveTab('suggestion')}
+            >
+              <MessageSquare size={18} />
+              系统建议
             </button>
             {userData.isAdmin && (
               <button
@@ -523,6 +539,12 @@ export default function ProfilePage() {
           )}
 
           {/* 系统管理标签页（仅管理员可见） */}
+          {activeTab === 'suggestion' && (
+            <div className="form-container">
+              <SystemSuggestion embedded />
+            </div>
+          )}
+
           {activeTab === 'admin' && userData.isAdmin && (
             <div>
               {/* 管理员子标签 */}

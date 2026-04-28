@@ -248,6 +248,47 @@ export const overviewAPI = {
   getStats: () => api.get('/overview/stats'),
 };
 
+export const studyPlanAPI = {
+  getTemplates: () => api.get('/study-plans/templates'),
+  createPlan: (data: Record<string, unknown>) => api.post('/study-plans', data),
+  getPlans: () => api.get('/study-plans'),
+  getActivePlan: () => api.get('/study-plans/active'),
+  getPlanDetail: (id: string) => api.get(`/study-plans/${id}`),
+  updatePlan: (id: string, data: Record<string, unknown>) => api.patch(`/study-plans/${id}`, data),
+  archivePlan: (id: string) => api.delete(`/study-plans/${id}`),
+  regeneratePlan: (id: string) => api.post(`/study-plans/${id}/regenerate`),
+  pausePlan: (id: string) => api.post(`/study-plans/${id}/pause`),
+  resumePlan: (id: string) => api.post(`/study-plans/${id}/resume`),
+  createSubject: (planId: string, data: Record<string, unknown>) => api.post(`/study-plans/${planId}/subjects`, data),
+  updateSubject: (planId: string, subjectId: string, data: Record<string, unknown>) =>
+    api.patch(`/study-plans/${planId}/subjects/${subjectId}`, data),
+  deleteSubject: (planId: string, subjectId: string) => api.delete(`/study-plans/${planId}/subjects/${subjectId}`),
+  createChapter: (planId: string, subjectId: string, data: Record<string, unknown>) =>
+    api.post(`/study-plans/${planId}/subjects/${subjectId}/chapters`, data),
+  updateChapter: (planId: string, subjectId: string, chapterId: string, data: Record<string, unknown>) =>
+    api.patch(`/study-plans/${planId}/subjects/${subjectId}/chapters/${chapterId}`, data),
+  deleteChapter: (planId: string, subjectId: string, chapterId: string) =>
+    api.delete(`/study-plans/${planId}/subjects/${subjectId}/chapters/${chapterId}`),
+  completeChapter: (planId: string, subjectId: string, chapterId: string) =>
+    api.post(`/study-plans/${planId}/subjects/${subjectId}/chapters/${chapterId}/complete`),
+  getWeeklyPlans: (planId: string) => api.get(`/study-plans/${planId}/weekly`),
+  getWeekDetail: (planId: string, weekNumber: number) => api.get(`/study-plans/${planId}/weekly/${weekNumber}`),
+  getTodaySlots: (planId: string, date?: string) => api.get(`/study-plans/${planId}/today`, { params: { date } }),
+  injectSlot: (planId: string, slotId: string) => api.post(`/study-plans/${planId}/slots/${slotId}/inject`),
+  skipSlot: (planId: string, slotId: string) => api.post(`/study-plans/${planId}/slots/${slotId}/skip`),
+  completeSlot: (planId: string, slotId: string) => api.post(`/study-plans/${planId}/slots/${slotId}/complete`),
+  getPlanStats: (planId: string) => api.get(`/study-plans/${planId}/stats`),
+  uploadOcr: (data: Record<string, unknown>) => api.post('/study-plans/ocr/upload', data),
+  confirmOcr: (uploadId: string, data: Record<string, unknown>) => api.post(`/study-plans/ocr/${uploadId}/confirm`, data),
+  discardOcr: (uploadId: string) => api.delete(`/study-plans/ocr/${uploadId}`),
+  searchExamInfo: (query: string) => api.post('/study-plans/search/exam-info', { query }),
+  confirmSearchSource: (data: Record<string, unknown>) => api.post('/study-plans/search/confirm', data),
+  getTodaySuggestion: () => api.get('/study-plans/today-suggestion'),
+  injectToday: () => api.post('/study-plans/inject-today'),
+  aiAssist: (data: { step: string; userMessage: string; context?: Record<string, unknown> }) =>
+    api.post('/study-plans/ai-assist', data),
+};
+
 // 邮箱验证API
 export const emailAPI = {
   sendVerificationCode: (email: string, purpose: 'register' | 'reset_password' | 'change_email') =>

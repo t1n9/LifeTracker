@@ -10,7 +10,7 @@ import {
   type ReactNode,
   type UIEvent,
 } from 'react';
-import { Bot, Check, Pencil, Save, Send, ShieldCheck, ShieldOff, Trash2, X } from 'lucide-react';
+import { Bot, Check, Pencil, Save, Send, Trash2, X } from 'lucide-react';
 import { api, captureAPI } from '@/lib/api';
 import { dispatchAgentDataChanged, getAgentChangedDomains } from '@/lib/agent-events';
 
@@ -114,7 +114,6 @@ const CAPTURE_CATEGORY_LABELS: Record<CaptureAnalysis['category'], string> = {
   mixed: '混合',
 };
 
-const CONFIRM_MODE_KEY = 'agent_confirm_mode';
 const PANEL_MODE_KEY = 'agent_panel_mode';
 
 const isSafeMarkdownUrl = (url: string) => /^(https?:\/\/|mailto:)/iu.test(url);
@@ -335,7 +334,7 @@ const renderMarkdownContent = (content: string) => {
   return <div style={styles.markdownContent}>{blocks}</div>;
 };
 
-export default function AgentChatPanel() {
+export default function AgentChatPanel({ inline = false }: { inline?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>('chat');
   const [messages, setMessages] = useState<AgentMessage[]>([]);
@@ -343,7 +342,7 @@ export default function AgentChatPanel() {
   const [captures, setCaptures] = useState<CaptureItem[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [confirmMode, setConfirmMode] = useState(true);
+  const confirmMode = true;
   const [hasMore, setHasMore] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -379,10 +378,6 @@ export default function AgentChatPanel() {
   }, []);
 
   useEffect(() => {
-    const savedConfirmMode = localStorage.getItem(CONFIRM_MODE_KEY);
-    if (savedConfirmMode !== null) {
-      setConfirmMode(savedConfirmMode === 'true');
-    }
     const savedPanelMode = localStorage.getItem(PANEL_MODE_KEY);
     if (savedPanelMode === 'chat' || savedPanelMode === 'capture') {
       setPanelMode(savedPanelMode);
@@ -448,7 +443,7 @@ export default function AgentChatPanel() {
   }, [loadingCaptures]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen && !inline) return;
     if (panelMode === 'chat' && !historyLoaded) {
       void loadHistory();
       void loadConfirmations();
@@ -458,7 +453,7 @@ export default function AgentChatPanel() {
       void loadCaptures();
     }
     inputRef.current?.focus();
-  }, [capturesLoaded, historyLoaded, isOpen, loadCaptures, loadConfirmations, loadHistory, panelMode]);
+  }, [capturesLoaded, historyLoaded, isOpen, inline, loadCaptures, loadConfirmations, loadHistory, panelMode]);
 
   useEffect(() => {
     if (panelMode !== 'chat' || messages.length === 0) return;
@@ -548,12 +543,6 @@ export default function AgentChatPanel() {
     setCaptureError('');
   };
 
-  const toggleConfirmMode = () => {
-    const next = !confirmMode;
-    setConfirmMode(next);
-    localStorage.setItem(CONFIRM_MODE_KEY, String(next));
-  };
-
   const handleScroll = (event: UIEvent<HTMLDivElement>) => {
     if (panelMode !== 'chat') return;
     const target = event.currentTarget;
@@ -604,7 +593,7 @@ export default function AgentChatPanel() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message: text, confirmMode }),
+        body: JSON.stringify({ message: text, confirmMode: true }),
       });
 
       if (!response.ok || !response.body) {
@@ -1061,7 +1050,7 @@ export default function AgentChatPanel() {
             <div style={styles.captureTop}>
               <div style={styles.captureMeta}>
                 <span style={styles.captureTime}>{formatTime(capture.createdAt)}</span>
-                <span style={{ ...styles.captureBadge, color: hasAnalysis ? 'var(--accent-primary)' : 'var(--text-muted)' }}>
+                <span style={{ ...styles.captureBadge, color: hasAnalysis ? 'var(--accent)' : 'var(--fg-3)' }}>
                   {hasAnalysis ? '已整理' : '原文'}
                 </span>
               </div>
@@ -1197,26 +1186,32 @@ export default function AgentChatPanel() {
     </div>
   );
 
-  return (
-    <>
-      {!isOpen && (
-        <button onClick={() => setIsOpen(true)} style={styles.floatingButton} className="agent-float-btn" aria-label="打开 AI 助手">
-          <Bot size={24} />
-        </button>
-      )}
-      {isOpen && (
-        <div style={styles.panel} className="agent-panel">
+  const panelContent = (
+    <div style={inline ? { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden', background: 'transparent' } : styles.panel} className={inline ? undefined : 'agent-panel'}>
+      {inline ? (
+        <div style={styles.inlineHeader}>
+          <div style={styles.inlineHeaderLeft}>
+            <Bot size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+            <span style={styles.inlineHeaderTitle}>AI 助手</span>
+          </div>
+          <div style={styles.inlineHeaderRight}>
+            {panelMode === 'chat' && (
+              <button onClick={clearChat} style={styles.inlineIconBtn} title="清空对话"><Trash2 size={14} /></button>
+            )}
+            <button onClick={() => changePanelMode('chat')} style={{ ...styles.inlineModeBtn, ...(panelMode === 'chat' ? styles.inlineModeBtnActive : {}) }}>对话</button>
+            <button onClick={() => changePanelMode('capture')} style={{ ...styles.inlineModeBtn, ...(panelMode === 'capture' ? styles.inlineModeBtnActive : {}) }}>记录</button>
+          </div>
+        </div>
+      ) : (
+        <>
           <div style={styles.header}>
             <div style={styles.headerTitleWrap}>
-              <Bot size={18} style={{ color: 'var(--accent-primary)' }} />
-              <span style={styles.headerTitle}>LifeTracker 助手</span>
+              <Bot size={18} style={{ color: 'var(--accent)' }} />
+              <span style={styles.headerTitle}>AI 助手</span>
             </div>
             <div style={styles.headerActions}>
               {panelMode === 'chat' && (
                 <>
-                  <button onClick={toggleConfirmMode} style={{ ...styles.iconBtn, color: confirmMode ? 'var(--accent-primary)' : 'var(--text-muted)' }} title={confirmMode ? '确认模式已开启' : '确认模式已关闭'}>
-                    {confirmMode ? <ShieldCheck size={16} /> : <ShieldOff size={16} />}
-                  </button>
                   <button onClick={clearChat} style={styles.iconBtn} title="清空对话"><Trash2 size={16} /></button>
                 </>
               )}
@@ -1227,66 +1222,74 @@ export default function AgentChatPanel() {
             <button onClick={() => changePanelMode('chat')} style={{ ...styles.switchBtn, ...(panelMode === 'chat' ? styles.switchBtnActive : null) }}>对话</button>
             <button onClick={() => changePanelMode('capture')} style={{ ...styles.switchBtn, ...(panelMode === 'capture' ? styles.switchBtnActive : null) }}>记录</button>
           </div>
-          <div style={{ ...styles.modeBar, background: panelMode === 'chat' ? (confirmMode ? 'rgba(15,118,110,.08)' : 'rgba(217,119,6,.08)') : 'rgba(37,99,235,.08)', color: panelMode === 'chat' ? (confirmMode ? 'var(--accent-primary)' : 'var(--warning-color)') : 'var(--info-color, #2563eb)' }}>
-            {panelMode === 'chat' ? (confirmMode ? '确认模式：写操作会先询问你。' : '自动模式：写操作会直接执行。') : '记录模式：先保存原文，整理需手动触发。'}
-          </div>
-          {panelMode === 'chat' ? renderChat() : renderCapture()}
-          {panelMode === 'capture' && selectedSource && (
-            <div style={styles.selectedSourceBar}>
-              <span style={styles.selectedSourceLabel}>当前沿用来源</span>
-              {selectedSource.sourceType && <span style={styles.selectedSourceType}>{selectedSource.sourceType}</span>}
-              <span style={styles.selectedSourceText}>{selectedSource.sourceName}</span>
-              <button type="button" onClick={() => setSelectedSource(null)} style={styles.clearSourceBtn}>
-                清除
-              </button>
-            </div>
-          )}
-          {renderTaskQueue()}
-          <div style={styles.inputBar}>
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(event) => {
-                setInput(event.target.value);
-                resizeInput(event.target);
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder={panelMode === 'chat' ? '输入消息...' : '直接记下整句话，原文会完整保存...'}
-              style={styles.textarea}
-              rows={1}
-              disabled={loading}
-            />
-            <button onClick={() => void sendMessage()} disabled={!input.trim() || loading} style={{ ...styles.sendBtn, opacity: !input.trim() || loading ? 0.4 : 1 }}>
-              <Send size={16} />
-            </button>
-          </div>
+        </>
+      )}
+      {panelMode === 'chat' ? renderChat() : renderCapture()}
+      {panelMode === 'capture' && selectedSource && (
+        <div style={styles.selectedSourceBar}>
+          <span style={styles.selectedSourceLabel}>当前沿用来源</span>
+          {selectedSource.sourceType && <span style={styles.selectedSourceType}>{selectedSource.sourceType}</span>}
+          <span style={styles.selectedSourceText}>{selectedSource.sourceName}</span>
+          <button type="button" onClick={() => setSelectedSource(null)} style={styles.clearSourceBtn}>清除</button>
         </div>
       )}
+      {renderTaskQueue()}
+      <div style={styles.inputBar}>
+        <textarea
+          ref={inputRef}
+          value={input}
+          onChange={(event) => {
+            setInput(event.target.value);
+            resizeInput(event.target);
+          }}
+          onKeyDown={handleKeyDown}
+          placeholder={panelMode === 'chat' ? '和 AI 说话，或者让它帮你安排今天...' : '直接记下整句话，原文会完整保存...'}
+          style={styles.textarea}
+          rows={1}
+          disabled={loading}
+        />
+        <button onClick={() => void sendMessage()} disabled={!input.trim() || loading} style={{ ...styles.sendBtn, opacity: !input.trim() || loading ? 0.4 : 1 }}>
+          <Send size={16} />
+        </button>
+      </div>
+    </div>
+  );
+
+  if (inline) return panelContent;
+
+  return (
+    <>
+      {!isOpen && (
+        <button onClick={() => setIsOpen(true)} style={styles.floatingButton} className="agent-float-btn" aria-label="?? AI ??">
+          <Bot size={24} />
+        </button>
+      )}
+      {isOpen && panelContent}
       <style>{`
         @media (max-width: 768px) {
           .agent-panel {
             width: min(100vw - 20px, 420px) !important;
-            height: min(82vh, 720px) !important;
+            height: min(76vh, 720px) !important;
             max-height: calc(100vh - 20px) !important;
             bottom: 10px !important;
             right: 10px !important;
             left: auto !important;
             border-radius: 18px !important;
           }
-          .agent-float-btn { bottom: 78px !important; right: 14px !important; }
+          .agent-float-btn { bottom: 78px !important; right: 14px !important; width: 56px !important; height: 56px !important; }
         }
         @media (max-width: 480px) {
           .agent-panel {
             width: 100vw !important;
-            height: calc(100vh - 10px) !important;
-            max-height: calc(100vh - 10px) !important;
+            height: 70vh !important;
+            max-height: 70vh !important;
             bottom: 0 !important;
             right: 0 !important;
             left: 0 !important;
-            border-radius: 16px 16px 0 0 !important;
+            border-radius: 20px 20px 0 0 !important;
             padding-bottom: env(safe-area-inset-bottom);
           }
-          .agent-float-btn { bottom: 76px !important; right: 14px !important; }
+          .agent-float-btn { bottom: 18px !important; right: 16px !important; width: 56px !important; height: 56px !important; }
         }
       `}</style>
     </>
@@ -1294,96 +1297,110 @@ export default function AgentChatPanel() {
 }
 
 const styles: Record<string, CSSProperties> = {
-  floatingButton: { position: 'fixed', bottom: '84px', right: '20px', width: '50px', height: '50px', borderRadius: '50%', background: 'color-mix(in srgb, var(--accent-primary) 88%, #0ea5e9 12%)', color: '#fff', border: '1px solid color-mix(in srgb, var(--accent-primary) 62%, transparent 38%)', boxShadow: '0 14px 28px rgba(2, 6, 23, 0.28)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 998 },
-  panel: { position: 'fixed', bottom: '20px', right: '20px', width: '420px', height: '640px', maxHeight: 'calc(100vh - 40px)', background: 'color-mix(in srgb, var(--bg-secondary) 92%, white 8%)', borderRadius: '20px', boxShadow: '0 28px 56px rgba(2, 6, 23, 0.3)', border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)', display: 'flex', flexDirection: 'column', zIndex: 999, overflow: 'hidden' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)', background: 'color-mix(in srgb, var(--bg-tertiary) 82%, white 18%)' },
+  inlineHeader: {
+    flexShrink: 0,
+    height: 50,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    padding: '0 20px',
+    borderBottom: '1px solid var(--line)',
+    boxSizing: 'border-box',
+  },
+  inlineHeaderLeft: { display: 'flex', alignItems: 'center', gap: 8 },
+  inlineHeaderTitle: { fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--fg-3)' },
+  inlineHeaderRight: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginLeft: 'auto' },
+  inlineModeBtn: { fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 8, border: '1px solid transparent', background: 'transparent', color: 'var(--fg-3)', cursor: 'pointer' },
+  inlineModeBtnActive: { background: 'var(--bg-2)', color: 'var(--fg)', border: '1px solid var(--line)' },
+  panel: { position: 'fixed', bottom: '20px', right: '20px', width: '420px', height: '640px', maxHeight: 'calc(100vh - 40px)', background: 'var(--bg-1)', borderRadius: '20px', boxShadow: '0 28px 56px rgba(2, 6, 23, 0.3)', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', zIndex: 999, overflow: 'hidden' },
+  floatingButton: { position: 'fixed', right: '20px', bottom: '20px', width: '56px', height: '56px', borderRadius: '50%', border: '1px solid color-mix(in srgb, var(--accent) 40%, transparent)', background: 'var(--accent)', color: 'var(--accent-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 14px 30px var(--accent-glow)', zIndex: 998 },
+  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: '1px solid var(--line)', background: 'var(--bg-2)' },
   headerTitleWrap: { display: 'flex', alignItems: 'center', gap: '8px' },
-  headerTitle: { fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' },
+  headerTitle: { fontSize: '13px', fontWeight: 600, color: 'var(--fg)', letterSpacing: '-0.01em' },
   headerActions: { display: 'flex', alignItems: 'center', gap: '4px' },
-  iconBtn: { width: '30px', height: '30px', border: '1px solid color-mix(in srgb, var(--border-color) 74%, transparent 26%)', background: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: '30px', height: '30px', border: '1px solid var(--line)', background: 'var(--bg-1)', cursor: 'pointer', color: 'var(--fg-3)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s, color 0.15s' },
   iconBtnSecondary: {
     width: '28px',
     height: '28px',
     borderWidth: '1px',
     borderStyle: 'solid',
-    borderColor: 'color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-    background: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
+    borderColor: 'var(--line)',
+    background: 'var(--bg-1)',
     cursor: 'pointer',
-    color: 'var(--text-secondary)',
-    borderRadius: '9px',
+    color: 'var(--fg-2)',
+    borderRadius: '8px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  switchBar: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', padding: '10px 12px 8px', borderBottom: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)' },
-  switchBtn: { border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)', background: 'color-mix(in srgb, var(--bg-tertiary) 82%, white 18%)', color: 'var(--text-secondary)', borderRadius: '999px', padding: '8px 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' },
-  switchBtnActive: { background: 'var(--accent-primary)', color: '#fff', border: '1px solid var(--accent-primary)' },
-  modeBar: { padding: '6px 16px', fontSize: '11px', fontWeight: 500, textAlign: 'center', borderBottom: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)' },
+  switchBar: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', padding: '10px 12px 8px', borderBottom: '1px solid var(--line)' },
+  switchBtn: { border: '1px solid var(--line)', background: 'var(--bg-2)', color: 'var(--fg-2)', borderRadius: '8px', padding: '7px 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' },
+  switchBtnActive: { background: 'var(--accent)', color: 'var(--accent-ink)', border: '1px solid var(--accent)' },
   body: { flex: 1, overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' },
-  hint: { textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)' },
+  hint: { textAlign: 'center', fontSize: '11px', color: 'var(--fg-3)' },
   emptyState: { flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' },
   emptyIcon: { fontSize: 32 },
-  emptyTitle: { fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '8px' },
-  emptyText: { fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.6 },
+  emptyTitle: { fontSize: '13px', fontWeight: 600, color: 'var(--fg)', marginTop: '8px' },
   row: { display: 'flex', justifyContent: 'flex-start' },
-  userBubble: { maxWidth: '80%', padding: '8px 12px', background: 'var(--accent-primary)', color: '#fff', borderRadius: '14px 14px 4px 14px', fontSize: '13px', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
-  assistantBubble: { maxWidth: '85%', padding: '8px 12px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', borderRadius: '14px 14px 14px 4px', fontSize: '13px', lineHeight: 1.5 },
-  confirmBubble: { maxWidth: '88%', padding: '10px 12px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', borderRadius: '10px 10px 10px 4px', fontSize: '13px', lineHeight: 1.5, border: '1px solid var(--accent-primary-alpha)' },
+  userBubble: { maxWidth: '80%', padding: '8px 12px', background: 'var(--accent)', color: 'var(--accent-ink)', borderRadius: '14px 14px 4px 14px', fontSize: '13px', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
+  assistantBubble: { maxWidth: '85%', padding: '8px 12px', background: 'var(--bg-2)', color: 'var(--fg)', borderRadius: '14px 14px 14px 4px', fontSize: '13px', lineHeight: 1.5 },
+  confirmBubble: { maxWidth: '88%', padding: '10px 12px', background: 'var(--bg-2)', color: 'var(--fg)', borderRadius: '10px 10px 10px 4px', fontSize: '13px', lineHeight: 1.5, border: '1px solid var(--accent-soft)' },
   messageText: { whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
   markdownContent: { display: 'flex', flexDirection: 'column', gap: '6px', wordBreak: 'break-word' },
   markdownParagraph: { margin: 0, whiteSpace: 'normal' },
-  markdownHeading: { marginTop: '2px', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 700, lineHeight: 1.45 },
-  markdownDivider: { height: '1px', margin: '2px 0', background: 'color-mix(in srgb, var(--border-color) 78%, transparent 22%)' },
+  markdownHeading: { marginTop: '2px', color: 'var(--fg)', fontSize: '13px', fontWeight: 700, lineHeight: 1.45 },
+  markdownDivider: { height: '1px', margin: '2px 0', background: 'var(--line)' },
   markdownList: { margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '4px' },
   markdownListItem: { paddingLeft: '2px' },
   markdownTaskItem: { listStyle: 'none', display: 'flex', alignItems: 'flex-start', gap: '6px', marginLeft: '-18px', paddingLeft: 0 },
-  markdownCheckbox: { width: '13px', height: '13px', margin: '3px 0 0', accentColor: 'var(--accent-primary)', flexShrink: 0 },
+  markdownCheckbox: { width: '13px', height: '13px', margin: '3px 0 0', accentColor: 'var(--accent)', flexShrink: 0 },
   markdownInlineCode: {
     padding: '1px 5px',
     borderRadius: '5px',
-    background: 'color-mix(in srgb, var(--bg-secondary) 82%, var(--accent-primary-alpha) 18%)',
-    border: '1px solid color-mix(in srgb, var(--border-color) 70%, transparent 30%)',
-    color: 'var(--text-primary)',
+    background: 'var(--bg-2)',
+    border: '1px solid var(--line-2)',
+    color: 'var(--fg)',
     fontSize: '12px',
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    fontFamily: 'var(--font-mono)',
   },
   markdownCodeBlock: {
     margin: 0,
     padding: '9px 10px',
     borderRadius: '8px',
-    background: 'color-mix(in srgb, var(--bg-secondary) 88%, black 12%)',
-    border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-    color: 'var(--text-primary)',
+    background: 'var(--bg-3)',
+    border: '1px solid var(--line)',
+    color: 'var(--fg)',
     fontSize: '12px',
     lineHeight: 1.55,
     overflowX: 'auto',
     whiteSpace: 'pre',
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    fontFamily: 'var(--font-mono)',
   },
-  markdownCodeLanguage: { marginBottom: '6px', color: 'var(--text-muted)', fontSize: '10px', fontFamily: 'inherit', textTransform: 'uppercase' },
+  markdownCodeLanguage: { marginBottom: '6px', color: 'var(--fg-4)', fontSize: '10px', fontFamily: 'inherit', textTransform: 'uppercase' },
   markdownQuote: {
     margin: 0,
     padding: '7px 10px',
-    borderLeft: '3px solid var(--accent-primary)',
+    borderLeft: '3px solid var(--accent)',
     borderRadius: '0 8px 8px 0',
-    background: 'color-mix(in srgb, var(--bg-secondary) 88%, var(--accent-primary-alpha) 12%)',
-    color: 'var(--text-secondary)',
+    background: 'var(--accent-soft)',
+    color: 'var(--fg-2)',
   },
-  markdownLink: { color: 'var(--accent-primary)', textDecoration: 'underline', textUnderlineOffset: '2px', fontWeight: 600 },
-  markdownDeleted: { color: 'var(--text-muted)' },
+  markdownLink: { color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '2px', fontWeight: 600 },
+  markdownDeleted: { color: 'var(--fg-3)' },
   confirmActions: { display: 'flex', gap: '6px', marginTop: '8px' },
-  confirmBtn: { flex: 1, padding: '4px 10px', background: 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' },
-  rejectBtn: { flex: 1, padding: '4px 10px', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' },
+  confirmBtn: { flex: 1, padding: '4px 10px', background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' },
+  rejectBtn: { flex: 1, padding: '4px 10px', background: 'transparent', color: 'var(--fg-2)', border: '1px solid var(--line-2)', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' },
   confirmStatus: { fontSize: '11px', marginTop: '8px' },
   tagWrap: { display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' },
-  tag: { padding: '2px 6px', fontSize: '10px', color: 'var(--accent-primary)', background: 'var(--accent-primary-alpha)', borderRadius: '999px' },
+  tag: { padding: '2px 6px', fontSize: '10px', color: 'var(--accent)', background: 'var(--accent-soft)', borderRadius: '999px' },
   notice: { padding: '8px 10px', borderRadius: '10px', fontSize: '12px', lineHeight: 1.5 },
   captureCard: {
     padding: '12px',
-    borderRadius: '16px',
-    background: 'color-mix(in srgb, var(--bg-tertiary) 86%, var(--bg-secondary) 14%)',
-    border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-    boxShadow: '0 10px 22px rgba(2, 6, 23, 0.12)',
+    borderRadius: '12px',
+    background: 'var(--bg-2)',
+    border: '1px solid var(--line)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)',
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
@@ -1391,69 +1408,68 @@ const styles: Record<string, CSSProperties> = {
   captureTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' },
   captureActions: { display: 'flex', alignItems: 'center', gap: '8px' },
   captureMeta: { display: 'flex', alignItems: 'center', gap: '8px' },
-  captureTime: { fontSize: '11px', color: 'var(--text-muted)' },
-  captureBadge: { fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', border: '1px solid var(--border-color)' },
+  captureTime: { fontSize: '11px', color: 'var(--fg-3)' },
+  captureBadge: { fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', border: '1px solid var(--line)' },
   smallBtn: {
-    border: '1px solid color-mix(in srgb, var(--accent-primary) 56%, transparent 44%)',
-    background: 'color-mix(in srgb, var(--accent-primary) 88%, #0ea5e9 12%)',
-    color: '#fff',
-    borderRadius: '999px',
+    border: '1px solid var(--accent)',
+    background: 'var(--accent)',
+    color: 'var(--accent-ink)',
+    borderRadius: '8px',
     padding: '6px 10px',
     fontSize: '11px',
     fontWeight: 600,
     flexShrink: 0,
-    boxShadow: '0 8px 18px rgba(15, 118, 110, 0.2)',
+    boxShadow: '0 4px 10px var(--accent-glow)',
   },
   sectionHeader: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' },
-  captureText: { whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--text-primary)', fontSize: '13px', lineHeight: 1.6 },
+  captureText: { whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--fg)', fontSize: '13px', lineHeight: 1.6 },
   editCard: {
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
     padding: '12px',
-    borderRadius: '14px',
-    background: 'color-mix(in srgb, var(--bg-secondary) 88%, var(--bg-tertiary) 12%)',
-    border: '1px solid color-mix(in srgb, var(--accent-primary) 30%, var(--border-color) 70%)',
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+    borderRadius: '12px',
+    background: 'var(--bg-2)',
+    border: '1px solid var(--accent-soft)',
   },
   editGrid: { display: 'grid', gridTemplateColumns: '1fr', gap: '10px' },
   editInput: {
     width: '100%',
     borderWidth: '1px',
     borderStyle: 'solid',
-    borderColor: 'color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+    borderColor: 'var(--line-2)',
     outline: 'none',
-    background: 'color-mix(in srgb, var(--bg-tertiary) 86%, white 14%)',
-    color: 'var(--text-primary)',
+    background: 'var(--bg-1)',
+    color: 'var(--fg)',
     fontSize: '12px',
     lineHeight: 1.5,
     padding: '8px 10px',
-    borderRadius: '10px',
+    borderRadius: '8px',
     fontFamily: 'inherit',
   },
   editTextarea: {
     width: '100%',
     borderWidth: '1px',
     borderStyle: 'solid',
-    borderColor: 'color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+    borderColor: 'var(--line-2)',
     outline: 'none',
     resize: 'vertical',
     minHeight: '96px',
-    background: 'color-mix(in srgb, var(--bg-tertiary) 86%, white 14%)',
-    color: 'var(--text-primary)',
+    background: 'var(--bg-1)',
+    color: 'var(--fg)',
     fontSize: '13px',
     lineHeight: 1.6,
     padding: '10px 12px',
-    borderRadius: '10px',
+    borderRadius: '8px',
     fontFamily: 'inherit',
   },
-  editHint: { fontSize: '11px', lineHeight: 1.6, color: 'var(--text-muted)' },
+  editHint: { fontSize: '11px', lineHeight: 1.6, color: 'var(--fg-3)' },
   editActions: { display: 'flex', alignItems: 'center', gap: '8px' },
   sourceSection: {
     padding: '10px 12px',
-    borderRadius: '12px',
-    background: 'color-mix(in srgb, var(--bg-secondary) 90%, var(--accent-primary-alpha) 10%)',
-    border: '1px solid color-mix(in srgb, var(--border-color) 80%, transparent 20%)',
+    borderRadius: '10px',
+    background: 'var(--bg-2)',
+    border: '1px solid var(--line)',
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
@@ -1462,50 +1478,50 @@ const styles: Record<string, CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    padding: '6px 10px',
-    borderRadius: '999px',
+    padding: '5px 10px',
+    borderRadius: '8px',
     borderWidth: '1px',
     borderStyle: 'solid',
-    borderColor: 'var(--border-color)',
-    background: 'var(--bg-secondary)',
-    color: 'var(--text-primary)',
+    borderColor: 'var(--line)',
+    background: 'var(--bg-1)',
+    color: 'var(--fg)',
     fontSize: '12px',
     cursor: 'pointer',
   },
   sourceChipActive: {
-    borderColor: 'var(--accent-primary)',
-    background: 'var(--accent-primary-alpha)',
-    color: 'var(--accent-primary)',
+    borderColor: 'var(--accent)',
+    background: 'var(--accent-soft)',
+    color: 'var(--accent)',
     fontWeight: 600,
   },
-  emptySourceText: { fontSize: '12px', color: 'var(--text-muted)' },
+  emptySourceText: { fontSize: '12px', color: 'var(--fg-3)' },
   analysisBox: {
-    borderTop: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
+    borderTop: '1px solid var(--line)',
     paddingTop: '10px',
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
   },
-  analysisRow: { display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '12px', color: 'var(--text-secondary)' },
-  analysisLabel: { fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' },
-  analysisText: { fontSize: '12px', lineHeight: 1.6, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
-  selectedSourceBar: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', padding: '8px 12px', borderTop: '1px solid var(--border-color)', background: 'rgba(15,118,110,.04)' },
-  selectedSourceLabel: { fontSize: '11px', color: 'var(--text-muted)' },
-  selectedSourceType: { padding: '2px 8px', borderRadius: '999px', background: 'var(--accent-primary-alpha)', color: 'var(--accent-primary)', fontSize: '10px', fontWeight: 600 },
-  selectedSourceText: { fontSize: '12px', color: 'var(--text-primary)', fontWeight: 600 },
-  clearSourceBtn: { marginLeft: 'auto', border: 'none', background: 'transparent', color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer' },
+  analysisRow: { display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '12px', color: 'var(--fg-2)' },
+  analysisLabel: { fontSize: '11px', fontWeight: 600, color: 'var(--fg-3)', marginBottom: '4px' },
+  analysisText: { fontSize: '12px', lineHeight: 1.6, color: 'var(--fg)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
+  selectedSourceBar: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', padding: '8px 12px', borderTop: '1px solid var(--line)', background: 'var(--accent-soft)' },
+  selectedSourceLabel: { fontSize: '11px', color: 'var(--fg-3)' },
+  selectedSourceType: { padding: '2px 8px', borderRadius: '999px', background: 'var(--accent-soft)', color: 'var(--accent)', fontSize: '10px', fontWeight: 600 },
+  selectedSourceText: { fontSize: '12px', color: 'var(--fg)', fontWeight: 600 },
+  clearSourceBtn: { marginLeft: 'auto', border: 'none', background: 'transparent', color: 'var(--fg-2)', fontSize: '12px', cursor: 'pointer' },
   taskQueue: {
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
     padding: '10px 12px 8px',
-    borderTop: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-    background: 'color-mix(in srgb, var(--bg-tertiary) 70%, white 30%)',
+    borderTop: '1px solid var(--line)',
+    background: 'var(--bg-2)',
   },
   taskCard: {
-    border: '1px solid color-mix(in srgb, var(--accent-primary) 40%, var(--border-color) 60%)',
-    background: 'color-mix(in srgb, var(--bg-secondary) 92%, var(--accent-primary-alpha) 8%)',
-    borderRadius: '12px',
+    border: '1px solid var(--accent-soft)',
+    background: 'var(--bg-1)',
+    borderRadius: '10px',
     padding: '10px',
     display: 'flex',
     alignItems: 'flex-start',
@@ -1515,7 +1531,7 @@ const styles: Record<string, CSSProperties> = {
   taskCardText: {
     flex: 1,
     minWidth: 0,
-    color: 'var(--text-primary)',
+    color: 'var(--fg)',
     fontSize: '12px',
     lineHeight: 1.5,
     whiteSpace: 'pre-wrap',
@@ -1527,7 +1543,7 @@ const styles: Record<string, CSSProperties> = {
     width: 'auto',
     flexShrink: 0,
   },
-  inputBar: { display: 'flex', alignItems: 'flex-end', gap: '8px', padding: '10px 12px 12px', borderTop: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)', background: 'color-mix(in srgb, var(--bg-tertiary) 78%, white 22%)' },
-  textarea: { flex: 1, border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)', outline: 'none', resize: 'none', overflowY: 'hidden', minHeight: '38px', background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)', color: 'var(--text-primary)', fontSize: '13px', lineHeight: 1.5, maxHeight: '220px', padding: '9px 12px', borderRadius: '12px', fontFamily: 'inherit' },
-  sendBtn: { width: '36px', height: '36px', borderRadius: '50%', border: '1px solid color-mix(in srgb, var(--accent-primary) 56%, transparent 44%)', background: 'var(--accent-primary)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 10px 20px rgba(15, 118, 110, 0.24)' },
+  inputBar: { display: 'flex', alignItems: 'flex-end', gap: '8px', padding: '10px 12px 12px', borderTop: '1px solid var(--line)', background: 'var(--bg-2)' },
+  textarea: { flex: 1, border: '1px solid var(--line)', outline: 'none', resize: 'none', overflowY: 'hidden', minHeight: '38px', background: 'var(--bg-1)', color: 'var(--fg)', fontSize: '13px', lineHeight: 1.5, maxHeight: '220px', padding: '9px 12px', borderRadius: '10px', fontFamily: 'inherit' },
+  sendBtn: { width: '36px', height: '36px', borderRadius: '50%', border: 'none', background: 'var(--accent)', color: 'var(--accent-ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 6px 16px var(--accent-glow)' },
 };

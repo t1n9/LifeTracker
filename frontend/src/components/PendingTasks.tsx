@@ -1,7 +1,7 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CheckSquare, Plus, X, Check, Clock, Play, Sunrise, Edit3, GripVertical } from 'lucide-react';
+import { CheckSquare, Plus, X, Check, GripVertical, Pencil, Trash2, Timer } from 'lucide-react';
 import { taskAPI, dailyAPI } from '@/lib/api';
 import styles from './PendingTasks.module.css';
 import {
@@ -111,40 +111,21 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
       className={`${styles.item} ${isBound ? styles.itemBound : ''} ${isDragging ? styles.dragging : ''}`}
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
-      onClick={() => onTaskClick(task.id, task.title)}
-      title={isRunning ? '计时进行中，点击查看绑定任务' : isBound ? '当前已绑定为专注任务' : '点击查看任务，或开始计时'}
     >
-      {/* 鎷栨嫿鎵嬫焺 */}
+      {/* 拖拽手柄 */}
       <div
         className={styles.dragHandle}
         {...attributes}
         {...listeners}
         onClick={(e) => e.stopPropagation()}
       >
-        <GripVertical size={16} />
+        <GripVertical size={15} />
       </div>
 
-
-
-      {/* 浠诲姟鍐呭 */}
+      {/* 任务内容 + 操作区（hover展开） */}
       <div className={styles.content}>
+        {/* 标题行 */}
         <div className={styles.row}>
-          {/* 浠诲姟瀹屾垚澶嶉€夋 */}
-          <input
-            type="checkbox"
-            checked={task.isCompleted}
-            title="完成任务"
-            onClick={(e) => {
-              e.stopPropagation(); // 闃绘鍐掓场鍒扮埗鍏冪礌鐨勭偣鍑讳簨浠?
-            }}
-            onChange={(e) => {
-              e.stopPropagation();
-              onToggleTask(task.id, task.isCompleted);
-            }}
-            className={styles.checkbox}
-          />
-
-          {/* 浠诲姟鏍囬 - 缂栬緫鐘舵€佹垨鏄剧ず鐘舵€?*/}
           {editingTaskId === task.id ? (
             <input
               type="text"
@@ -152,74 +133,71 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
               onChange={(e) => onEditTitleChange?.(e.target.value)}
               onBlur={onSaveEdit}
               onKeyDown={onEditKeyPress}
-              onClick={(e) => e.stopPropagation()} // 闃绘鍐掓场鍒扮埗鍏冪礌
+              onClick={(e) => e.stopPropagation()}
               className={styles.editInput}
               autoFocus
             />
           ) : (
-            <span
-              className={`${styles.taskTitle} ${task.isCompleted ? styles.taskTitleCompleted : ''}`}
-            >
+            <span className={`${styles.taskTitle} ${task.isCompleted ? styles.taskTitleCompleted : ''}`}>
               {task.title}
             </span>
           )}
 
-          {/* 鐣寗鏁伴噺鏄剧ず */}
-          {(task.pomodoroCount || 0) > 0 && (
-            <div className={styles.badge}>
-              番茄 {task.pomodoroCount}
-            </div>
+          {isBound && (
+            <span className={styles.boundIndicator} title="专注中">
+              <Timer size={12} />
+            </span>
           )}
 
-          {/* 缁戝畾鐘舵€佹寚绀?*/}
-          {isBound && (
-            <div className={styles.boundIndicator}>
-              <Clock size={14} />
-            </div>
+          {(task.pomodoroCount || 0) > 0 && (
+            <div className={styles.badge}>🍅 {task.pomodoroCount}</div>
           )}
         </div>
+
         {task.description && (
-          <div className={styles.taskDescription}>
-            {task.description}
+          <div className={styles.taskDescription}>{task.description}</div>
+        )}
+
+        {/* hover / 绑定时展开的操作行 */}
+        {!task.isCompleted && (
+          <div className={styles.actions}>
+            {/* 绑定番茄 */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onTaskClick(task.id, task.title); }}
+              className={`${styles.actionButton} ${isBound ? styles.actionButtonBound : ''}`}
+              title={isBound ? '已绑定' : '绑定番茄'}
+            >
+              <Timer size={12} /> {isBound ? '已绑定' : '绑定番茄'}
+            </button>
+
+            {/* 标记完成 */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleTask(task.id, task.isCompleted); }}
+              className={styles.actionButton}
+            >
+              <Check size={12} /> 完成
+            </button>
+
+            {/* 修改 — 仅图标 */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
+              className={`${styles.actionButton} ${styles.actionButtonIcon}`}
+              title="修改"
+            >
+              <Pencil size={12} />
+            </button>
+
+            {/* 删除 — 仅图标 */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onDeleteTask(task.id); }}
+              className={`${styles.actionButton} ${styles.actionButtonIcon} ${styles.actionButtonDanger}`}
+              title="删除"
+            >
+              <Trash2 size={12} />
+            </button>
           </div>
         )}
       </div>
-
-      {/* 鎿嶄綔鎸夐挳 */}
-      <div className={styles.actions}>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onStartCountUp(task.id, task.title);
-          }}
-          className={`${styles.actionButton} ${styles.actionButtonStart}`}
-          title="开始计时"
-        >
-          <Play size={16} />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEditTask(task);
-          }}
-          className={`${styles.actionButton} ${styles.actionButtonEdit}`}
-          title="编辑任务"
-        >
-          <Edit3 size={16} />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDeleteTask(task.id);
-          }}
-          className={`${styles.actionButton} ${styles.actionButtonDanger}`}
-          title="删除任务"
-        >
-          <X size={16} />
-        </button>
-      </div>
-
-
     </div>
   );
 };
@@ -620,242 +598,173 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     }
   };
 
-  // 杩囨护鏈畬鎴愮殑浠诲姟
+  // 过滤任务
   const pendingTasks = tasks.filter(task => !task.isCompleted);
   const completedTasks = tasks.filter(task => task.isCompleted);
-
-
+  const pct = tasks.length ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
 
   if (loading) {
     return (
       <div className={styles.card}>
-        <div className="flex items-center justify-center py-8">
-          <div style={{ color: 'var(--text-muted)' }}>{'加载中...'}</div>
+        <div className={styles.header}>
+          <div className={styles.titleWrap}>
+            <span className={styles.title}>今日任务</span>
+          </div>
         </div>
+        <div style={{ padding: '32px 20px', color: 'var(--fg-4)', fontSize: 13, textAlign: 'center' }}>加载中...</div>
       </div>
     );
   }
 
   return (
     <div className={styles.card}>
+      {/* 列头 */}
       <div className={styles.header}>
         <div className={styles.titleWrap}>
-          <div className={styles.titleIcon}>
-            <CheckSquare size={18} />
-          </div>
-          {refreshing && (
-            <span className="text-xs opacity-60" style={{ color: 'var(--text-muted)' }}>
-              {'刷新中...'}
-            </span>
-          )}
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{'今日任务'}</h3>
+          <span className={styles.title}>今日任务</span>
+          {refreshing && <span style={{ fontSize: 10, color: 'var(--fg-4)', marginLeft: 6 }}>刷新中</span>}
         </div>
-        <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          {pendingTasks.length} {'个待完成'}
+        <span className={styles.meta}>
+          <span style={{ color: 'var(--fg)', fontFamily: 'var(--font-mono)' }}>{completedTasks.length}</span>
+          <span style={{ color: 'var(--fg-4)' }}> / {tasks.length}</span>
+        </span>
+      </div>
+
+      {/* 进度条 */}
+      <div className={styles.progressBlock}>
+        <div className={styles.progressTrack}>
+          <div className={styles.progressFill} style={{ width: `${pct}%` }} />
         </div>
       </div>
 
-      {/* 杩涘害鏄剧ず */}
-      {tasks.length > 0 && (
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{'任务完成率'}</span>
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              {Math.round((completedTasks.length / tasks.length) * 100)}%
-            </span>
-          </div>
-          <div className="w-full rounded-full h-2" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-            <div 
-              className="bg-green-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(completedTasks.length / tasks.length) * 100}%` }}
-            ></div>
-          </div>
+      {/* 晨间记录 */}
+      {dayStart && (
+        <div className={styles.morningNote}>
+          <div className={styles.morningLabel}>▴ 今日晨间记录</div>
+          <div className={styles.morningBody}>{dayStart}</div>
         </div>
       )}
 
-      {/* 浠诲姟鍒楄〃 */}
-      <div className={styles.list}>
-        {pendingTasks.length === 0 ? (
-          <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
-            <CheckSquare size={40} className="mx-auto mb-2 opacity-50" />
-            <p>{'今日暂无待办任务'}</p>
-            <p className="text-sm">{'点击右下角添加按钮，创建你的第一个任务'}</p>
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
-          >
-            <div className="dnd-context">
-            <SortableContext
-              items={pendingTasks.map(task => task.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              {pendingTasks.map(task => (
-                <SortableTaskItem
-                  key={task.id}
-                  task={task}
-                  onTaskClick={onTaskClick}
-                  onStartCountUp={onStartCountUp}
-                  onDeleteTask={handleDeleteTask}
-                  onEditTask={(task) => {
-                    setEditingTaskId(task.id);
-                    setEditingTaskTitle(task.title);
-                  }}
-                  onToggleTask={handleToggleTask}
-                  currentBoundTask={currentBoundTask}
-                  isRunning={isRunning}
-                  editingTaskId={editingTaskId}
-                  editingTaskTitle={editingTaskTitle}
-                  onSaveEdit={handleSaveEdit}
-                  onEditTitleChange={(title) => setEditingTaskTitle(title)}
-                  onEditKeyPress={handleEditKeyPress}
-                />
-              ))}
-            </SortableContext>
+      {/* 任务列表（可滚动） */}
+      <div className={styles.scrollArea}>
+        <div className={styles.list}>
+          {pendingTasks.length === 0 && completedTasks.length === 0 && !showInput ? (
+            <div className={styles.empty}>
+              <CheckSquare size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+              <span>今日暂无任务</span>
             </div>
-          </DndContext>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
+            >
+              <div className="dnd-context">
+                <SortableContext
+                  items={pendingTasks.map(task => task.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {pendingTasks.map(task => (
+                    <SortableTaskItem
+                      key={task.id}
+                      task={task}
+                      onTaskClick={onTaskClick}
+                      onStartCountUp={onStartCountUp}
+                      onDeleteTask={handleDeleteTask}
+                      onEditTask={(t) => {
+                        setEditingTaskId(t.id);
+                        setEditingTaskTitle(t.title);
+                      }}
+                      onToggleTask={handleToggleTask}
+                      currentBoundTask={currentBoundTask}
+                      isRunning={isRunning}
+                      editingTaskId={editingTaskId}
+                      editingTaskTitle={editingTaskTitle}
+                      onSaveEdit={handleSaveEdit}
+                      onEditTitleChange={(title) => setEditingTaskTitle(title)}
+                      onEditKeyPress={handleEditKeyPress}
+                    />
+                  ))}
+                </SortableContext>
+              </div>
+            </DndContext>
+          )}
+
+          {/* 添加表单 / 按钮：紧跟任务列表末尾 */}
+          {showInput ? (
+            <div className={styles.addForm}>
+              <input
+                type="text"
+                value={newTaskText}
+                onChange={(e) => setNewTaskText(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="任务标题，回车确认"
+                className={styles.addInput}
+                disabled={isAddingTask}
+                autoFocus
+              />
+              <div className={styles.addActions}>
+                <button
+                  onClick={handleAddTask}
+                  className={styles.addPrimaryButton}
+                  disabled={!newTaskText.trim() || isAddingTask}
+                >
+                  {isAddingTask ? '添加中...' : <><Plus size={12} /> 添加</>}
+                </button>
+                <button
+                  onClick={() => { setShowInput(false); setNewTaskText(''); }}
+                  className={styles.addCloseButton}
+                  disabled={isAddingTask}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setShowInput(true)} className={styles.addInlineBtn}>
+              <Plus size={12} /> 添加任务
+            </button>
+          )}
+        </div>
+
+        {/* 已完成折叠 */}
+        {completedTasks.length > 0 && (
+          <details className={styles.completedWrap}>
+            <summary className={styles.summary}>
+              <span className={styles.completedArrow}>▸</span>
+              已完成 ({completedTasks.length})
+            </summary>
+            <div className={styles.completedList}>
+              {completedTasks.map(task => (
+                <div key={task.id} className={styles.completedItem}>
+                  <button
+                    onClick={() => handleToggleTask(task.id, task.isCompleted)}
+                    className={styles.checkboxDone}
+                    disabled={updatingTasks[task.id]}
+                    title="撤销完成"
+                  >
+                    {!updatingTasks[task.id] && <Check size={10} />}
+                  </button>
+                  <span className={styles.completedTitle}>{task.title}</span>
+                  {(task.pomodoroCount || 0) > 0 && (
+                    <span className={styles.pomodoroBadge}>🍅 {task.pomodoroCount}</span>
+                  )}
+                  <button
+                    onClick={() => handleDeleteTask(task.id)}
+                    className={styles.deleteCompletedBtn}
+                    title="删除"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </details>
         )}
       </div>
 
-      {/* 宸插畬鎴愪换鍔★紙鎶樺彔鏄剧ず锛?*/}
-      {completedTasks.length > 0 && (
-        <details className="mb-4">
-          <summary className="cursor-pointer text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-            {'已完成任务'}({completedTasks.length})
-          </summary>
-          <div className="space-y-1 pl-4 border-l-2" style={{ borderColor: 'var(--border-color)' }}>
-            {completedTasks.map(task => (
-              <div key={task.id} className="completed-task-item">
-                <button
-                  onClick={() => handleToggleTask(task.id, task.isCompleted)}
-                  className="task-checkbox checked"
-                  disabled={updatingTasks[task.id]}
-                >
-                  {updatingTasks[task.id] ? (
-                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <Check size={12} className="text-white" />
-                  )}
-                </button>
-                <span className="task-title completed" style={{ flex: 1 }}>{task.title}</span>
-
-                {/* 鐣寗鏁伴噺鏄剧ず */}
-                {(task.pomodoroCount || 0) > 0 && (
-                  <div className="pomodoro-count-badge" style={{
-                    fontSize: '0.75rem',
-                    color: 'var(--text-muted)',
-                    background: 'var(--bg-tertiary)',
-                    padding: '0.125rem 0.375rem',
-                    borderRadius: '12px',
-                    opacity: 0.8,
-                    marginRight: '0.5rem',
-                  }}>
-                    {'番茄'} {task.pomodoroCount}
-                  </div>
-                )}
-
-                <button
-                  onClick={() => handleDeleteTask(task.id)}
-                  className="action-btn delete-btn"
-                  title="删除任务"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
-
-      {/* 浠婃棩寮€鍚唴瀹规樉绀?*/}
-      {dayStart && (
-        <div style={{
-          marginTop: '1rem',
-          marginBottom: '1rem',
-          padding: '0.75rem',
-          backgroundColor: 'rgba(66, 153, 225, 0.1)',
-          border: '1px solid rgba(66, 153, 225, 0.2)',
-          borderRadius: '8px',
-          borderLeft: '4px solid var(--accent-primary)',
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            marginBottom: '0.5rem',
-          }}>
-            <Sunrise size={16} style={{ color: 'var(--accent-primary)' }} />
-            <span style={{
-              fontSize: '0.75rem',
-              fontWeight: '600',
-              color: 'var(--accent-primary)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}>
-              {'今日晨间记录'}
-            </span>
-          </div>
-          <div style={{
-            fontSize: '0.875rem',
-            lineHeight: '1.4',
-            color: 'var(--text-primary)',
-            fontStyle: 'italic',
-            whiteSpace: 'pre-wrap',
-          }}>
-            {dayStart}
-          </div>
-        </div>
-      )}
-
-      {/* 娣诲姞鏂颁换鍔?*/}
-      {showInput ? (
-        <div className={styles.addForm}>
-          <input
-            type="text"
-            value={newTaskText}
-            onChange={(e) => setNewTaskText(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder="输入新任务内容..."
-            className={styles.addInput}
-            disabled={isAddingTask}
-            autoFocus
-          />
-          <div className={styles.addActions}>
-            <button
-              onClick={handleAddTask}
-              className={`${styles.addPrimaryButton} ${isAddingTask ? styles.loading : ''}`}
-              disabled={!newTaskText.trim() || isAddingTask}
-              title="添加任务"
-            >
-              {!isAddingTask && <Plus size={16} />}
-              {isAddingTask ? '添加中...' : '添加任务'}
-            </button>
-            <button
-              onClick={() => {
-                setShowInput(false);
-                setNewTaskText('');
-              }}
-              className={styles.addCloseButton}
-              disabled={isAddingTask}
-              title="取消"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={() => setShowInput(true)}
-          className={styles.addOpenButton}
-        >
-          <Plus size={18} />
-          <span>{'添加今日任务'}</span>
-        </button>
-      )}
     </div>
   );
 };

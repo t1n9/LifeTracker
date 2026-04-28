@@ -619,9 +619,9 @@ export class AgentToolsService {
       return { error: `找不到运动类型"${exerciseName}"，可用的类型有: ${types.map((t: any) => t.name).join('、')}` };
     }
 
-    return this.exerciseService.setTodayExerciseValue(userId, {
+    return this.exerciseService.incrementTodayExerciseValue(userId, {
       exerciseId: matched.id,
-      totalValue: value,
+      deltaValue: value,
       notes,
     });
   }

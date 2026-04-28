@@ -276,7 +276,132 @@
   }
 }
 
+@media (max-height: 920px) {
+  .overlay {
+    padding: 14px;
+  }
+
+  .shell {
+    border-radius: 28px;
+    padding: 20px;
+    gap: 18px;
+  }
+
+  .title {
+    margin-top: 6px;
+    font-size: clamp(28px, 4vw, 42px);
+  }
+
+  .subtitle {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .body {
+    gap: 18px;
+  }
+
+  .hero {
+    padding: 18px;
+    gap: 16px;
+  }
+
+  .timeWrap {
+    gap: 8px;
+  }
+
+  .modeBadge {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .time {
+    font-size: clamp(72px, 14vw, 132px);
+  }
+
+  .progressTrack {
+    height: 10px;
+  }
+
+  .taskPanel {
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .taskTitle {
+    margin-top: 8px;
+    font-size: 18px;
+    line-height: 1.28;
+  }
+
+  .quote {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .controls {
+    gap: 10px;
+  }
+
+  .controlButton {
+    min-width: 124px;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    padding: 12px 16px;
+    border-radius: 14px;
+  }
+
+  .sidebar {
+    gap: 12px;
+  }
+
+  .statCard,
+  .shortcutCard {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .statValue {
+    margin-top: 8px;
+    font-size: 28px;
+  }
+
+  .shortcutItem {
+    margin-top: 10px;
+    font-size: 13px;
+  }
+}
+
 @media (max-height: 760px) {
+  .body {
+    grid-template-columns: minmax(0, 1.85fr) minmax(220px, 0.72fr);
+    gap: 14px;
+  }
+
+  .sidebar {
+    display: grid;
+    gap: 10px;
+  }
+
+  .shortcutCard {
+    display: none;
+  }
+
+  .statCard {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .statValue {
+    font-size: 24px;
+  }
+}
+
+@media (max-height: 680px) {
   .body {
     grid-template-columns: 1fr;
   }

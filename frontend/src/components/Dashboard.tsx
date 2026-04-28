@@ -1,9 +1,12 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowRight, BookOpenText, History, LayoutDashboard, PlayCircle, Target, TimerReset } from 'lucide-react';
+import {
+  CalendarClock, History, LayoutDashboard,
+  Moon, Settings2, Sun, Sunrise, Sunset,
+} from 'lucide-react';
 import { userAPI, studyAPI, taskAPI } from '@/lib/api';
 import { AGENT_DATA_CHANGED_EVENT, eventAffectsDomains } from '@/lib/agent-events';
 import { goalService, UserGoal } from '../services/goalService';
@@ -11,14 +14,11 @@ import DayReflection from './daily/DayReflection';
 import HistoryViewer from './HistoryViewer';
 import PomodoroTimer, { PomodoroTimerRef } from './PomodoroTimer';
 import PendingTasks from './PendingTasks';
-import ImportantInfo from './ImportantInfo';
-import ExerciseStats from './ExerciseStats';
-import ExpenseStats from './ExpenseStats';
-import SystemSuggestion from './SystemSuggestion';
 import AgentChatPanel from './AgentChatPanel';
-import Navbar from './layout/Navbar';
+import StudyPlanSidebar, { StudyPlanSidebarRef } from './StudyPlanSidebar';
+import QuickStatsHover from './QuickStatsHover';
 import '../styles/theme.css';
-import styles from './Dashboard.module.css';
+import styles from './DashboardBoard.module.css';
 
 interface DashboardUser {
   name?: string;
@@ -35,19 +35,23 @@ interface DashboardTask {
   priority?: number;
 }
 
-const DEFAULT_DAILY_GOAL_MINUTES = 360;
+const DAILY_GOAL_MINUTES = 360;
 
 export default function Dashboard() {
   const router = useRouter();
   const pomodoroTimerRef = useRef<PomodoroTimerRef>(null);
+  const studyPlanSidebarRef = useRef<StudyPlanSidebarRef>(null);
 
   const [user, setUser] = useState<DashboardUser | null>(null);
   const [currentGoal, setCurrentGoal] = useState<UserGoal | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [theme, setTheme] = useState<'dark' | 'light'>('light');
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
   const [isDayReflectionOpen, setIsDayReflectionOpen] = useState(false);
   const [dayReflectionMode, setDayReflectionMode] = useState<'start' | 'reflection'>('start');
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [dayStarted, setDayStarted] = useState(false);
+
   const [dayStartRefreshTrigger, setDayStartRefreshTrigger] = useState(0);
   const [pomodoroCompleteRefreshTrigger, setPomodoroCompleteRefreshTrigger] = useState(0);
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0);
@@ -60,83 +64,59 @@ export default function Dashboard() {
 
   const [studyTime, setStudyTime] = useState(0);
   const [pomodoroCount, setPomodoroCount] = useState(0);
-  const [showTimeInput, setShowTimeInput] = useState(false);
-  const [customMinutes, setCustomMinutes] = useState('');
-  const [showUndo, setShowUndo] = useState(false);
-  const [undoCountdown, setUndoCountdown] = useState(10);
-  const [lastAddedMinutes, setLastAddedMinutes] = useState(0);
-  const [lastAddedRecordId, setLastAddedRecordId] = useState<string | null>(null);
+  const [viewportWidth, setViewportWidth] = useState(1440);
+
+  // ── 数据加载 ──────────────────────────────────────────────────────
 
   const loadUserData = async () => {
     try {
-      const response = await userAPI.getProfile();
-      setUser(response.data);
-    } catch (error) {
-      console.error('Failed to load user profile:', error);
-    }
+      const res = await userAPI.getProfile();
+      setUser(res.data);
+    } catch {}
   };
 
   const loadTodayStats = async () => {
     try {
-      const response = await studyAPI.getTodayStats();
-      setStudyTime(response.data.totalMinutes);
-      setPomodoroCount(response.data.pomodoroCount);
-    } catch (error) {
-      console.error('Failed to load today stats:', error);
-    }
+      const res = await studyAPI.getTodayStats();
+      setStudyTime(res.data.totalMinutes);
+      setPomodoroCount(res.data.pomodoroCount);
+    } catch {}
   };
 
   const loadCurrentGoal = async () => {
     try {
       const goal = await goalService.getCurrentGoal();
       setCurrentGoal(goal);
-    } catch (error) {
-      console.error('Failed to load current goal:', error);
-    }
+    } catch {}
   };
 
   const loadTasks = async () => {
     try {
-      const response = await taskAPI.getTasks();
-      const taskList = response.data.map((task: DashboardTask) => ({
-        id: task.id,
-        title: task.title,
-        isCompleted: task.isCompleted,
-        pomodoroCount: task.pomodoroCount || 0,
-        description: task.description,
-        priority: task.priority,
+      const res = await taskAPI.getTasks();
+      const loaded = res.data.map((t: DashboardTask) => ({
+        id: t.id, title: t.title, isCompleted: t.isCompleted,
+        pomodoroCount: t.pomodoroCount || 0, description: t.description, priority: t.priority,
       }));
-      setTasks(taskList);
-    } catch (error) {
-      console.error('Failed to load tasks:', error);
-    }
+      setTasks(loaded);
+      if (loaded.length > 0) setDayStarted(true);
+    } catch {}
   };
 
   const handleThemeToggle = async () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-
-    try {
-      await userAPI.updateTheme(nextTheme);
-    } catch (error) {
-      console.error('Failed to update theme:', error);
-      setTheme(theme);
-    }
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    try { await userAPI.updateTheme(next); } catch { setTheme(theme); }
   };
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    theme === 'dark'
+      ? document.documentElement.classList.add('dark')
+      : document.documentElement.classList.remove('dark');
   }, [theme]);
 
   useEffect(() => {
-    if (user?.theme) {
-      setTheme(user.theme === 'dark' ? 'dark' : 'light');
-    }
+    if (user?.theme) setTheme(user.theme === 'dark' ? 'dark' : 'light');
   }, [user?.theme]);
 
   useEffect(() => {
@@ -147,139 +127,38 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const handleAgentDataChanged = (event: Event) => {
-      if (eventAffectsDomains(event, ['tasks'])) {
-        loadTasks();
-        setTaskRefreshTrigger((current) => current + 1);
-      }
-
-      if (eventAffectsDomains(event, ['dayStart'])) {
-        setDayStartRefreshTrigger((current) => current + 1);
-      }
-
-      if (eventAffectsDomains(event, ['study'])) {
-        loadTodayStats();
-      }
-
-      if (eventAffectsDomains(event, ['pomodoro'])) {
-        pomodoroTimerRef.current?.refreshSession();
-      }
+    const handler = (event: Event) => {
+      if (eventAffectsDomains(event, ['tasks'])) { loadTasks(); setTaskRefreshTrigger(n => n + 1); }
+      if (eventAffectsDomains(event, ['dayStart'])) setDayStartRefreshTrigger(n => n + 1);
+      if (eventAffectsDomains(event, ['study'])) loadTodayStats();
+      if (eventAffectsDomains(event, ['pomodoro'])) pomodoroTimerRef.current?.refreshSession();
     };
-
-    window.addEventListener(AGENT_DATA_CHANGED_EVENT, handleAgentDataChanged);
-    return () => window.removeEventListener(AGENT_DATA_CHANGED_EVENT, handleAgentDataChanged);
+    window.addEventListener(AGENT_DATA_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(AGENT_DATA_CHANGED_EVENT, handler);
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    const t = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
-    return () => {
-      const globalWindow = window as typeof window & { undoTimer?: NodeJS.Timeout };
-      if (globalWindow.undoTimer) {
-        clearInterval(globalWindow.undoTimer);
-      }
-    };
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
+    updateViewportWidth();
+    window.addEventListener('resize', updateViewportWidth);
+    return () => window.removeEventListener('resize', updateViewportWidth);
   }, []);
 
-  const showUndoButton = () => {
-    const globalWindow = window as typeof window & { undoTimer?: NodeJS.Timeout };
-
-    if (globalWindow.undoTimer) {
-      clearInterval(globalWindow.undoTimer);
-    }
-
-    setShowUndo(true);
-    setUndoCountdown(10);
-
-    globalWindow.undoTimer = setInterval(() => {
-      setUndoCountdown((current) => {
-        if (current <= 1) {
-          clearInterval(globalWindow.undoTimer);
-          setShowUndo(false);
-          setLastAddedMinutes(0);
-          setLastAddedRecordId(null);
-          return 0;
-        }
-        return current - 1;
-      });
-    }, 1000);
-  };
-
-  const addStudyTime = async (minutes: number) => {
-    try {
-      const response = await studyAPI.createStudyRecord({
-        duration: minutes,
-        subject: '手动添加',
-        startedAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-      });
-
-      await loadTodayStats();
-      setLastAddedMinutes(minutes);
-      setLastAddedRecordId(response.data.id);
-      showUndoButton();
-    } catch (error) {
-      console.error('Failed to create study record:', error);
-      alert('保存学习记录失败，请重试');
-    }
-  };
-
-  const handleCustomTimeAdd = () => {
-    const minutes = Number.parseInt(customMinutes, 10);
-    if (minutes > 0 && minutes <= 600) {
-      addStudyTime(minutes);
-      setCustomMinutes('');
-      setShowTimeInput(false);
-      return;
-    }
-
-    if (minutes > 600) {
-      alert('单次学习时长不能超过 10 小时，请分次记录');
-    }
-  };
-
-  const handleUndo = async () => {
-    if (!lastAddedMinutes || !lastAddedRecordId) {
-      return;
-    }
-
-    try {
-      await studyAPI.deleteStudyRecord(lastAddedRecordId);
-      await loadTodayStats();
-
-      const globalWindow = window as typeof window & { undoTimer?: NodeJS.Timeout };
-      if (globalWindow.undoTimer) {
-        clearInterval(globalWindow.undoTimer);
-      }
-
-      setShowUndo(false);
-      setLastAddedMinutes(0);
-      setLastAddedRecordId(null);
-    } catch (error) {
-      console.error('Failed to undo study record:', error);
-      alert('撤销失败，请重试');
-    }
-  };
+  // ── 任务 & 番茄交互 ───────────────────────────────────────────────
 
   const handleTaskClick = (taskId: string, taskTitle: string) => {
-    if (isPomodoroRunning) {
-      alert('番茄钟运行中，暂时不能切换绑定任务');
-      return;
-    }
-
-    setCurrentBoundTask((current) => (current === taskId ? null : taskId));
-    console.log('Bind task toggle:', taskTitle, taskId);
+    if (isPomodoroRunning) { alert('番茄钟运行中，暂时不能切换绑定任务'); return; }
+    setCurrentBoundTask(cur => cur === taskId ? null : taskId);
+    console.log('Bind task:', taskTitle, taskId);
   };
 
   const handleStartCountUp = (taskId: string, taskTitle: string) => {
-    if (isPomodoroRunning) {
-      alert('番茄钟运行中，请先结束当前会话');
-      return;
-    }
-
+    if (isPomodoroRunning) { alert('番茄钟运行中，请先结束当前会话'); return; }
     setCurrentBoundTask(taskId);
     setStartCountUpMode({ taskId, taskTitle });
     setTimeout(() => setStartCountUpMode(null), 100);
@@ -292,12 +171,9 @@ export default function Dashboard() {
       setIsPomodoroRunning(false);
       setCurrentBoundTask(null);
       setPomodoroElapsedTime(0);
-      setTaskRefreshTrigger((current) => current + 1);
+      setTaskRefreshTrigger(n => n + 1);
       loadTodayStats();
-    } catch (error) {
-      console.error('Failed to complete task with pomodoro:', error);
-      alert('完成任务失败，请重试');
-    }
+    } catch { alert('完成任务失败，请重试'); }
   };
 
   const handleCompleteTaskCancelPomodoro = async (taskId: string) => {
@@ -307,380 +183,256 @@ export default function Dashboard() {
       setIsPomodoroRunning(false);
       setCurrentBoundTask(null);
       setPomodoroElapsedTime(0);
-      setTaskRefreshTrigger((current) => current + 1);
+      setTaskRefreshTrigger(n => n + 1);
       loadTodayStats();
-    } catch (error) {
-      console.error('Failed to complete task and cancel pomodoro:', error);
-      alert('完成任务失败，请重试');
-    }
+    } catch { alert('完成任务失败，请重试'); }
   };
 
   const handleUpdatePomodoroTaskId = (oldId: string, newId: string) => {
     pomodoroTimerRef.current?.updateBoundTaskId(oldId, newId);
-    if (currentBoundTask === oldId) {
-      setCurrentBoundTask(newId);
-    }
+    if (currentBoundTask === oldId) setCurrentBoundTask(newId);
   };
 
-  const handleTaskAdded = () => {
-    loadTasks();
-  };
+  // ── 派生数据 ──────────────────────────────────────────────────────
 
-  const greeting = useMemo(() => {
-    const hour = currentTime.getHours();
-    if (hour < 6) return '夜深了';
-    if (hour < 9) return '早上好';
-    if (hour < 12) return '上午好';
-    if (hour < 14) return '中午好';
-    if (hour < 18) return '下午好';
-    return '晚上好';
-  }, [currentTime]);
-
-  const todayLabel = useMemo(
-    () =>
-      currentTime.toLocaleDateString('zh-CN', {
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long',
-      }),
-    [currentTime],
-  );
-
-  const timeLabel = useMemo(
-    () =>
-      currentTime.toLocaleTimeString('zh-CN', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [currentTime],
-  );
-
-  const pendingTasksCount = useMemo(() => tasks.filter((task) => !task.isCompleted).length, [tasks]);
-  const completedTasksCount = useMemo(() => tasks.filter((task) => task.isCompleted).length, [tasks]);
-  const progressPercent = Math.min(Math.round((studyTime / DEFAULT_DAILY_GOAL_MINUTES) * 100), 100);
+  const hh = currentTime.getHours().toString().padStart(2, '0');
+  const mm = currentTime.getMinutes().toString().padStart(2, '0');
+  const ss = currentTime.getSeconds().toString().padStart(2, '0');
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const wd = weekdays[currentTime.getDay()];
+  const md = `${currentTime.getMonth() + 1}月${currentTime.getDate()}日`;
 
   const goalSummary = useMemo(() => {
-    if (!currentGoal) {
-      return {
-        title: '还没有设置当前目标',
-        subtitle: '去个人资料页设置一个长期目标，首页会自动显示倒计时。',
-        daysLeft: null as number | null,
-        targetDateLabel: '未设置',
-      };
-    }
+    if (!currentGoal) return { title: '暂无目标', daysLeft: null as number | null };
+    const d = currentGoal.targetDate ? new Date(currentGoal.targetDate) : null;
+    const daysLeft = d ? Math.ceil((d.getTime() - Date.now()) / 86400000) : null;
+    return { title: currentGoal.goalName || '当前目标', daysLeft };
+  }, [currentGoal]);
 
-    const targetDate = currentGoal.targetDate ? new Date(currentGoal.targetDate) : null;
-    const daysLeft =
-      targetDate !== null
-        ? Math.ceil((targetDate.getTime() - currentTime.getTime()) / (1000 * 60 * 60 * 24))
-        : null;
+  const pendingCount = useMemo(() => tasks.filter(t => !t.isCompleted).length, [tasks]);
+  const completedCount = useMemo(() => tasks.filter(t => t.isCompleted).length, [tasks]);
+  const totalCount = completedCount + pendingCount;
+  const isTabletOrBelow = viewportWidth <= 900;
+  const isMobile = viewportWidth <= 600;
 
-    return {
-      title: currentGoal.goalName || '当前目标',
-      subtitle: currentGoal.description || '保持节奏，逐步推进。',
-      daysLeft,
-      targetDateLabel: targetDate
-        ? targetDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
-        : '未设置日期',
-    };
-  }, [currentGoal, currentTime]);
+  const focusH = Math.floor(studyTime / 60);
+  const focusM = String(studyTime % 60).padStart(2, '0');
 
-  const quickActions = [
-    {
-      label: '开启今天',
-      icon: <PlayCircle size={16} />,
-      variant: 'primary' as const,
-      action: () => {
-        setDayReflectionMode('start');
-        setIsDayReflectionOpen(true);
-      },
-    },
-    {
-      label: '今日复盘',
-      icon: <BookOpenText size={16} />,
-      variant: 'secondary' as const,
-      action: () => {
-        setDayReflectionMode('reflection');
-        setIsDayReflectionOpen(true);
-      },
-    },
-    {
-      label: '历史记录',
-      icon: <History size={16} />,
-      variant: 'secondary' as const,
-      action: () => setIsHistoryOpen(true),
-    },
-    {
-      label: '数据概览',
-      icon: <LayoutDashboard size={16} />,
-      variant: 'secondary' as const,
-      action: () => router.push('/overview'),
-    },
-  ];
+  // ── 渲染 ──────────────────────────────────────────────────────────
 
   return (
-    <div className={styles.page}>
-      <Navbar userName={user?.name || user?.email || 'User'} theme={theme} onThemeToggle={handleThemeToggle} />
+    <div className={styles.board}>
 
-      <main className={styles.main}>
-        <section className={styles.hero}>
-          <div className={styles.heroCopy}>
-            <div className={styles.heroBadge}>
-              <span className={styles.heroBadgeDot} />
-              <span>Today workspace</span>
-            </div>
-            <p className={styles.heroEyebrow}>{todayLabel}</p>
-            <h1 className={styles.heroTitle}>
-              {greeting}，{user?.name || user?.email || '今天继续推进'}。
-            </h1>
-            <p className={styles.heroDescription}>
-              首页先展示真正影响你今天节奏的东西：当前目标、任务推进、番茄钟和每日记录。
-            </p>
+      {/* ── 顶栏 ── */}
+      <header className={styles.topbar}>
 
-            <div className={styles.quickActions}>
-              {quickActions.map((action) => (
-                <button
-                  key={action.label}
-                  type="button"
-                  className={action.variant === 'primary' ? styles.primaryAction : styles.secondaryAction}
-                  onClick={action.action}
-                >
-                  {action.icon}
-                  <span>{action.label}</span>
-                </button>
-              ))}
-            </div>
+        {/* 品牌 */}
+        <div className={styles.brand}>
+          <span className={styles.brandDot} />
+          LifeTracker
+        </div>
+
+        {/* 状态分段 */}
+        <div className={styles.statusStrip}>
+          {/* 时钟 */}
+          <div className={styles.seg}>
+            <span className={styles.clock}>
+              {hh}<span style={{ color: 'var(--fg-3)', fontWeight: 300 }}>:</span>{mm}
+              <span className={styles.clockSec}> :{ss}</span>
+            </span>
           </div>
 
-          <div className={styles.heroMetrics}>
-            <div className={`${styles.metricCard} ${styles.metricCardAccent}`}>
-              <div className={styles.metricLabel}>当前目标</div>
-              <div className={styles.metricValue}>{goalSummary.title}</div>
-              <div className={styles.metricMeta}>{goalSummary.subtitle}</div>
-              <div className={styles.goalFooter}>
-                <span className={styles.goalDate}>{goalSummary.targetDateLabel}</span>
-                <span className={styles.goalCountdown}>
-                  {goalSummary.daysLeft === null ? '待设置' : `${goalSummary.daysLeft} 天`}
+          {/* 日期 */}
+          <div className={styles.seg}>
+            <span className={styles.segLabel}>今天</span>
+            <span className={styles.segVal}>{md} · {wd}</span>
+          </div>
+
+          {/* 目标 */}
+          {currentGoal && (
+            <div className={styles.seg}>
+              <span className={styles.segLabel}>目标</span>
+              <span className={styles.segVal}>{goalSummary.title}</span>
+              {goalSummary.daysLeft !== null && (
+                <span className={styles.goalPill}>
+                  <span className={styles.goalDays}>{goalSummary.daysLeft}</span>
                 </span>
-              </div>
+              )}
             </div>
+          )}
 
-            <div className={styles.metricGrid}>
-              <div className={styles.metricCard}>
-                <div className={styles.metricLabel}>当前时间</div>
-                <div className={styles.metricValue}>{timeLabel}</div>
-                <div className={styles.metricMeta}>保持今天的推进节奏</div>
+          {/* 今日统计（开启后显示） */}
+          {dayStarted && (
+            <>
+              <div className={styles.seg}>
+                <span className={styles.segLabel}>番茄</span>
+                <span className={styles.segValMono}>{pomodoroCount}</span>
               </div>
-              <div className={styles.metricCard}>
-                <div className={styles.metricLabel}>今日专注</div>
-                <div className={styles.metricValue}>{pomodoroCount}</div>
-                <div className={styles.metricMeta}>已完成番茄钟</div>
+              <div className={styles.seg}>
+                <span className={styles.segLabel}>专注</span>
+                <span className={styles.segValMono}>{focusH}h {focusM}m</span>
               </div>
-              <div className={styles.metricCard}>
-                <div className={styles.metricLabel}>待办任务</div>
-                <div className={styles.metricValue}>{pendingTasksCount}</div>
-                <div className={styles.metricMeta}>{completedTasksCount} 项已完成</div>
-              </div>
-              <div className={styles.metricCard}>
-                <div className={styles.metricLabel}>学习时长</div>
-                <div className={styles.metricValue}>{formatStudyTime(studyTime)}</div>
-                <div className={styles.metricMeta}>目标 {DEFAULT_DAILY_GOAL_MINUTES / 60} 小时</div>
-              </div>
-            </div>
+              {isPomodoroRunning && (
+                <div className={styles.seg} style={{ color: 'var(--danger)' }}>
+                  <span className={styles.liveDot} />
+                  <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.08em' }}>FOCUSING</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* 右侧工具 */}
+        <div className={styles.rightTools}>
+          <button
+            className={styles.iconBtn}
+            title="开启今日"
+            onClick={() => { setDayReflectionMode('start'); setIsDayReflectionOpen(true); }}
+          >
+            <Sunrise size={14} />
+          </button>
+
+          <button className={styles.iconBtn} title="今日总结"
+            onClick={() => { setDayReflectionMode('reflection'); setIsDayReflectionOpen(true); }}>
+            <Sunset size={16} />
+          </button>
+
+          <button className={styles.iconBtn} title="学习计划"
+            onClick={() => studyPlanSidebarRef.current?.open()}>
+            <CalendarClock size={16} />
+          </button>
+
+          <button className={styles.iconBtn} title="历史记录"
+            onClick={() => setIsHistoryOpen(true)}>
+            <History size={16} />
+          </button>
+
+          <button className={styles.iconBtn} title="学习概览"
+            onClick={() => router.push('/overview')}>
+            <LayoutDashboard size={16} />
+          </button>
+
+          <button className={styles.iconBtn} title="设置"
+            onClick={() => router.push('/profile')}>
+            <Settings2 size={16} />
+          </button>
+
+          <span className={styles.toolDivider} />
+
+          <QuickStatsHover />
+
+          <span className={styles.toolDivider} />
+
+          <button className={styles.iconBtn} title="切换主题" onClick={handleThemeToggle}>
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+        </div>
+      </header>
+
+      {/* ── 三列主区 ── */}
+      <div className={styles.columns}>
+
+        {/* 左列：任务列表 */}
+        <div className={styles.colLeft}>
+          <div className={styles.taskWrap}>
+            <PendingTasks
+              onTaskClick={handleTaskClick}
+              onStartCountUp={handleStartCountUp}
+              currentBoundTask={currentBoundTask}
+              isRunning={isPomodoroRunning}
+              dayStartRefreshTrigger={dayStartRefreshTrigger}
+              pomodoroCompleteRefreshTrigger={pomodoroCompleteRefreshTrigger}
+              onCompleteTaskWithPomodoro={handleCompleteTaskWithPomodoro}
+              onCompleteTaskCancelPomodoro={handleCompleteTaskCancelPomodoro}
+              pomodoroElapsedTime={pomodoroElapsedTime}
+              taskRefreshTrigger={taskRefreshTrigger}
+              onUpdatePomodoroTaskId={handleUpdatePomodoroTaskId}
+              onTaskAdded={loadTasks}
+            />
           </div>
-        </section>
+        </div>
 
-        <section className={styles.focusArea}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className={styles.sectionEyebrow}>Today workspace</p>
-              <h2 className={styles.sectionTitle}>任务、专注与记录</h2>
+        {/* 中列：番茄钟 */}
+        <div className={styles.colMid}>
+          <div className={styles.centerBody}>
+            <div className={styles.centerHeader}>
+              <div className={styles.centerTitleWrap}>
+                <span className={styles.centerTitle}>专注计时</span>
+              </div>
+              <span className={styles.centerMeta}>
+                {currentBoundTask ? '已绑定任务' : '未绑定任务'}
+              </span>
             </div>
-            <button type="button" className={styles.inlineLink} onClick={() => router.push('/overview')}>
-              <span>查看更完整的数据概览</span>
-              <ArrowRight size={16} />
-            </button>
-          </div>
-
-          <div className={styles.masonryGrid}>
-            <div className={styles.masonryItem}>
-              <PendingTasks
-                onTaskClick={handleTaskClick}
-                onStartCountUp={handleStartCountUp}
-                currentBoundTask={currentBoundTask}
-                isRunning={isPomodoroRunning}
-                dayStartRefreshTrigger={dayStartRefreshTrigger}
-                pomodoroCompleteRefreshTrigger={pomodoroCompleteRefreshTrigger}
-                onCompleteTaskWithPomodoro={handleCompleteTaskWithPomodoro}
-                onCompleteTaskCancelPomodoro={handleCompleteTaskCancelPomodoro}
-                pomodoroElapsedTime={pomodoroElapsedTime}
-                taskRefreshTrigger={taskRefreshTrigger}
-                onUpdatePomodoroTaskId={handleUpdatePomodoroTaskId}
-                onTaskAdded={handleTaskAdded}
-              />
-            </div>
-
-            <div className={styles.masonryItem}>
+            <div className={styles.pomodoroWrap}>
               <PomodoroTimer
                 ref={pomodoroTimerRef}
                 tasks={tasks}
                 currentBoundTask={currentBoundTask}
+                compactMode={isMobile}
+                hideHeader
                 studyTime={studyTime}
                 pomodoroCount={pomodoroCount}
                 theme={theme}
                 startCountUpTrigger={startCountUpMode}
-                onToggleTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                onTaskBind={(taskId) => setCurrentBoundTask(taskId)}
-                onRunningStateChange={(isRunning) => setIsPomodoroRunning(isRunning)}
-                onElapsedTimeChange={(elapsedTime) => setPomodoroElapsedTime(elapsedTime)}
+                onToggleTheme={handleThemeToggle}
+                onTaskBind={id => setCurrentBoundTask(id)}
+                onRunningStateChange={setIsPomodoroRunning}
+                onElapsedTimeChange={setPomodoroElapsedTime}
                 onPomodoroComplete={() => {
                   loadTodayStats();
                   loadTasks();
-                  setPomodoroCompleteRefreshTrigger((current) => current + 1);
+                  setPomodoroCompleteRefreshTrigger(n => n + 1);
                 }}
                 onEnterFocusMode={() => undefined}
               />
             </div>
-
-            <div className={`${styles.studyCard} ${styles.masonryItem}`}>
-              <div className={styles.studyHeader}>
-                <div>
-                  <p className={styles.studyEyebrow}>Manual log</p>
-                  <h3 className={styles.studyTitle}>今日学习推进</h3>
-                </div>
-                <div className={styles.studyBadge}>
-                  <Target size={14} />
-                  <span>{progressPercent}%</span>
-                </div>
-              </div>
-
-              <div className={styles.studyNumbers}>
-                <div>
-                  <span className={styles.studyNumberLabel}>累计时长</span>
-                  <strong className={styles.studyNumberValue}>{formatStudyTime(studyTime)}</strong>
-                </div>
-                <div>
-                  <span className={styles.studyNumberLabel}>专注次数</span>
-                  <strong className={styles.studyNumberValue}>{pomodoroCount}</strong>
-                </div>
-              </div>
-
-              <div className={styles.progressTrack}>
-                <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
-              </div>
-
-              <p className={styles.progressCaption}>
-                默认目标 {DEFAULT_DAILY_GOAL_MINUTES / 60} 小时。你也可以手动补录今天的学习时长。
-              </p>
-
-              {!showTimeInput ? (
-                <button type="button" className={styles.secondaryAction} onClick={() => setShowTimeInput(true)}>
-                  <TimerReset size={16} />
-                  <span>补录学习时长</span>
-                </button>
-              ) : (
-                <div className={styles.manualEntry}>
-                  <div className={styles.manualInputRow}>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      max="600"
-                      value={customMinutes}
-                      onChange={(event) => setCustomMinutes(event.target.value)}
-                      placeholder="输入分钟数"
-                      className={styles.manualInput}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          handleCustomTimeAdd();
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className={styles.primaryAction}
-                      disabled={!customMinutes || Number.parseInt(customMinutes, 10) <= 0}
-                      onClick={handleCustomTimeAdd}
-                    >
-                      保存
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    className={styles.textAction}
-                    onClick={() => {
-                      setShowTimeInput(false);
-                      setCustomMinutes('');
-                    }}
-                  >
-                    取消
-                  </button>
-                </div>
-              )}
-
-              {showUndo && (
-                <button type="button" className={styles.undoButton} onClick={handleUndo}>
-                  撤销刚才的补录（{undoCountdown}s）
-                </button>
-              )}
-            </div>
-
-            <div className={styles.masonryItem}>
-              <ImportantInfo theme={theme} />
-            </div>
-            <div className={styles.masonryItem}>
-              <ExerciseStats theme={theme} />
-            </div>
-            <div className={styles.masonryItem}>
-              <ExpenseStats theme={theme} />
-            </div>
           </div>
-        </section>
-      </main>
+        </div>
 
-      <footer className={styles.footer}>
-  <div>
-    <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">
-      粤ICP备2025456526号-1
-    </a>
-  </div>
-  <div>
-    <a
-      href="https://beian.mps.gov.cn/#/query/webSearch?code=44030002007784"
-      target="_blank"
-      rel="noreferrer"
-      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-    >
-      <Image src="/beian-icon.png" alt="备案图标" width={14} height={14} />
-      粤公网安备44030002007784号
-    </a>
-  </div>
-</footer>
+        {/* 右列：AI 陪伴 */}
+        {!isTabletOrBelow && (
+          <div className={styles.aiCol}>
+            <AgentChatPanel inline />
+          </div>
+        )}
 
+      </div>
+
+      {isTabletOrBelow && <AgentChatPanel />}
+
+      {/* ── 弹窗 ── */}
       <HistoryViewer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 
       {isDayReflectionOpen && (
         <DayReflection
           mode={dayReflectionMode}
           onClose={() => setIsDayReflectionOpen(false)}
-          onSave={() => setDayStartRefreshTrigger((current) => current + 1)}
+          onSave={() => { setDayStartRefreshTrigger(n => n + 1); setDayStarted(true); }}
         />
       )}
+      <StudyPlanSidebar ref={studyPlanSidebarRef} showFloatingTrigger={false} />
 
-      <SystemSuggestion />
-      <AgentChatPanel />
+      {/* 备案 */}
+      {!isTabletOrBelow && (
+      <footer className={styles.footer} style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        display: 'flex', justifyContent: 'center', gap: 16,
+        padding: '4px 16px', fontSize: 11,
+        color: 'var(--fg-4)', pointerEvents: 'none',
+        background: 'transparent',
+      }}>
+        <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer"
+          style={{ color: 'inherit', textDecoration: 'none', pointerEvents: 'auto', opacity: 0.5 }}>
+          粤ICP备2025456526号-1
+        </a>
+        <a href="https://beian.mps.gov.cn/#/query/webSearch?code=44030002007784"
+          target="_blank" rel="noreferrer"
+          style={{ color: 'inherit', textDecoration: 'none', pointerEvents: 'auto', opacity: 0.5, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Image src="/beian-icon.png" alt="备案" width={11} height={11} />
+          粤公网安备44030002007784号
+        </a>
+      </footer>
+      )}
     </div>
   );
 }
-
-function formatStudyTime(minutes: number) {
-  if (minutes < 60) {
-    return `${minutes} 分钟`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const restMinutes = minutes % 60;
-  return restMinutes > 0 ? `${hours} 小时 ${restMinutes} 分` : `${hours} 小时`;
-}
-

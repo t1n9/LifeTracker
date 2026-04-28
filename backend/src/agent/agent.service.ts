@@ -1236,6 +1236,31 @@ export class AgentService {
 
     const hasTool = (toolName: string) => deduped.some((op) => op.name === toolName);
 
+    if (hints.exerciseRecord) {
+      const expectedExercise = hints.exerciseRecord.exerciseName;
+      const expectedValue = hints.exerciseRecord.value;
+      const expectedMode = hints.exerciseRecord.mode;
+
+      for (let index = deduped.length - 1; index >= 0; index -= 1) {
+        const op = deduped[index];
+        if (op.name !== 'record_exercise') {
+          continue;
+        }
+
+        const sameExercise = op.args?.exerciseName === expectedExercise;
+        const sameValue = Number(op.args?.value) === expectedValue;
+        if (!sameExercise || !sameValue) {
+          deduped.splice(index, 1);
+          continue;
+        }
+
+        op.args = {
+          ...op.args,
+          recordMode: expectedMode,
+        };
+      }
+    }
+
     if (hints.completionTaskTitle) {
       for (const op of deduped) {
         if (
@@ -1356,7 +1381,7 @@ export class AgentService {
         case 'start_pomodoro':
           return `开启 ${detail} 的番茄钟`;
         case 'record_exercise':
-          return `记录运动 ${detail}`;
+          return `${op.args?.recordMode === 'increment' ? '追加运动' : '记录运动'} ${detail}`;
         case 'set_exercise_feeling':
           return `记录运动感受为${detail}`;
         case 'record_meal_expense':

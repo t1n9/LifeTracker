@@ -251,6 +251,63 @@ export class ExerciseService {
   }
 
   // 获取运动统计
+  async incrementTodayExerciseValue(userId: string, data: {
+    exerciseId: string;
+    deltaValue: number;
+    notes?: string;
+  }, timezone: string = 'Asia/Shanghai') {
+    const todayDateStr = formatDateString(getTodayStart(timezone));
+    const todayDate = parseDateString(todayDateStr);
+
+    const exerciseType = await this.prisma.exerciseType.findUnique({
+      where: { id: data.exerciseId },
+      select: { unit: true },
+    });
+
+    if (!exerciseType) {
+      throw new Error('运动类型不存在');
+    }
+
+    const existingRecord = await this.prisma.exerciseRecord.findFirst({
+      where: {
+        userId,
+        exerciseId: data.exerciseId,
+        date: todayDate,
+      },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        exercise: true,
+      },
+    });
+
+    if (existingRecord) {
+      return this.prisma.exerciseRecord.update({
+        where: { id: existingRecord.id },
+        data: {
+          value: existingRecord.value + data.deltaValue,
+          notes: data.notes ?? existingRecord.notes,
+        },
+        include: {
+          exercise: true,
+        },
+      });
+    }
+
+    return this.prisma.exerciseRecord.create({
+      data: {
+        userId,
+        exerciseId: data.exerciseId,
+        date: todayDate,
+        value: data.deltaValue,
+        unit: exerciseType.unit,
+        notes: data.notes,
+      },
+      include: {
+        exercise: true,
+      },
+    });
+  }
+
   async getExerciseStats(userId: string, days = 7) {
     const endDate = getTodayEnd();
     const startDate = getDaysAgoStart(days);

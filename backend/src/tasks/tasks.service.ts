@@ -107,10 +107,25 @@ export class TasksService {
   }
 
   async update(userId: string, id: string, updateTaskDto: UpdateTaskDto) {
-    return this.prisma.task.updateMany({
+    const current = await this.prisma.task.findFirst({
       where: { id, userId },
+      select: { id: true, isCompleted: true },
+    });
+    if (!current) {
+      return { count: 0 };
+    }
+
+    await this.prisma.task.update({
+      where: { id },
       data: updateTaskDto,
     });
+
+    // 学习计划注入任务在这里做完成态回写，保持“任务执行层 -> 计划层”一致。
+    if (updateTaskDto.isCompleted === true && !current.isCompleted) {
+      await this.syncStudyPlanSlotOnTaskCompleted(userId, id);
+    }
+
+    return { count: 1 };
   }
 
   async remove(userId: string, id: string) {
@@ -336,5 +351,82 @@ export class TasksService {
       ...task,
       pomodoroCount: task._count?.pomodoroSessions || 0,
     }));
+  }
+
+  private async syncStudyPlanSlotOnTaskCompleted(userId: string, taskId: string) {
+    const slot = await this.prisma.dailyStudySlot.findFirst({
+      where: {
+        userId,
+        taskId,
+        status: { not: 'completed' },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!slot) {
+      return;
+    }
+
+    const completedAt = new Date();
+    const updatedSlot = await this.prisma.dailyStudySlot.update({
+      where: { id: slot.id },
+      data: {
+        status: 'completed',
+        completedAt,
+        actualHours: slot.actualHours > 0 ? slot.actualHours : slot.plannedHours,
+      },
+    });
+
+    if (slot.chapterId) {
+      const chapter = await this.prisma.studyChapter.findUnique({
+        where: { id: slot.chapterId },
+      });
+      if (chapter) {
+        const nextActual = chapter.actualHours + updatedSlot.actualHours;
+        await this.prisma.studyChapter.update({
+          where: { id: slot.chapterId },
+          data: {
+            actualHours: nextActual,
+            status: nextActual >= chapter.estimatedHours ? 'completed' : chapter.status,
+            completedAt: nextActual >= chapter.estimatedHours ? completedAt : chapter.completedAt,
+          },
+        });
+      }
+    }
+
+    await this.refreshWeeklyProgress(slot.weeklyPlanId);
+    await this.refreshPlanCompletion(slot.planId);
+  }
+
+  private async refreshWeeklyProgress(weeklyPlanId: string) {
+    const [sum, total, completed] = await Promise.all([
+      this.prisma.dailyStudySlot.aggregate({
+        where: { weeklyPlanId },
+        _sum: { actualHours: true },
+      }),
+      this.prisma.dailyStudySlot.count({ where: { weeklyPlanId } }),
+      this.prisma.dailyStudySlot.count({ where: { weeklyPlanId, status: 'completed' } }),
+    ]);
+
+    await this.prisma.weeklyPlan.update({
+      where: { id: weeklyPlanId },
+      data: {
+        actualHours: sum._sum.actualHours || 0,
+        completionRate: total > 0 ? completed / total : 0,
+        status: total > 0 && completed === total ? 'completed' : 'active',
+      },
+    });
+  }
+
+  private async refreshPlanCompletion(planId: string) {
+    const [total, completed] = await Promise.all([
+      this.prisma.dailyStudySlot.count({ where: { planId } }),
+      this.prisma.dailyStudySlot.count({ where: { planId, status: 'completed' } }),
+    ]);
+    if (total > 0 && total === completed) {
+      await this.prisma.studyPlan.update({
+        where: { id: planId },
+        data: { status: 'completed' },
+      });
+    }
   }
 }

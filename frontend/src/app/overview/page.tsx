@@ -11,7 +11,7 @@ import '@/styles/theme.css';
 
 export default function OverviewPage() {
   const router = useRouter();
-  const [theme, setTheme] = useState<'dark' | 'light'>('light');
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'goal' | 'study'>('study');
 
@@ -54,7 +54,10 @@ export default function OverviewPage() {
   }, [user?.theme]);
 
   const shellCardStyle: React.CSSProperties = {
-    background: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
+    background:
+      theme === 'dark'
+        ? 'color-mix(in srgb, var(--bg-secondary) 94%, black 6%)'
+        : 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
     border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
     borderRadius: '18px',
     boxShadow: '0 18px 36px rgba(15, 23, 42, 0.08)',
@@ -63,10 +66,13 @@ export default function OverviewPage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        height: '100vh',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         background:
           'radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--accent-primary) 10%, transparent 90%) 0%, transparent 38%), var(--bg-primary)',
         padding: '1.25rem 1rem 2rem',
+        WebkitOverflowScrolling: 'touch',
       }}
     >
       <button
@@ -81,7 +87,10 @@ export default function OverviewPage() {
           height: '48px',
           borderRadius: '50%',
           border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-          background: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
+          background:
+            theme === 'dark'
+              ? 'color-mix(in srgb, var(--bg-secondary) 94%, black 6%)'
+              : 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
           color: 'var(--text-primary)',
           display: 'flex',
           alignItems: 'center',
@@ -114,7 +123,10 @@ export default function OverviewPage() {
           height: '48px',
           borderRadius: '50%',
           border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-          background: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
+          background:
+            theme === 'dark'
+              ? 'color-mix(in srgb, var(--bg-secondary) 94%, black 6%)'
+              : 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
           color: 'var(--text-primary)',
           display: 'flex',
           alignItems: 'center',

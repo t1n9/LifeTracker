@@ -21,6 +21,8 @@ interface PomodoroTimerProps {
   onRunningStateChange?: (isRunning: boolean) => void;
   startCountUpTrigger?: {taskId: string, taskTitle: string} | null; // 正计时触发器
   onElapsedTimeChange?: (elapsedTime: number) => void;
+  compactMode?: boolean;
+  hideHeader?: boolean;
 }
 
 export interface PomodoroTimerRef {
@@ -51,7 +53,9 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
   onTaskBind,
   onRunningStateChange,
   startCountUpTrigger,
-  onElapsedTimeChange
+  onElapsedTimeChange,
+  compactMode = false,
+  hideHeader = false,
 }, ref) => {
   const [selectedMinutes, setSelectedMinutes] = useState(25); // 默认25分钟
   const [timeLeft, setTimeLeft] = useState(selectedMinutes * 60); // 秒数
@@ -1355,24 +1359,8 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
     progressColor = '#ef4444'; // 红色
   }
 
-  const progressLabel = isCountUpMode
-    ? (() => {
-        const totalMinutes = Math.floor(countUpTime / 60);
-        if (totalMinutes >= 180) return '已达 3 小时上限';
-        const cycle = Math.floor(totalMinutes / 60) + 1;
-        const minutesInCycle = totalMinutes % 60;
-        return `第 ${cycle} 圈 · ${minutesInCycle}/60 分钟`;
-      })()
-    : `本轮 ${selectedMinutes} 分钟`;
-
   const displayTaskId = isRunning ? startBoundTask : currentBoundTask;
   const boundTask = displayTaskId ? tasks.find(task => task.id === displayTaskId) : null;
-  const formatStudyTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-  };
-
   // 调试信息
   if (isRunning && !boundTask && displayTaskId) {
     console.log('Pomodoro running without a matched bound task', {
@@ -1386,7 +1374,8 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
   }
 
   return (
-    <div className={styles.card}>
+    <div className={`${styles.card} ${compactMode ? styles.cardCompact : ''}`}>
+      {!hideHeader && (
       <div className={styles.header}>
         <div className={styles.titleWrap}>
           <div className={styles.icon}>
@@ -1424,6 +1413,7 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
           )}
         </div>
       </div>
+      )}
 
       <div className={styles.body}>
         <div className={styles.hero}>
@@ -1433,11 +1423,6 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
 
           <div className={styles.time}>
             {isCountUpMode ? formatTime(countUpTime) : formatTime(timeLeft)}
-          </div>
-
-          <div className={styles.metaRow}>
-            <span>{progressLabel}</span>
-            <span>{Math.round(progress)}%</span>
           </div>
 
           <div className={styles.track}>
@@ -1498,8 +1483,8 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
           {!isRunning && !isPaused && (
             <div className={styles.sliderBlock}>
               <div className={styles.sliderHeader}>
-                <span>计时时长</span>
-                <span>{selectedMinutes} 分钟</span>
+                <span>时长</span>
+                <span className={styles.sliderValue}>{selectedMinutes} 分钟</span>
               </div>
               <input
                 type="range"
@@ -1510,26 +1495,16 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
                 onChange={(e) => handleTimeSelect(parseInt(e.target.value))}
                 className={`time-slider ${styles.slider}`}
               />
-              <div className={styles.sliderLabels}>
-                <span>5 分钟</span>
-                <span>120 分钟</span>
-              </div>
             </div>
           )}
 
-          <div className={styles.infoCard}>
-            <div className={styles.cardLabel}>当前任务</div>
-            <div className={styles.taskTitle}>
-              {boundTask ? boundTask.title : '还没有绑定任务'}
-            </div>
-            <div className={styles.helperText}>
-              {isRunning
-                ? '计时已经开始，详细状态会在专注模式里展开。'
-                : '先绑定一个任务再开始，会更适合持续专注。'}
-            </div>
-            <div className={styles.statsRow}>
-              <span>今日学习 {formatStudyTime(studyTime)}</span>
-              <span>番茄完成 {pomodoroCount}</span>
+          <div className={styles.taskStrip}>
+            <span className={styles.taskStripIcon}>◎</span>
+            <span className={styles.taskStripTitle}>
+              {boundTask ? boundTask.title : '未绑定任务'}
+            </span>
+            <div className={styles.taskStripStats}>
+              <span>{pomodoroCount} 🍅</span>
             </div>
           </div>
         </div>
