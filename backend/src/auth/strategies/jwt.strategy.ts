@@ -22,6 +22,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException('用户不存在');
     }
+    if (!user.isActive) {
+      throw new UnauthorizedException('账户已被封禁');
+    }
     return user;
   }
 }

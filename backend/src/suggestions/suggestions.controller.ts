@@ -22,7 +22,7 @@ export class SuggestionsController {
   @ApiOperation({ summary: '获取建议列表' })
   @ApiQuery({ name: 'all', required: false, description: '管理员查看所有建议' })
   findAll(@Request() req, @Query('all') all?: string) {
-    const isAdmin = req.user.isAdmin;
+    const isAdmin = req.user.role === 'ADMIN' || req.user.isAdmin === true;
     const showAll = isAdmin && all === 'true';
     return this.suggestionsService.findAll(showAll ? undefined : req.user.id, isAdmin);
   }
@@ -30,7 +30,7 @@ export class SuggestionsController {
   @Get('stats')
   @ApiOperation({ summary: '获取建议统计（管理员）' })
   getStats(@Request() req) {
-    if (!req.user.isAdmin) {
+    if (!(req.user.role === 'ADMIN' || req.user.isAdmin === true)) {
       throw new Error('需要管理员权限');
     }
     return this.suggestionsService.getStats();
@@ -39,7 +39,7 @@ export class SuggestionsController {
   @Get('export')
   @ApiOperation({ summary: '导出所有建议（管理员）' })
   exportAllSuggestions(@Request() req) {
-    if (!req.user.isAdmin) {
+    if (!(req.user.role === 'ADMIN' || req.user.isAdmin === true)) {
       throw new Error('需要管理员权限');
     }
     return this.suggestionsService.exportAllSuggestions();
@@ -48,13 +48,13 @@ export class SuggestionsController {
   @Get(':id')
   @ApiOperation({ summary: '获取单个建议' })
   findOne(@Request() req, @Param('id') id: string) {
-    return this.suggestionsService.findOne(id, req.user.id, req.user.isAdmin);
+    return this.suggestionsService.findOne(id, req.user.id, (req.user.role === 'ADMIN' || req.user.isAdmin === true));
   }
 
   @Patch(':id')
   @ApiOperation({ summary: '更新建议（管理员）' })
   update(@Request() req, @Param('id') id: string, @Body() updateSuggestionDto: UpdateSuggestionDto) {
-    if (!req.user.isAdmin) {
+    if (!(req.user.role === 'ADMIN' || req.user.isAdmin === true)) {
       throw new Error('需要管理员权限');
     }
     return this.suggestionsService.update(id, updateSuggestionDto, req.user.id);
@@ -63,6 +63,6 @@ export class SuggestionsController {
   @Delete(':id')
   @ApiOperation({ summary: '删除建议' })
   remove(@Request() req, @Param('id') id: string) {
-    return this.suggestionsService.remove(id, req.user.id, req.user.isAdmin);
+    return this.suggestionsService.remove(id, req.user.id, (req.user.role === 'ADMIN' || req.user.isAdmin === true));
   }
 }

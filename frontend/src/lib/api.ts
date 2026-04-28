@@ -378,3 +378,26 @@ export const shareAPI = {
     return publicApi.get(`/share/${shareCode}`);
   },
 };
+
+export const adminAPI = {
+  listUsers: (params?: Record<string, string>) =>
+    api.get('/admin/users', { params }),
+
+  getUserDetail: (userId: string) =>
+    api.get(`/admin/users/${userId}`),
+
+  updateUserRole: (userId: string, role: string) =>
+    api.patch(`/admin/users/${userId}/role`, { role }),
+
+  banUser: (userId: string, reason?: string) =>
+    api.post(`/admin/users/${userId}/ban`, { reason }),
+
+  unbanUser: (userId: string) =>
+    api.post(`/admin/users/${userId}/unban`),
+
+  updateSubscription: (userId: string, data: Record<string, unknown>) =>
+    api.patch(`/admin/users/${userId}/subscription`, data),
+
+  getAuditLogs: (params?: Record<string, string>) =>
+    api.get('/admin/audit-logs', { params }),
+};

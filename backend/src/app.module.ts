@@ -25,6 +25,7 @@ import { GoalsModule } from './goals/goals.module';
 import { AgentModule } from './agent/agent.module';
 import { CapturesModule } from './captures/captures.module';
 import { StudyPlanModule } from './study-plan/study-plan.module';
+import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TimeFormatInterceptor, TimeValidationInterceptor } from './common/interceptors/time-format.interceptor';
@@ -68,6 +69,7 @@ import { TimeFormatInterceptor, TimeValidationInterceptor } from './common/inter
     AgentModule,
     CapturesModule,
     StudyPlanModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

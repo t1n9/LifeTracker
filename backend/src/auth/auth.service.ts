@@ -41,7 +41,7 @@ export class AuthService {
     });
 
     // 生成JWT令牌
-    const payload = { sub: user.id, email: user.email };
+    const payload = { sub: user.id, email: user.email, role: user.role ?? 'USER' };
     const accessToken = this.jwtService.sign(payload);
 
     return {
@@ -58,14 +58,23 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
 
-    // 验证用户
-    const user = await this.validateUser(email, password);
+    // 先查用户，区分"不存在"、"被封禁"、"密码错误"
+    const user = await this.usersService.findByEmail(email);
     if (!user) {
       throw new UnauthorizedException('邮箱或密码错误');
     }
 
+    if (!user.isActive) {
+      throw new UnauthorizedException('账户已被封禁，请联系管理员');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('邮箱或密码错误');
+    }
+
     // 生成JWT令牌
-    const payload = { sub: user.id, email: user.email };
+    const payload = { sub: user.id, email: user.email, role: user.role ?? 'USER' };
     const accessToken = this.jwtService.sign(payload);
 
     return {
@@ -87,6 +96,10 @@ export class AuthService {
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
+      return null;
+    }
+
+    if (!user.isActive) {
       return null;
     }
 

@@ -44,13 +44,18 @@ export function formatApiResponse(
   if (!data || typeof data !== 'object') {
     return data;
   }
-  
+
+  // Date 对象直接序列化为 ISO 字符串，不要递归进去（否则会变成空对象 {}）
+  if (data instanceof Date) {
+    return data.toISOString();
+  }
+
   if (Array.isArray(data)) {
     return data.map(item => formatApiResponse(item, timeFields, config));
   }
-  
+
   const result = { ...data };
-  
+
   for (const field of timeFields) {
     if (result[field]) {
       try {
@@ -61,14 +66,19 @@ export function formatApiResponse(
       }
     }
   }
-  
+
   // 递归处理嵌套对象
   for (const key in result) {
     if (result[key] && typeof result[key] === 'object' && !timeFields.includes(key)) {
-      result[key] = formatApiResponse(result[key], timeFields, config);
+      // Date 实例直接序列化，不要再展开
+      if (result[key] instanceof Date) {
+        result[key] = (result[key] as Date).toISOString();
+      } else {
+        result[key] = formatApiResponse(result[key], timeFields, config);
+      }
     }
   }
-  
+
   return result;
 }
 
@@ -187,4 +197,19 @@ export const TIME_FIELD_CONFIGS = {
 
   // 访客统计相关时间字段
   VISITOR: ['createdAt', 'updatedAt', 'firstVisitAt', 'lastVisitAt', 'visitedAt'],
+
+  // 管理后台相关时间字段（用户列表/详情/审计日志）
+  ADMIN: [
+    'createdAt',
+    'updatedAt',
+    'bannedAt',
+    'lastLoginAt',
+    'currentPeriodStart',
+    'currentPeriodEnd',
+    'trialEndsAt',
+    'canceledAt',
+  ],
+
+  // 系统建议相关时间字段
+  SUGGESTIONS: ['createdAt', 'updatedAt'],
 };

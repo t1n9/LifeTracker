@@ -82,6 +82,14 @@ export class TimeFormatInterceptor implements NestInterceptor {
       return TIME_FIELD_CONFIGS.VISITOR;
     }
 
+    if (path.includes('/admin')) {
+      return TIME_FIELD_CONFIGS.ADMIN;
+    }
+
+    if (path.includes('/suggestions')) {
+      return TIME_FIELD_CONFIGS.SUGGESTIONS;
+    }
+
     // 默认使用基础时间字段
     return TIME_FIELD_CONFIGS.BASIC;
   }

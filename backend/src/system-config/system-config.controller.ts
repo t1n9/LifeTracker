@@ -25,7 +25,7 @@ export class SystemConfigController {
   @ApiOperation({ summary: '获取所有配置（管理员）' })
   async getAllConfigs(@Request() req) {
     const user = await this.usersService.findById(req.user.id);
-    if (!user.isAdmin) {
+    if (!(user.role === 'ADMIN' || user.isAdmin === true)) {
       throw new ForbiddenException('需要管理员权限');
     }
     return this.systemConfigService.getAllConfigs();
@@ -41,7 +41,7 @@ export class SystemConfigController {
     @Request() req,
   ) {
     const user = await this.usersService.findById(req.user.id);
-    if (!user.isAdmin) {
+    if (!(user.role === 'ADMIN' || user.isAdmin === true)) {
       throw new ForbiddenException('需要管理员权限');
     }
 

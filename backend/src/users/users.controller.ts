@@ -22,6 +22,7 @@ export class UsersController {
       name: user.name,
       theme: user.theme,
       isAdmin: user.isAdmin,
+      role: user.role,
       createdAt: user.createdAt,
       userSettings: user.userSettings,
     };

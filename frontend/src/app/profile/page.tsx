@@ -8,6 +8,7 @@ import '@/styles/theme.css';
 import { useAuthStore } from '@/store/auth';
 import SystemConfigPanel from '@/components/admin/SystemConfigPanel';
 import SuggestionManagement from '@/components/admin/SuggestionManagement';
+import UserManagement from '@/components/admin/UserManagement';
 import GoalManagement from '@/components/GoalManagement';
 import SystemSuggestion from '@/components/SystemSuggestion';
 import { VERSION_INFO, getVersionString } from '@/lib/version';
@@ -16,6 +17,7 @@ interface UserData {
   name: string;
   email: string;
   isAdmin: boolean;
+  role?: string;
 }
 
 interface PasswordData {
@@ -28,7 +30,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading, hasInitialized, initializeAuth, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'account' | 'suggestion' | 'admin'>('profile');
-  const [adminSubTab, setAdminSubTab] = useState<'config' | 'suggestions'>('config');
+  const [adminSubTab, setAdminSubTab] = useState<'config' | 'suggestions' | 'users'>('config');
   const [isLoading, setIsLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [error, setError] = useState('');
@@ -103,6 +105,7 @@ export default function ProfilePage() {
         name: user.name || '',
         email: user.email || '',
         isAdmin: user.isAdmin || false,
+        role: user.role || 'USER',
       });
 
       // 设置主题
@@ -274,13 +277,13 @@ export default function ProfilePage() {
               <MessageSquare size={18} />
               系统建议
             </button>
-            {userData.isAdmin && (
+            {userData.role === 'ADMIN' && (
               <button
                 className={`tab-button ${activeTab === 'admin' ? 'active' : ''}`}
                 onClick={() => setActiveTab('admin')}
               >
                 <Settings size={18} />
-                系统配置
+                管理面板
               </button>
             )}
           </div>
@@ -424,7 +427,7 @@ export default function ProfilePage() {
                       {userData.name}
                     </span>
                   </div>
-                  {userData.isAdmin && (
+                  {userData.role === 'ADMIN' && (
                     <div className="account-row">
                       <strong className="account-key">权限：</strong>
                       <span className="role-badge">
@@ -486,7 +489,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {activeTab === 'admin' && userData.isAdmin && (
+          {activeTab === 'admin' && userData.role === 'ADMIN' && (
             <div>
               {/* 管理员子标签 */}
               <div className="admin-subtabs">
@@ -502,11 +505,18 @@ export default function ProfilePage() {
                 >
                   系统建议
                 </button>
+                <button
+                  onClick={() => setAdminSubTab('users')}
+                  className={`admin-subtab ${adminSubTab === 'users' ? 'active' : ''}`}
+                >
+                  用户管理
+                </button>
               </div>
 
               {/* 子标签内容 */}
               {adminSubTab === 'config' && <SystemConfigPanel />}
               {adminSubTab === 'suggestions' && <SuggestionManagement />}
+              {adminSubTab === 'users' && <UserManagement />}
             </div>
           )}
         </div>
