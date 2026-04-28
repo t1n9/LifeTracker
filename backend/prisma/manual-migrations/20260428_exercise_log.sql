@@ -3,6 +3,9 @@
 -- Date: 2026-04-28
 -- ============================================================
 
+-- Enable pgcrypto for gen_random_uuid() if not already active
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- 1. Create new exercise_logs table
 CREATE TABLE IF NOT EXISTS "exercise_logs" (
   "id"            TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
