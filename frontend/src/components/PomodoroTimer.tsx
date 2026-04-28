@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -1075,12 +1075,25 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
     };
   }, []);
 
+  const handleModeToggle = () => {
+    if (isRunning || isPaused) return;
+
+    setIsCompleted(false);
+    setCountUpTime(0);
+    setIsCountUpMode(prev => {
+      const next = !prev;
+      if (!next) {
+        setTimeLeft(selectedMinutes * 60);
+      }
+      return next;
+    });
+  };
+
   const handleTimeSelect = (minutes: number) => {
-    if (!isRunning) {
-      setSelectedMinutes(minutes);
-      setTimeLeft(minutes * 60);
-      setIsCompleted(false);
-    }
+    if (isRunning || isPaused || isCountUpMode) return;
+    setSelectedMinutes(minutes);
+    setTimeLeft(minutes * 60);
+    setIsCompleted(false);
   };
 
   const handleStart = () => {
@@ -1417,87 +1430,96 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
 
       <div className={styles.body}>
         <div className={styles.hero}>
-          <div className={styles.modeTag}>
-            <span>{isCountUpMode ? '正计时模式' : '倒计时模式'}</span>
-          </div>
-
-          <div className={styles.time}>
-            {isCountUpMode ? formatTime(countUpTime) : formatTime(timeLeft)}
-          </div>
-
-          <div className={styles.track}>
-            <div
-              className={styles.fill}
-              style={{
-                width: `${Math.max(0, Math.min(progress, 100))}%`,
-                background: `linear-gradient(90deg, ${progressColor}, color-mix(in srgb, ${progressColor} 62%, white 38%))`,
-              }}
-            />
-          </div>
-
-          <div className={styles.controls}>
-            {!isRunning && !isPaused ? (
-              <button
-                onClick={handleStart}
-                className={styles.primaryButton}
-                disabled={timeLeft === 0}
-              >
-                <Play size={18} />
-                <span>开始</span>
-              </button>
-            ) : isPaused ? (
-              <button
-                onClick={handlePause}
-                className={styles.primaryButton}
-              >
-                <Play size={18} />
-                <span>继续</span>
-              </button>
-            ) : (
-              <button
-                onClick={handlePause}
-                className={styles.secondaryButton}
-              >
-                <Pause size={18} />
-                <span>暂停</span>
-              </button>
-            )}
+          <div className={styles.timerPanel}>
             <button
-              onClick={handleReset}
-              className={styles.ghostButton}
-              title={isCountUpMode ? '结束正计时' : '重置计时器'}
+              type="button"
+              className={styles.modeToggle}
+              onClick={handleModeToggle}
+              disabled={isRunning || isPaused}
+              title={isRunning || isPaused ? '计时中无法切换' : '切换模式'}
             >
-              {isCountUpMode ? <Square size={18} /> : <RotateCcw size={18} />}
-              <span>{isCountUpMode ? '结束' : '重置'}</span>
+              <span>{isCountUpMode ? '正计时' : '倒计时'}</span>
             </button>
-            <button
-              onClick={handleEnterFocusMode}
-              className={styles.ghostButton}
-              title="进入专注模式"
-            >
-              <Focus size={18} />
-              <span>专注模式</span>
-            </button>
-          </div>
 
-          {!isRunning && !isPaused && (
-            <div className={styles.sliderBlock}>
-              <div className={styles.sliderHeader}>
-                <span>时长</span>
-                <span className={styles.sliderValue}>{selectedMinutes} 分钟</span>
-              </div>
-              <input
-                type="range"
-                min="5"
-                max="120"
-                step="5"
-                value={selectedMinutes}
-                onChange={(e) => handleTimeSelect(parseInt(e.target.value))}
-                className={`time-slider ${styles.slider}`}
+            <div className={styles.time}>
+              {isCountUpMode ? formatTime(countUpTime) : formatTime(timeLeft)}
+            </div>
+
+            <div className={styles.track}>
+              <div
+                className={styles.fill}
+                style={{
+                  width: `${Math.max(0, Math.min(progress, 100))}%`,
+                  background: `linear-gradient(90deg, ${progressColor}, color-mix(in srgb, ${progressColor} 62%, white 38%))`,
+                }}
               />
             </div>
-          )}
+          </div>
 
+          <div className={styles.actionPanel}>
+            <div className={styles.controls}>
+              {!isRunning && !isPaused ? (
+                <button
+                  onClick={handleStart}
+                  className={styles.primaryButton}
+                  disabled={timeLeft === 0}
+                >
+                  <Play size={18} />
+                  <span>开始</span>
+                </button>
+              ) : isPaused ? (
+                <button
+                  onClick={handlePause}
+                  className={styles.primaryButton}
+                >
+                  <Play size={18} />
+                  <span>继续</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handlePause}
+                  className={styles.secondaryButton}
+                >
+                  <Pause size={18} />
+                  <span>暂停</span>
+                </button>
+              )}
+              <button
+                onClick={handleReset}
+                className={styles.ghostButton}
+                title={isCountUpMode ? '结束正计时' : '重置计时'}
+              >
+                {isCountUpMode ? <Square size={18} /> : <RotateCcw size={18} />}
+                <span>{isCountUpMode ? '结束' : '重置'}</span>
+              </button>
+              <button
+                onClick={handleEnterFocusMode}
+                className={styles.ghostButton}
+                title='进入专注模式'
+              >
+                <Focus size={18} />
+                <span>专注模式</span>
+              </button>
+            </div>
+
+            {!isCountUpMode && !isRunning && !isPaused && (
+              <div className={styles.sliderBlock}>
+                <div className={styles.sliderHeader}>
+                  <span>专注时长</span>
+                  <span className={styles.sliderValue}>{selectedMinutes} 分钟</span>
+                </div>
+                <input
+                  type="range"
+                  min="5"
+                  max="120"
+                  step="5"
+                  value={selectedMinutes}
+                  onChange={(e) => handleTimeSelect(parseInt(e.target.value, 10))}
+                  className={`time-slider ${styles.slider}`}
+                />
+              </div>
+            )}
+          </div>
           <div className={styles.taskStrip}>
             <span className={styles.taskStripIcon}>◎</span>
             <span className={styles.taskStripTitle}>

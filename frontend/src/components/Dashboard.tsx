@@ -214,6 +214,27 @@ export default function Dashboard() {
   const totalCount = completedCount + pendingCount;
   const isTabletOrBelow = viewportWidth <= 900;
   const isMobile = viewportWidth <= 600;
+  const footerContent = (
+    <>
+      <a
+        href="https://beian.miit.gov.cn"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: 'inherit', textDecoration: 'none', pointerEvents: 'auto', opacity: 0.5 }}
+      >
+        粤 ICP 备 2025456526 号-1
+      </a>
+      <a
+        href="https://beian.mps.gov.cn/#/query/webSearch?code=44030002007784"
+        target="_blank"
+        rel="noreferrer"
+        style={{ color: 'inherit', textDecoration: 'none', pointerEvents: 'auto', opacity: 0.5, display: 'flex', alignItems: 'center', gap: 4 }}
+      >
+        <Image src="/beian-icon.png" alt="备案图标" width={11} height={11} />
+        粤公网安备 44030002007784 号
+      </a>
+    </>
+  );
 
   const focusH = Math.floor(studyTime / 60);
   const focusM = String(studyTime % 60).padStart(2, '0');
@@ -389,7 +410,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 右列：AI 陪伴 */}
+        {/*        {/* AI ?? */}
         {!isTabletOrBelow && (
           <div className={styles.aiCol}>
             <AgentChatPanel inline />
@@ -413,25 +434,32 @@ export default function Dashboard() {
       <StudyPlanSidebar ref={studyPlanSidebarRef} showFloatingTrigger={false} />
 
       {/* 备案 */}
-      {!isTabletOrBelow && (
-      <footer className={styles.footer} style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        display: 'flex', justifyContent: 'center', gap: 16,
-        padding: '4px 16px', fontSize: 11,
-        color: 'var(--fg-4)', pointerEvents: 'none',
-        background: 'transparent',
-      }}>
-        <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer"
-          style={{ color: 'inherit', textDecoration: 'none', pointerEvents: 'auto', opacity: 0.5 }}>
-          粤ICP备2025456526号-1
-        </a>
-        <a href="https://beian.mps.gov.cn/#/query/webSearch?code=44030002007784"
-          target="_blank" rel="noreferrer"
-          style={{ color: 'inherit', textDecoration: 'none', pointerEvents: 'auto', opacity: 0.5, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Image src="/beian-icon.png" alt="备案" width={11} height={11} />
-          粤公网安备44030002007784号
-        </a>
-      </footer>
+            {!isMobile ? (
+        <footer className={styles.footer} style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0,
+          display: 'flex', justifyContent: 'center', gap: 16,
+          padding: '4px 16px', fontSize: 11,
+          color: 'var(--fg-4)', pointerEvents: 'none',
+          background: 'transparent',
+        }}>
+          {footerContent}
+        </footer>
+      ) : (
+        <footer className={styles.footer} style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          padding: '18px 16px 28px',
+          fontSize: 11,
+          color: 'var(--fg-4)',
+          borderTop: '1px solid var(--line)',
+          marginTop: 12,
+          background: 'var(--bg-1)',
+        }}>
+          {footerContent}
+        </footer>
       )}
     </div>
   );

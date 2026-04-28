@@ -362,6 +362,10 @@ details[open] .completedArrow {
   border-radius: 8px;
   background: transparent;
   transition: color 0.2s ease, opacity 0.2s ease, background-color 0.2s ease;
+  /* 手机端扩大触摸区域 */
+  padding: 8px;
+  margin: -8px;
+  touch-action: none;
 }
 
 .item:hover .dragHandle {
@@ -631,17 +635,18 @@ details[open] .completedArrow {
 }
 
 @media (max-width: 768px) {
-  .card {
-    border-radius: 24px;
-    padding: 18px;
-  }
-
   .header {
-    align-items: flex-start;
-    flex-direction: column;
+    height: 50px;
+    padding: 0 16px;
+    align-items: center;
+    flex-direction: row;
   }
 
   .title {
-    font-size: 22px;
+    font-size: 11px;
+  }
+
+  .progressBlock {
+    display: none;
   }
 }

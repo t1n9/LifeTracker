@@ -239,7 +239,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     // 绉诲姩璁惧瑙︽懜鏀寔
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200, // 闀挎寜200ms鍚庡紑濮嬫嫋鎷?
+        delay: 150, // 闀挎寜200ms鍚庡紑濮嬫嫋鎷?
         tolerance: 8, // 鍏佽8px鐨勭Щ鍔ㄥ宸?
       },
     }),
