@@ -9,7 +9,7 @@ interface Activity {
   title: string;
   description?: string;
   timestamp: string;
-  duration?: number; // 分钟
+  duration?: number;
 }
 
 interface RecentActivitiesProps {
@@ -17,182 +17,95 @@ interface RecentActivitiesProps {
   theme?: 'dark' | 'light';
 }
 
-const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities, theme = 'light' }) => {
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'task':
-        return <CheckCircle size={16} style={{ color: '#10b981' }} />;
-      case 'study':
-        return <BookOpen size={16} style={{ color: '#3b82f6' }} />;
-      case 'pomodoro':
-        return <Clock size={16} style={{ color: '#f59e0b' }} />;
-      case 'reflection':
-        return <Target size={16} style={{ color: '#8b5cf6' }} />;
-      default:
-        return <CheckCircle size={16} style={{ color: '#9ca3af' }} />;
-    }
-  };
+const TYPE_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  task:       { label: '完成任务', icon: <CheckCircle size={14} />, color: 'var(--success-color)' },
+  study:      { label: '学习记录', icon: <BookOpen size={14} />,    color: 'var(--accent)' },
+  pomodoro:   { label: '番茄钟',   icon: <Clock size={14} />,       color: 'var(--warn)' },
+  reflection: { label: '每日复盘', icon: <Target size={14} />,      color: 'var(--fg-3)' },
+};
 
-  const getTypeText = (type: string) => {
-    switch (type) {
-      case 'task':
-        return '完成任务';
-      case 'study':
-        return '学习记录';
-      case 'pomodoro':
-        return '番茄钟';
-      case 'reflection':
-        return '每日复盘';
-      default:
-        return '活动';
-    }
-  };
+function formatTime(timestamp: string) {
+  const diffMs = Date.now() - new Date(timestamp).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return '刚刚';
+  if (mins < 60) return `${mins}分钟前`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}小时前`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}天前`;
+  return new Date(timestamp).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+}
 
-  const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
+function formatDuration(minutes: number) {
+  if (minutes < 60) return `${minutes}分钟`;
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  return m > 0 ? `${h}小时${m}分钟` : `${h}小时`;
+}
 
-    if (diffMins < 1) return '刚刚';
-    if (diffMins < 60) return `${diffMins}分钟前`;
-    if (diffHours < 24) return `${diffHours}小时前`;
-    if (diffDays < 7) return `${diffDays}天前`;
-    
-    return date.toLocaleDateString('zh-CN', {
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const formatDuration = (minutes: number) => {
-    if (minutes < 60) return `${minutes}分钟`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}小时${mins}分钟` : `${hours}小时`;
-  };
-
+const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
   return (
-    <div style={{
-      backgroundColor: 'transparent', // 移除背景，使用父容器的背景
-      borderRadius: '12px',
-      padding: '0', // 移除内边距，使用父容器的内边距
-    }}>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          maxHeight: '360px',
-          overflowY: activities.length > 0 ? 'auto' : 'visible',
-          paddingRight: activities.length > 0 ? '4px' : '0',
-        }}
-      >
-        {activities.length === 0 ? (
-          <div style={{
-            textAlign: 'center',
-            padding: '40px 20px',
-            color: theme === 'dark' ? '#9ca3af' : '#6b7280',
-          }}>
-            <Clock size={40} style={{ opacity: 0.5, marginBottom: '12px' }} />
-            <p>暂无最近活动</p>
-          </div>
-        ) : (
-          activities.map((activity) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '360px', overflowY: activities.length > 0 ? 'auto' : 'visible' }}>
+      {activities.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--fg-4)' }}>
+          <Clock size={36} style={{ opacity: 0.4, marginBottom: '10px', display: 'block', margin: '0 auto 10px' }} />
+          <p style={{ margin: 0, fontSize: '13px' }}>暂无最近活动</p>
+        </div>
+      ) : (
+        activities.map((activity) => {
+          const meta = TYPE_META[activity.type] ?? TYPE_META.task;
+          return (
             <div
               key={activity.id}
               style={{
                 display: 'flex',
                 alignItems: 'flex-start',
-                gap: '12px',
-                padding: '12px',
-                backgroundColor: theme === 'dark' ? '#374151' : '#f9fafb',
-                borderRadius: '8px',
-                border: `1px solid ${theme === 'dark' ? '#4b5563' : '#e5e7eb'}`,
-                transition: 'all 0.2s ease',
+                gap: '10px',
+                padding: '10px 12px',
+                background: 'var(--bg-2)',
+                borderRadius: '10px',
+                border: '1px solid var(--line)',
               }}
             >
               <div style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '8px',
+                background: 'var(--bg-0)',
+                border: '1px solid var(--line)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '32px',
-                height: '32px',
-                backgroundColor: '#4b5563',
-                borderRadius: '50%',
                 flexShrink: 0,
+                color: meta.color,
               }}>
-                {getIcon(activity.type)}
+                {meta.icon}
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '4px',
-                }}>
-                  <span style={{
-                    fontSize: '0.75rem',
-                    fontWeight: '500',
-                    color: theme === 'dark' ? '#9ca3af' : '#6b7280',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                  }}>
-                    {getTypeText(activity.type)}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--fg-4)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                    {meta.label}
                   </span>
                   {activity.duration && (
-                    <span style={{
-                      fontSize: '0.75rem',
-                      color: theme === 'dark' ? '#9ca3af' : '#6b7280',
-                      backgroundColor: theme === 'dark' ? '#4b5563' : '#e5e7eb',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                    }}>
+                    <span style={{ fontSize: '10px', color: 'var(--fg-3)', background: 'var(--bg-3)', padding: '1px 5px', borderRadius: '4px', fontFamily: 'var(--font-mono)' }}>
                       {formatDuration(activity.duration)}
                     </span>
                   )}
                 </div>
-
-                <h4 style={{
-                  margin: '0 0 4px 0',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: theme === 'dark' ? '#f9fafb' : '#1f2937',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
+                <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>
                   {activity.title}
-                </h4>
-
+                </div>
                 {activity.description && (
-                  <p style={{
-                    margin: '0 0 8px 0',
-                    fontSize: '0.75rem',
-                    color: theme === 'dark' ? '#d1d5db' : '#4b5563',
-                    lineHeight: '1.4',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}>
+                  <p style={{ margin: '0 0 3px', fontSize: '11.5px', color: 'var(--fg-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {activity.description}
                   </p>
                 )}
-
-                <time style={{
-                  fontSize: '0.75rem',
-                  color: theme === 'dark' ? '#9ca3af' : '#6b7280',
-                }}>
-                  {formatTime(activity.timestamp)}
-                </time>
+                <time style={{ fontSize: '11px', color: 'var(--fg-4)' }}>{formatTime(activity.timestamp)}</time>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          );
+        })
+      )}
     </div>
   );
 };

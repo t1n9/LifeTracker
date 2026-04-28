@@ -10,36 +10,27 @@ interface SystemSuggestionProps {
   showFloatingTrigger?: boolean;
 }
 
-const overlayStyle: React.CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  backgroundColor: 'rgba(15, 23, 42, 0.56)',
-  backdropFilter: 'blur(8px)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 1000,
-  padding: '24px',
-};
-
-const fieldLabelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: '0.875rem',
-  fontWeight: 600,
-  color: 'var(--text-primary)',
-  marginBottom: '0.5rem',
-};
-
-const inputStyle: React.CSSProperties = {
+const input: React.CSSProperties = {
   width: '100%',
-  padding: '0.8rem 0.9rem',
-  border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
-  borderRadius: '12px',
-  backgroundColor: 'color-mix(in srgb, var(--bg-primary) 90%, black 10%)',
-  color: 'var(--text-primary)',
-  fontSize: '0.9rem',
+  padding: '10px 12px',
+  border: '1px solid var(--line-2)',
+  borderRadius: '10px',
+  background: 'var(--bg-0)',
+  color: 'var(--fg)',
+  fontSize: '14px',
   boxSizing: 'border-box',
   outline: 'none',
+  fontFamily: 'var(--font-sans)',
+};
+
+const label: React.CSSProperties = {
+  display: 'block',
+  fontSize: '12px',
+  fontWeight: 700,
+  color: 'var(--fg-3)',
+  textTransform: 'uppercase',
+  letterSpacing: '.08em',
+  marginBottom: '6px',
 };
 
 export default function SystemSuggestion({
@@ -55,12 +46,7 @@ export default function SystemSuggestion({
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const resetForm = () => {
-    setTitle('');
-    setContent('');
-    setCategory('');
-    setPriority('normal');
-  };
+  const resetForm = () => { setTitle(''); setContent(''); setCategory(''); setPriority('normal'); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,28 +54,16 @@ export default function SystemSuggestion({
       alert('请先填写标题和详细说明');
       return;
     }
-
     try {
       setLoading(true);
-      await suggestionsAPI.createSuggestion({
-        title: title.trim(),
-        content: content.trim(),
-        category: category || undefined,
-        priority,
-      });
-
+      await suggestionsAPI.createSuggestion({ title: title.trim(), content: content.trim(), category: category || undefined, priority });
       setSuccess(true);
       resetForm();
-
       setTimeout(() => {
         setSuccess(false);
-        if (!embedded) {
-          setIsOpen(false);
-          onClose?.();
-        }
+        if (!embedded) { setIsOpen(false); onClose?.(); }
       }, 1600);
     } catch (error: any) {
-      console.error('提交系统建议失败:', error);
       alert(error.response?.data?.message || '提交系统建议失败，请稍后再试');
     } finally {
       setLoading(false);
@@ -97,165 +71,66 @@ export default function SystemSuggestion({
   };
 
   const handleClose = () => {
-    if (!embedded) {
-      setIsOpen(false);
-    }
+    if (!embedded) setIsOpen(false);
     onClose?.();
   };
 
   const panelStyle: React.CSSProperties = {
-    backgroundColor: embedded
-      ? 'color-mix(in srgb, var(--bg-secondary) 92%, black 8%)'
-      : 'color-mix(in srgb, var(--bg-secondary) 88%, black 12%)',
-    borderRadius: embedded ? '20px' : '24px',
-    border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
-    padding: embedded ? '1.4rem' : '1.5rem',
+    background: 'var(--bg-1)',
+    borderRadius: embedded ? '16px' : '20px',
+    border: '1px solid var(--line)',
+    padding: embedded ? '20px' : '24px',
     width: '100%',
     maxWidth: embedded ? 'none' : '560px',
-    boxShadow: embedded ? 'none' : '0 28px 56px rgba(15, 23, 42, 0.22)',
+    boxShadow: embedded ? 'none' : '0 28px 56px rgba(0,0,0,.16)',
+    maxHeight: embedded ? 'none' : '88vh',
+    overflow: embedded ? 'visible' : 'auto',
   };
 
   const contentNode = (
-    <div
-      style={{
-        ...panelStyle,
-        maxHeight: embedded ? 'none' : '88vh',
-        overflow: embedded ? 'visible' : 'auto',
-      }}
-    >
+    <div style={panelStyle}>
       {success ? (
-        <div style={{ textAlign: 'center', padding: embedded ? '2rem 1rem' : '2rem' }}>
-          <div
-            style={{
-              width: '60px',
-              height: '60px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--success-color)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1rem',
-            }}
-          >
-            <MessageSquare size={24} color="white" />
+        <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+          <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'var(--success-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+            <MessageSquare size={22} color="white" />
           </div>
-          <h3
-            style={{
-              fontSize: '1.25rem',
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              margin: '0 0 0.5rem 0',
-            }}
-          >
-            建议已提交
-          </h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', margin: 0, lineHeight: 1.7 }}>
-            我们已收到你的反馈，后续会结合优先级持续优化。
-          </p>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--fg)', margin: '0 0 8px' }}>建议已提交</h3>
+          <p style={{ color: 'var(--fg-3)', fontSize: '13px', margin: 0, lineHeight: 1.7 }}>我们已收到你的反馈，后续会结合优先级持续优化。</p>
         </div>
       ) : (
         <>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              gap: '1rem',
-              marginBottom: '1.4rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem' }}>
-              <div
-                style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '14px',
-                  background: 'color-mix(in srgb, #60a5fa 18%, var(--bg-primary) 82%)',
-                  color: '#7dd3fc',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '1px solid color-mix(in srgb, #60a5fa 34%, transparent 66%)',
-                  flexShrink: 0,
-                }}
-              >
-                <Lightbulb size={20} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--accent-soft)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid color-mix(in srgb, var(--accent) 24%, transparent)', flexShrink: 0 }}>
+                <Lightbulb size={18} />
               </div>
               <div>
-                <h3
-                  style={{
-                    fontSize: '1.1rem',
-                    fontWeight: 700,
-                    color: 'var(--text-primary)',
-                    margin: 0,
-                  }}
-                >
-                  系统建议
-                </h3>
-                <p
-                  style={{
-                    color: 'var(--text-secondary)',
-                    fontSize: '0.9rem',
-                    margin: '0.35rem 0 0 0',
-                    lineHeight: 1.65,
-                  }}
-                >
-                  把你觉得不顺手的地方、缺失功能或设计建议直接告诉我们。
-                </p>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--fg)', margin: 0 }}>系统建议</h3>
+                <p style={{ color: 'var(--fg-3)', fontSize: '12.5px', margin: '4px 0 0', lineHeight: 1.6 }}>把你觉得不顺手的地方、缺失功能或设计建议直接告诉我们。</p>
               </div>
             </div>
             {!embedded && (
-              <button
-                onClick={handleClose}
-                style={{
-                  background: 'color-mix(in srgb, var(--bg-tertiary) 78%, white 22%)',
-                  border: 'none',
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  padding: '0.45rem',
-                  borderRadius: '10px',
-                  flexShrink: 0,
-                }}
-              >
-                <X size={20} />
+              <button onClick={handleClose} style={{ background: 'var(--bg-2)', border: 'none', color: 'var(--fg-3)', cursor: 'pointer', padding: '6px', borderRadius: '8px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                <X size={18} />
               </button>
             )}
           </div>
 
           <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={fieldLabelStyle}>建议标题 *</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="例如：任务卡片的展开方式不够自然"
-                style={inputStyle}
-                required
-              />
+            <div style={{ marginBottom: '14px' }}>
+              <label style={label}>建议标题 *</label>
+              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例如：任务卡片的展开方式不够自然" style={input} required />
             </div>
 
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={fieldLabelStyle}>详细说明 *</label>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="请描述你的使用场景、遇到的问题，以及你希望它如何改进。"
-                style={{
-                  ...inputStyle,
-                  minHeight: '140px',
-                  lineHeight: 1.65,
-                  resize: 'vertical',
-                }}
-                rows={5}
-                required
-              />
+            <div style={{ marginBottom: '14px' }}>
+              <label style={label}>详细说明 *</label>
+              <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="请描述你的使用场景、遇到的问题，以及你希望它如何改进。" style={{ ...input, minHeight: '130px', lineHeight: 1.65, resize: 'vertical' }} rows={5} required />
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 220px' }}>
-                <label style={fieldLabelStyle}>建议类型</label>
-                <select value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle}>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 200px' }}>
+                <label style={label}>建议类型</label>
+                <select value={category} onChange={(e) => setCategory(e.target.value)} style={input}>
                   <option value="">请选择类型</option>
                   <option value="bug">问题反馈</option>
                   <option value="feature">功能建议</option>
@@ -263,10 +138,9 @@ export default function SystemSuggestion({
                   <option value="other">其他</option>
                 </select>
               </div>
-
-              <div style={{ flex: '1 1 220px' }}>
-                <label style={fieldLabelStyle}>优先级</label>
-                <select value={priority} onChange={(e) => setPriority(e.target.value)} style={inputStyle}>
+              <div style={{ flex: '1 1 200px' }}>
+                <label style={label}>优先级</label>
+                <select value={priority} onChange={(e) => setPriority(e.target.value)} style={input}>
                   <option value="low">低</option>
                   <option value="normal">普通</option>
                   <option value="high">高</option>
@@ -275,42 +149,19 @@ export default function SystemSuggestion({
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               {!embedded && (
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  style={{
-                    padding: '0.75rem 1.25rem',
-                    border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
-                    borderRadius: '10px',
-                    backgroundColor: 'color-mix(in srgb, var(--bg-primary) 88%, black 12%)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.875rem',
-                    cursor: 'pointer',
-                  }}
-                >
+                <button type="button" onClick={handleClose} style={{ padding: '9px 16px', border: '1px solid var(--line-2)', borderRadius: '10px', background: 'var(--bg-2)', color: 'var(--fg)', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
                   取消
                 </button>
               )}
               <button
                 type="submit"
                 disabled={loading || !title.trim() || !content.trim()}
-                style={{
-                  padding: '0.75rem 1.25rem',
-                  border: 'none',
-                  borderRadius: '10px',
-                  backgroundColor: loading ? 'var(--text-muted)' : 'var(--primary-color)',
-                  color: 'white',
-                  fontSize: '0.875rem',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                }}
+                style={{ padding: '9px 16px', border: 'none', borderRadius: '10px', background: loading ? 'var(--fg-4)' : 'var(--accent)', color: 'white', fontSize: '13px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: (!title.trim() || !content.trim()) ? .55 : 1 }}
               >
-                <Send size={16} />
-                {loading ? '提交中...' : '提交建议'}
+                <Send size={14} />
+                {loading ? '提交中…' : '提交建议'}
               </button>
             </div>
           </form>
@@ -324,44 +175,20 @@ export default function SystemSuggestion({
       {showFloatingTrigger && !embedded && (
         <button
           onClick={() => setIsOpen(true)}
-          style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            width: '50px',
-            height: '50px',
-            borderRadius: '50%',
-            backgroundColor: 'transparent',
-            color: 'var(--text-secondary)',
-            border: '1px solid color-mix(in srgb, var(--border-color) 80%, transparent 20%)',
-            cursor: 'pointer',
-            boxShadow: '0 8px 18px rgba(15, 23, 42, 0.12)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.3s ease',
-            zIndex: 999,
-          }}
+          style={{ position: 'fixed', bottom: '20px', right: '20px', width: '46px', height: '46px', borderRadius: '50%', background: 'var(--bg-1)', color: 'var(--fg-3)', border: '1px solid var(--line-2)', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .18s', zIndex: 999 }}
           title="系统建议"
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--bg-tertiary) 76%, white 24%)';
-            e.currentTarget.style.boxShadow = '0 14px 24px rgba(15, 23, 42, 0.18)';
-            e.currentTarget.style.color = 'var(--text-primary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.boxShadow = '0 8px 18px rgba(15, 23, 42, 0.12)';
-            e.currentTarget.style.color = 'var(--text-secondary)';
-          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.color = 'var(--fg)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.color = 'var(--fg-3)'; }}
         >
-          <Lightbulb size={20} />
+          <Lightbulb size={18} />
         </button>
       )}
-
       {embedded && contentNode}
-      {!embedded && isOpen && <div style={overlayStyle}>{contentNode}</div>}
+      {!embedded && isOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.44)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}>
+          {contentNode}
+        </div>
+      )}
     </>
   );
 }

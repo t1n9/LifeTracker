@@ -12,7 +12,7 @@ import {
 } from 'react';
 import { Bot, Check, Pencil, Save, Send, Trash2, X } from 'lucide-react';
 import { api, captureAPI } from '@/lib/api';
-import { dispatchAgentDataChanged, getAgentChangedDomains } from '@/lib/agent-events';
+import { dispatchAgentDataChanged, getAgentChangedDomains, PROACTIVE_TRIGGER_EVENT, type ProactiveTriggerPayload } from '@/lib/agent-events';
 
 type PanelMode = 'chat' | 'capture';
 
@@ -334,6 +334,8 @@ const renderMarkdownContent = (content: string) => {
   return <div style={styles.markdownContent}>{blocks}</div>;
 };
 
+type PanelHintState = 'idle' | 'breathing' | 'flash';
+
 export default function AgentChatPanel({ inline = false }: { inline?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>('chat');
@@ -355,6 +357,9 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
   const [editingCaptureId, setEditingCaptureId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<CaptureEditDraft | null>(null);
   const [savingCaptureId, setSavingCaptureId] = useState<string | null>(null);
+  const [hintState, setHintState] = useState<PanelHintState>('idle');
+  const cooldownMapRef = useRef<Map<string, number>>(new Map());
+  const pendingProactiveRef = useRef<ProactiveTriggerPayload | null>(null);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -441,6 +446,98 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
       setLoadingCaptures(false);
     }
   }, [loadingCaptures]);
+
+  // ── 主动推送：调用 /agent/proactive/stream ──
+  const fetchProactiveMessage = useCallback(async (trigger: string, context?: ProactiveTriggerPayload['context']) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api'}/agent/proactive/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ trigger, context }),
+      });
+      if (!res.ok) return;
+      const reader = res.body?.getReader();
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let messageId = '';
+      let content = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line);
+            if (event.type === 'reply_start') {
+              messageId = event.id;
+              content = '';
+            } else if (event.type === 'reply_delta') {
+              content += event.chunk || '';
+              setMessages((prev) => {
+                const existing = prev.find((m) => m.id === messageId);
+                if (existing) {
+                  return prev.map((m) => (m.id === messageId ? { ...m, content } : m));
+                }
+                return [...prev, { id: messageId, role: 'assistant' as const, content, createdAt: new Date().toISOString() }];
+              });
+            } else if (event.type === 'reply_done') {
+              setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, content, createdAt: new Date().toISOString() } : m)));
+            }
+          } catch { /* skip partial JSON lines */ }
+        }
+      }
+    } catch (err) {
+      console.error('Proactive message fetch failed:', err);
+    }
+  }, []);
+
+  // ── 主动推送事件监听 ──
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<ProactiveTriggerPayload>).detail;
+      if (!detail?.trigger) return;
+
+      if (detail.trigger === 'morning') {
+        pendingProactiveRef.current = detail;
+        setHintState('breathing');
+        // 如果是 inline 模式（面板已打开），直接发送
+        if (inline) {
+          setHintState('idle');
+          void fetchProactiveMessage('morning');
+        }
+      } else if (detail.trigger === 'pomodoro_done') {
+        // 冷却检查：首次总是允许，之后同任务间隔 >= 2 才再次发送
+        const taskId = detail.context?.taskId || '';
+        const pomodoroCount = detail.context?.pomodoroCount || 0;
+        const lastCount = cooldownMapRef.current.get(taskId) || 0;
+        if (taskId && lastCount > 0 && pomodoroCount - lastCount < 2) return;
+        cooldownMapRef.current.set(taskId, pomodoroCount);
+
+        setHintState('flash');
+        setTimeout(() => setHintState('idle'), 1000);
+        void fetchProactiveMessage('pomodoro_done', detail.context);
+      }
+    };
+    window.addEventListener(PROACTIVE_TRIGGER_EVENT, handler);
+    return () => window.removeEventListener(PROACTIVE_TRIGGER_EVENT, handler);
+  }, [inline, fetchProactiveMessage]);
+
+  // ── 打开 panel 时检查 pending proactive ──
+  useEffect(() => {
+    if (!isOpen || !pendingProactiveRef.current) return;
+    const pending = pendingProactiveRef.current;
+    pendingProactiveRef.current = null;
+    setHintState('idle');
+    if (pending.trigger === 'morning') {
+      void fetchProactiveMessage('morning');
+    }
+  }, [isOpen, fetchProactiveMessage]);
 
   useEffect(() => {
     if (!isOpen && !inline) return;
@@ -1193,6 +1290,13 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
           <div style={styles.inlineHeaderLeft}>
             <Bot size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
             <span style={styles.inlineHeaderTitle}>AI 助手</span>
+            {hintState !== 'idle' && (
+              <span style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: 'var(--accent)',
+                animation: hintState === 'breathing' ? 'agent-float-breathing 2s ease-in-out infinite' : 'agent-float-flash 0.3s ease-out',
+              }} />
+            )}
           </div>
           <div style={styles.inlineHeaderRight}>
             {panelMode === 'chat' && (
@@ -1260,12 +1364,29 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
   return (
     <>
       {!isOpen && (
-        <button onClick={() => setIsOpen(true)} style={styles.floatingButton} className="agent-float-btn" aria-label="?? AI ??">
+        <button
+          onClick={() => setIsOpen(true)}
+          style={{
+            ...styles.floatingButton,
+            animation: hintState === 'breathing' ? 'agent-float-breathing 2s ease-in-out infinite' : hintState === 'flash' ? 'agent-float-flash 0.3s ease-out' : 'none',
+          }}
+          className="agent-float-btn"
+          aria-label="AI 助手"
+        >
           <Bot size={24} />
         </button>
       )}
       {isOpen && panelContent}
       <style>{`
+        @keyframes agent-float-breathing {
+          0%, 100% { box-shadow: 0 14px 30px var(--accent-glow); }
+          50% { box-shadow: 0 14px 44px var(--accent-glow), 0 0 0 12px color-mix(in srgb, var(--accent) 18%, transparent); }
+        }
+        @keyframes agent-float-flash {
+          0% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.08); }
+          100% { opacity: 1; transform: scale(1); }
+        }
         @media (max-width: 768px) {
           .agent-panel {
             width: min(100vw - 20px, 420px) !important;

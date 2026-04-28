@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CheckSquare, Plus, X, Check, GripVertical, Pencil, Trash2, Timer } from 'lucide-react';
-import { taskAPI, dailyAPI } from '@/lib/api';
+import { taskAPI } from '@/lib/api';
 import styles from './PendingTasks.module.css';
 import {
   DndContext,
@@ -42,7 +42,6 @@ interface PendingTasksProps {
   onStartCountUp: (taskId: string, taskTitle: string) => void; // 寮€濮嬫璁℃椂鐣寗閽?
   currentBoundTask?: string | null; // 褰撳墠缁戝畾鐨勪换鍔D
   isRunning?: boolean; // 鐣寗閽熸槸鍚︽鍦ㄨ繍琛?
-  dayStartRefreshTrigger?: number; // 寮€鍚唴瀹瑰埛鏂拌Е鍙戝櫒
   pomodoroCompleteRefreshTrigger?: number; // 鐣寗閽熷畬鎴愬埛鏂拌Е鍙戝櫒
   onCompleteTaskWithPomodoro?: (taskId: string) => void; // 瀹屾垚浠诲姟骞剁粨鏉熺暘鑼勯挓锛堣鍏ョ暘鑼勬暟锛?
   onCompleteTaskCancelPomodoro?: (taskId: string) => void; // 瀹屾垚浠诲姟骞跺彇娑堢暘鑼勯挓锛堜笉璁″叆鐣寗鏁帮級
@@ -207,7 +206,6 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   onStartCountUp,
   currentBoundTask,
   isRunning = false,
-  dayStartRefreshTrigger,
   pomodoroCompleteRefreshTrigger,
   onCompleteTaskWithPomodoro,
   onCompleteTaskCancelPomodoro,
@@ -224,7 +222,6 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [updatingTasks, setUpdatingTasks] = useState<Record<string, boolean>>({});
   const [isAddingTask, setIsAddingTask] = useState(false);
-  const [dayStart, setDayStart] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskTitle, setEditingTaskTitle] = useState<string>('');
 
@@ -340,28 +337,10 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
     }
   };
 
-  // 鍔犺浇浠婃棩寮€鍚唴瀹?
-  const loadDayStart = async () => {
-    try {
-      const response = await dailyAPI.getTodayStatus();
-      setDayStart(response.data.dayStart);
-    } catch (error) {
-      console.error('??????????:', error);
-    }
-  };
-
   // 鍒濆鍔犺浇
   useEffect(() => {
     loadTasks();
-    loadDayStart();
   }, []);
-
-  // 褰撳紑鍚唴瀹瑰埛鏂拌Е鍙戝櫒鍙樺寲鏃讹紝閲嶆柊鍔犺浇寮€鍚唴瀹?
-  useEffect(() => {
-    if (dayStartRefreshTrigger !== undefined) {
-      loadDayStart();
-    }
-  }, [dayStartRefreshTrigger]);
 
   // 褰撶暘鑼勯挓瀹屾垚鍒锋柊瑙﹀彂鍣ㄥ彉鍖栨椂锛岄噸鏂板姞杞戒换鍔″垪琛?
   useEffect(() => {
@@ -449,7 +428,6 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   // 鍒囨崲浠诲姟瀹屾垚鐘舵€?
   const handleToggleTask = async (taskId: string, currentStatus: boolean) => {
     try {
-      console.log('????????', { taskId, currentStatus, isRunning, currentBoundTask, pomodoroElapsedTime });
 
       // 濡傛灉鏄瀹屾垚浠诲姟锛堜粠鏈畬鎴愬彉涓哄畬鎴愶級
       if (!currentStatus) {
@@ -636,14 +614,6 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
           <div className={styles.progressFill} style={{ width: `${pct}%` }} />
         </div>
       </div>
-
-      {/* 晨间记录 */}
-      {dayStart && (
-        <div className={styles.morningNote}>
-          <div className={styles.morningLabel}>▴ 今日晨间记录</div>
-          <div className={styles.morningBody}>{dayStart}</div>
-        </div>
-      )}
 
       {/* 任务列表（可滚动） */}
       <div className={styles.scrollArea}>

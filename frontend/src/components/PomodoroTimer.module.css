@@ -1,9 +1,30 @@
 .card {
+  --hero-padding: 14px 16px 18px;
+  --hero-gap: 14px;
+  --panel-padding: 14px;
+  --timer-padding: 14px;
+  --panel-radius: 18px;
+  --timer-radius: 18px;
+  --time-margin: 12px;
+  --time-size: clamp(52px, 9vw, 84px);
+  --track-margin: 10px;
+  --track-height: 4px;
+  --mode-padding: 5px 10px;
+  --mode-font: 11px;
+  --controls-gap: 12px;
+  --button-padding: 13px 16px;
+  --button-radius: 16px;
+  --button-font: 14px;
+  --strip-padding: 8px 12px;
+  --strip-radius: 10px;
+  --strip-title-size: 12.5px;
   border: 1px solid var(--line);
   border-radius: 28px;
   background: var(--bg-0);
   box-shadow: 0 14px 28px rgba(15, 23, 42, 0.045);
   padding: 24px;
+  transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              border-radius 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cardCompact {
@@ -72,11 +93,13 @@
 .hero {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--hero-gap);
   border-radius: 0;
-  padding: 14px 16px 18px;
+  padding: var(--hero-padding);
   background: transparent;
   border: none;
+  transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              gap 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .timerPanel,
@@ -84,7 +107,18 @@
   border-radius: 18px;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--bg-1) 92%, white 8%);
-  padding: 14px;
+  padding: var(--panel-padding);
+  transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              border-radius 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.timerPanel {
+  padding: var(--timer-padding);
+  border-radius: var(--timer-radius);
+}
+
+.actionPanel {
+  border-radius: var(--panel-radius);
 }
 
 .modeToggle {
@@ -92,10 +126,10 @@
   align-items: center;
   gap: 8px;
   border-radius: 999px;
-  padding: 5px 10px;
+  padding: var(--mode-padding);
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 11px;
+  font-size: var(--mode-font);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -115,14 +149,16 @@
 }
 
 .time {
-  margin-top: 12px;
+  margin-top: var(--time-margin);
   color: var(--fg);
-  font-size: clamp(52px, 9vw, 84px);
+  font-size: var(--time-size);
   line-height: 0.9;
   letter-spacing: -0.08em;
   font-weight: 700;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  transition: font-size 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              margin-top 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .metaRow {
@@ -136,12 +172,14 @@
 }
 
 .track {
-  margin-top: 10px;
+  margin-top: var(--track-margin);
   width: 100%;
-  height: 4px;
+  height: var(--track-height);
   border-radius: 999px;
   background: var(--bg-2);
   overflow: hidden;
+  transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              margin-top 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fill {
@@ -152,24 +190,30 @@
 
 .controls {
   display: flex;
-  gap: 12px;
+  gap: var(--controls-gap);
   flex-wrap: wrap;
+  transition: gap 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .primaryButton,
 .secondaryButton,
 .ghostButton {
-  border-radius: 16px;
-  padding: 13px 16px;
+  border-radius: var(--button-radius);
+  padding: var(--button-padding);
   border: 1px solid transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  font-size: 14px;
+  font-size: var(--button-font);
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease,
+              box-shadow 0.2s ease,
+              border-color 0.2s ease,
+              padding 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              border-radius 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              font-size 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .primaryButton {
@@ -237,10 +281,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: var(--strip-padding);
   background: var(--bg-2);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--strip-radius);
+  transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              border-radius 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .taskStripIcon {
@@ -256,7 +302,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12.5px;
+  font-size: var(--strip-title-size);
   font-weight: 600;
   color: var(--fg);
 }
@@ -297,6 +343,95 @@
 .statusRunning {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+/* ── 专注模式扩展：填满容器高度，内部 flex 分配 ── */
+
+.focusExpand {
+  /* 撑满 pomodoroWrap 给的 flex:1 空间 */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  border: none;
+  background: transparent;
+}
+
+.focusExpand .body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.focusExpand .hero {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* 更宽松的 padding，但受限于容器 */
+  --hero-padding: clamp(12px, 2.5vw, 28px) clamp(16px, 4vw, 48px);
+  --hero-gap: clamp(10px, 2vh, 22px);
+}
+
+.focusExpand .timerPanel,
+.focusExpand .actionPanel {
+  --panel-padding: clamp(14px, 2.5vw, 24px);
+  --panel-radius: clamp(18px, 2.5vw, 26px);
+}
+
+.focusExpand .timerPanel {
+  --timer-padding: clamp(16px, 2.8vw, 28px) clamp(14px, 2.5vw, 24px);
+  --timer-radius: clamp(20px, 2.5vw, 28px);
+}
+
+/* 时间数字：用 vh 限制，保证不超出屏幕 */
+.focusExpand .time {
+  --time-margin: clamp(8px, 1.5vh, 16px);
+  --time-size: clamp(64px, min(17vw, 18vh), 160px);
+}
+
+.focusExpand .track {
+  --track-margin: clamp(8px, 1.5vh, 16px);
+  --track-height: clamp(6px, 1vw, 10px);
+}
+
+.focusExpand .modeToggle {
+  --mode-padding: 6px 13px;
+  --mode-font: 12px;
+}
+
+.focusExpand .controls {
+  --controls-gap: clamp(8px, 1.5vw, 16px);
+}
+
+.focusExpand .primaryButton,
+.focusExpand .secondaryButton,
+.focusExpand .ghostButton {
+  --button-padding: clamp(11px, 1.8vh, 15px) clamp(12px, 2.5vw, 22px);
+  --button-radius: clamp(13px, 1.5vw, 17px);
+  --button-font: clamp(13px, 1.6vw, 15px);
+}
+
+.focusExpand .taskStrip {
+  --strip-padding: 10px 14px;
+  --strip-radius: 13px;
+}
+
+.focusExpand .taskStripTitle {
+  --strip-title-size: 13px;
+}
+
+/* status 条在专注模式下不另起一行，内嵌在 hero 区 */
+.focusExpand .status {
+  margin-top: 0;
+  border-radius: 0;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
 }
 
 @media (max-width: 768px) {
@@ -370,14 +505,14 @@
   }
 
   .time {
-    margin-top: 10px;
-    font-size: clamp(44px, 18vw, 72px);
+    --time-margin: 10px;
+    --time-size: clamp(44px, 18vw, 72px);
   }
 
   .controls {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
+    --controls-gap: 8px;
   }
 
   .primaryButton,
@@ -385,10 +520,10 @@
   .ghostButton {
     width: 100%;
     min-width: 0;
-    padding: 11px 8px;
+    --button-padding: 11px 8px;
+    --button-radius: 12px;
+    --button-font: 12px;
     gap: 6px;
-    border-radius: 12px;
-    font-size: 12px;
   }
 
   .sliderBlock {
@@ -397,22 +532,50 @@
   }
 
   .hero {
-    padding: 12px 14px 16px;
-    gap: 12px;
+    --hero-padding: 12px 14px 16px;
+    --hero-gap: 12px;
   }
 
   .timerPanel,
   .actionPanel {
-    padding: 12px;
-    border-radius: 16px;
+    --panel-padding: 12px;
+    --timer-padding: 12px;
+    --panel-radius: 16px;
+    --timer-radius: 16px;
   }
 
   .taskStrip {
-    padding: 8px 10px;
-    border-radius: 9px;
+    --strip-padding: 8px 10px;
+    --strip-radius: 9px;
   }
 
   .taskStripTitle {
-    font-size: 12px;
+    --strip-title-size: 12px;
   }
+
+  /* 移动端专注模式：恢复自然高度，不强制 flex 填满 */
+  .focusExpand {
+    height: auto;
+    min-height: 0;
+  }
+
+  .focusExpand .body {
+    flex: none;
+  }
+
+  .focusExpand .hero {
+    flex: none;
+    justify-content: flex-start;
+  }
+
+  .focusExpand .time {
+    --time-size: clamp(52px, 20vw, 88px);
+  }
+
+  .focusExpand .status {
+    border-radius: 10px;
+    border-top: none;
+    margin-top: 12px;
+  }
+
 }

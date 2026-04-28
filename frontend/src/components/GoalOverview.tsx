@@ -8,6 +8,13 @@ interface GoalOverviewProps {
   userId?: string;
 }
 
+const card: React.CSSProperties = {
+  background: 'var(--bg-1)',
+  borderRadius: '14px',
+  border: '1px solid var(--line)',
+  padding: '20px',
+};
+
 const GoalOverview: React.FC<GoalOverviewProps> = ({ userId }) => {
   const [goals, setGoals] = useState<UserGoal[]>([]);
   const [selectedGoalId, setSelectedGoalId] = useState<string>('');
@@ -15,15 +22,11 @@ const GoalOverview: React.FC<GoalOverviewProps> = ({ userId }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (userId) {
-      loadData();
-    }
+    if (userId) loadData();
   }, [userId]);
 
   useEffect(() => {
-    if (selectedGoalId !== undefined) {
-      loadOverviewData();
-    }
+    if (selectedGoalId !== undefined) loadOverviewData();
   }, [selectedGoalId]);
 
   const loadData = async () => {
@@ -31,8 +34,6 @@ const GoalOverview: React.FC<GoalOverviewProps> = ({ userId }) => {
       setLoading(true);
       const goalHistory = await goalService.getGoalHistory();
       setGoals(goalHistory);
-
-      // 默认选择全部时间
       setSelectedGoalId('');
     } catch (error) {
       console.error('加载目标数据失败:', error);
@@ -50,9 +51,8 @@ const GoalOverview: React.FC<GoalOverviewProps> = ({ userId }) => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'yyyy年MM月dd日', { locale: zhCN });
-  };
+  const formatDate = (dateString: string) =>
+    format(new Date(dateString), 'yyyy年MM月dd日', { locale: zhCN });
 
   const getStatusText = (status: string) => {
     switch (status) {
@@ -63,44 +63,53 @@ const GoalOverview: React.FC<GoalOverviewProps> = ({ userId }) => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const statusStyle = (status: string): React.CSSProperties => {
     switch (status) {
-      case 'ACTIVE': return 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/20';
-      case 'COMPLETED': return 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20';
-      case 'TERMINATED': return 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-700';
-      default: return 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-700';
+      case 'ACTIVE':
+        return { color: 'var(--success-color)', background: 'color-mix(in srgb, var(--success-color) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--success-color) 22%, transparent)' };
+      case 'COMPLETED':
+        return { color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' };
+      default:
+        return { color: 'var(--fg-3)', background: 'var(--bg-2)', border: '1px solid var(--line)' };
     }
   };
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/4 mb-4"></div>
-          <div className="h-8 bg-gray-200 dark:bg-gray-600 rounded w-1/2 mb-2"></div>
-          <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-3/4"></div>
-        </div>
+      <div style={{ ...card, display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--fg-3)' }}>
+        <div style={{ width: '18px', height: '18px', border: '2px solid var(--line-2)', borderTop: '2px solid var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+        加载中…
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* 目标选择器 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Target className="text-blue-500 dark:text-blue-400" size={20} />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">数据概况</h3>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* 时间段选择 */}
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+          <Target size={16} style={{ color: 'var(--accent)' }} />
+          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--fg)', letterSpacing: '-0.01em' }}>数据概况</span>
         </div>
-        
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+
+        <div style={{ marginBottom: selectedGoalId ? '12px' : '0' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--fg-3)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>
             选择时间段
           </label>
           <select
             value={selectedGoalId}
             onChange={(e) => setSelectedGoalId(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              border: '1px solid var(--line-2)',
+              borderRadius: '10px',
+              background: 'var(--bg-0)',
+              color: 'var(--fg)',
+              fontSize: '13px',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
           >
             <option value="">全部时间</option>
             {goals.map((goal) => (
@@ -112,135 +121,118 @@ const GoalOverview: React.FC<GoalOverviewProps> = ({ userId }) => {
           </select>
         </div>
 
-        {/* 选中目标信息 */}
-        {selectedGoalId && (
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            {(() => {
-              const selectedGoal = goals.find(g => g.id === selectedGoalId);
-              if (!selectedGoal) return null;
-
-              return (
-                <div>
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-medium text-blue-800 dark:text-blue-200">{selectedGoal.goalName}</h4>
-                    <span className={`text-xs px-2 py-1 rounded ${getStatusColor(selectedGoal.status)}`}>
-                      {getStatusText(selectedGoal.status)}
-                    </span>
-                  </div>
-                  {selectedGoal.description && (
-                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">{selectedGoal.description}</p>
-                  )}
-                  <div className="text-sm text-blue-600 dark:text-blue-400 space-y-1">
-                    <p>开始时间: {formatDate(selectedGoal.startDate)}</p>
-                    {selectedGoal.endDate && <p>结束时间: {formatDate(selectedGoal.endDate)}</p>}
-                    {selectedGoal.targetDate && <p>目标日期: {formatDate(selectedGoal.targetDate)}</p>}
-
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-      </div>
-
-      {/* 概况数据 */}
-      {overviewData && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* 时间段信息 */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="text-purple-500 dark:text-purple-400" size={20} />
-              <h4 className="font-semibold text-gray-900 dark:text-white">时间段</h4>
-            </div>
-            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-              <p><span className="font-medium">开始:</span> {overviewData.period.startDate}</p>
-              <p><span className="font-medium">结束:</span> {overviewData.period.endDate}</p>
-              <p><span className="font-medium">总天数:</span> {overviewData.period.totalDays} 天</p>
-            </div>
-          </div>
-
-          {/* 任务统计 */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <TrendingUp className="text-green-500 dark:text-green-400" size={20} />
-              <h4 className="font-semibold text-gray-900 dark:text-white">任务完成</h4>
-            </div>
-            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-              <p><span className="font-medium">总任务:</span> {overviewData.tasks.total}</p>
-              <p><span className="font-medium">已完成:</span> {overviewData.tasks.completed}</p>
-              <p><span className="font-medium">完成率:</span> {overviewData.tasks.completionRate}%</p>
-            </div>
-            <div className="mt-3">
-              <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                <div
-                  className="bg-green-500 dark:bg-green-400 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${overviewData.tasks.completionRate}%` }}
-                ></div>
+        {selectedGoalId && (() => {
+          const g = goals.find(g => g.id === selectedGoalId);
+          if (!g) return null;
+          return (
+            <div style={{ padding: '12px', background: 'var(--accent-soft)', borderRadius: '10px', border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--fg)' }}>{g.goalName}</span>
+                <span style={{ ...statusStyle(g.status), fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px' }}>
+                  {getStatusText(g.status)}
+                </span>
+              </div>
+              {g.description && <p style={{ margin: '0 0 6px', fontSize: '12px', color: 'var(--fg-2)' }}>{g.description}</p>}
+              <div style={{ fontSize: '11.5px', color: 'var(--fg-3)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span>开始：{formatDate(g.startDate)}</span>
+                {g.endDate && <span>结束：{formatDate(g.endDate)}</span>}
+                {g.targetDate && <span>目标：{formatDate(g.targetDate)}</span>}
               </div>
             </div>
+          );
+        })()}
+      </div>
+
+      {/* 概况数据网格 */}
+      {overviewData && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+          {/* 时间段 */}
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '12px' }}>
+              <Calendar size={15} style={{ color: 'var(--accent)' }} />
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)', textTransform: 'uppercase', letterSpacing: '.06em' }}>时间段</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '12.5px', color: 'var(--fg-2)' }}>
+              <Row label="开始" value={overviewData.period.startDate} />
+              <Row label="结束" value={overviewData.period.endDate} />
+              <Row label="总天数" value={`${overviewData.period.totalDays} 天`} />
+            </div>
           </div>
 
-          {/* 学习统计 */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <BookOpen className="text-blue-500 dark:text-blue-400" size={20} />
-              <h4 className="font-semibold text-gray-900 dark:text-white">学习时间</h4>
+          {/* 任务 */}
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '12px' }}>
+              <TrendingUp size={15} style={{ color: 'var(--success-color)' }} />
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)', textTransform: 'uppercase', letterSpacing: '.06em' }}>任务完成</span>
             </div>
-            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-              <p><span className="font-medium">总时长:</span> {overviewData.study.totalHours} 小时</p>
-              <p><span className="font-medium">日均:</span> {overviewData.study.averageMinutesPerDay} 分钟</p>
-              <p><span className="font-medium">番茄钟:</span> {overviewData.study.pomodoroCount} 个</p>
-              <p><span className="font-medium">日均番茄:</span> {overviewData.study.averagePomodoroPerDay} 个</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '12.5px', color: 'var(--fg-2)' }}>
+              <Row label="总任务" value={String(overviewData.tasks.total)} />
+              <Row label="已完成" value={String(overviewData.tasks.completed)} />
+              <Row label="完成率" value={`${overviewData.tasks.completionRate}%`} />
+            </div>
+            <div style={{ marginTop: '10px', height: '4px', borderRadius: '999px', background: 'var(--bg-2)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${overviewData.tasks.completionRate}%`, background: 'var(--success-color)', borderRadius: 'inherit', transition: 'width .4s ease' }} />
             </div>
           </div>
 
-          {/* 运动统计 */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Activity className="text-orange-500 dark:text-orange-400" size={20} />
-              <h4 className="font-semibold text-gray-900 dark:text-white">运动记录</h4>
+          {/* 学习时间 */}
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '12px' }}>
+              <BookOpen size={15} style={{ color: 'var(--accent)' }} />
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)', textTransform: 'uppercase', letterSpacing: '.06em' }}>学习时间</span>
             </div>
-            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-              <p><span className="font-medium">总记录:</span> {overviewData.exercise.totalRecords}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '12.5px', color: 'var(--fg-2)' }}>
+              <Row label="总时长" value={`${overviewData.study.totalHours} 小时`} />
+              <Row label="日均" value={`${overviewData.study.averageMinutesPerDay} 分钟`} />
+              <Row label="番茄钟" value={`${overviewData.study.pomodoroCount} 个`} />
+              <Row label="日均番茄" value={`${overviewData.study.averagePomodoroPerDay} 个`} />
+            </div>
+          </div>
+
+          {/* 运动 */}
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '12px' }}>
+              <Activity size={15} style={{ color: 'var(--warn)' }} />
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)', textTransform: 'uppercase', letterSpacing: '.06em' }}>运动记录</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '12.5px', color: 'var(--fg-2)' }}>
+              <Row label="总记录" value={String(overviewData.exercise.totalRecords)} />
               {overviewData.exercise.exerciseTypes.length > 0 && (
-                <div className="mt-3">
-                  <p className="font-medium mb-2">运动类型:</p>
-                  <div className="space-y-1">
-                    {overviewData.exercise.exerciseTypes.map((exercise, index) => (
-                      <div key={index} className="flex justify-between text-xs">
-                        <span>{exercise.name}:</span>
-                        <span>{exercise.total} {exercise.unit}</span>
-                      </div>
-                    ))}
-                  </div>
+                <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {overviewData.exercise.exerciseTypes.map((ex, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--fg-3)' }}>
+                      <span>{ex.name}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--fg-2)' }}>{ex.total} {ex.unit}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           </div>
 
-          {/* 消费统计 */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <DollarSign className="text-red-500 dark:text-red-400" size={20} />
-              <h4 className="font-semibold text-gray-900 dark:text-white">消费记录</h4>
+          {/* 消费 */}
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '12px' }}>
+              <DollarSign size={15} style={{ color: 'var(--danger)' }} />
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)', textTransform: 'uppercase', letterSpacing: '.06em' }}>消费记录</span>
             </div>
-            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-              <p><span className="font-medium">总消费:</span> ¥{overviewData.expense.total}</p>
-              <p><span className="font-medium">日均:</span> ¥{overviewData.expense.averagePerDay}</p>
-              <p><span className="font-medium">记录数:</span> {overviewData.expense.recordCount}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '12.5px', color: 'var(--fg-2)' }}>
+              <Row label="总消费" value={`¥${overviewData.expense.total}`} />
+              <Row label="日均" value={`¥${overviewData.expense.averagePerDay}`} />
+              <Row label="记录数" value={String(overviewData.expense.recordCount)} />
             </div>
           </div>
 
           {/* 效率指标 */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock className="text-indigo-500 dark:text-indigo-400" size={20} />
-              <h4 className="font-semibold text-gray-900 dark:text-white">效率指标</h4>
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '12px' }}>
+              <Clock size={15} style={{ color: 'var(--accent)' }} />
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)', textTransform: 'uppercase', letterSpacing: '.06em' }}>效率指标</span>
             </div>
-            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-              <p><span className="font-medium">学习效率:</span> {overviewData.study.averageMinutesPerDay > 60 ? '高' : overviewData.study.averageMinutesPerDay > 30 ? '中' : '低'}</p>
-              <p><span className="font-medium">任务效率:</span> {overviewData.tasks.completionRate > 80 ? '优秀' : overviewData.tasks.completionRate > 60 ? '良好' : '需改进'}</p>
-              <p><span className="font-medium">运动频率:</span> {overviewData.exercise.totalRecords / overviewData.period.totalDays > 0.5 ? '经常' : '偶尔'}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '12.5px', color: 'var(--fg-2)' }}>
+              <Row label="学习效率" value={overviewData.study.averageMinutesPerDay > 60 ? '高' : overviewData.study.averageMinutesPerDay > 30 ? '中' : '低'} />
+              <Row label="任务效率" value={overviewData.tasks.completionRate > 80 ? '优秀' : overviewData.tasks.completionRate > 60 ? '良好' : '需改进'} />
+              <Row label="运动频率" value={overviewData.exercise.totalRecords / overviewData.period.totalDays > 0.5 ? '经常' : '偶尔'} />
             </div>
           </div>
         </div>
@@ -248,5 +240,14 @@ const GoalOverview: React.FC<GoalOverviewProps> = ({ userId }) => {
     </div>
   );
 };
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+      <span style={{ color: 'var(--fg-3)' }}>{label}</span>
+      <span style={{ fontWeight: 600, color: 'var(--fg)', fontFamily: 'var(--font-mono)' }}>{value}</span>
+    </div>
+  );
+}
 
 export default GoalOverview;

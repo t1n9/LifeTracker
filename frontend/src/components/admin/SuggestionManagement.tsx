@@ -232,7 +232,7 @@ export default function SuggestionManagement() {
 
   if (loading) {
     return (
-      <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+      <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--fg-2)' }}>
         加载中...
       </div>
     );
@@ -246,7 +246,7 @@ export default function SuggestionManagement() {
             style={{
               fontSize: '1.25rem',
               fontWeight: 700,
-              color: 'var(--text-primary)',
+              color: 'var(--fg)',
               marginBottom: '0.35rem',
               display: 'flex',
               alignItems: 'center',
@@ -256,7 +256,7 @@ export default function SuggestionManagement() {
             <MessageSquare size={22} />
             系统建议管理
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem' }}>
+          <p style={{ color: 'var(--fg-2)', fontSize: '0.86rem' }}>
             统一查看与处理用户反馈建议。
           </p>
         </div>
@@ -282,7 +282,7 @@ export default function SuggestionManagement() {
       {stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.8rem', marginBottom: '1rem' }}>
           {[
-            { label: '总建议数', value: stats.total, color: 'var(--text-primary)' },
+            { label: '总建议数', value: stats.total, color: 'var(--fg)' },
             { label: '待处理', value: stats.pending, color: '#f59e0b' },
             { label: '已实现', value: stats.implemented, color: '#10b981' },
             { label: '已拒绝', value: stats.rejected, color: '#ef4444' },
@@ -292,12 +292,12 @@ export default function SuggestionManagement() {
               style={{
                 padding: '0.95rem',
                 borderRadius: '14px',
-                border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-                background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+                border: '1px solid color-mix(in srgb, var(--line) 76%, transparent 24%)',
+                background: 'color-mix(in srgb, var(--bg-1) 90%, white 10%)',
               }}
             >
               <div style={{ fontSize: '1.7rem', fontWeight: 700, color: item.color, lineHeight: 1 }}>{item.value}</div>
-              <div style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{item.label}</div>
+              <div style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: 'var(--fg-2)' }}>{item.label}</div>
             </div>
           ))}
         </div>
@@ -317,11 +317,11 @@ export default function SuggestionManagement() {
             style={{
               padding: '0.45rem 0.85rem',
               borderRadius: '999px',
-              border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
+              border: '1px solid color-mix(in srgb, var(--line) 78%, transparent 22%)',
               background: filter === key
-                ? 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))'
-                : 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
-              color: filter === key ? '#fff' : 'var(--text-primary)',
+                ? 'linear-gradient(135deg, var(--accent), var(--accent))'
+                : 'color-mix(in srgb, var(--bg-1) 90%, white 10%)',
+              color: filter === key ? '#fff' : 'var(--fg)',
               fontSize: '0.82rem',
               fontWeight: 700,
               cursor: 'pointer',
@@ -342,17 +342,17 @@ export default function SuggestionManagement() {
               textAlign: 'left',
               padding: '1rem',
               borderRadius: '14px',
-              border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-              background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+              border: '1px solid color-mix(in srgb, var(--line) 76%, transparent 24%)',
+              background: 'color-mix(in srgb, var(--bg-1) 90%, white 10%)',
               cursor: 'pointer',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.7rem', marginBottom: '0.65rem' }}>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.32rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--fg)', marginBottom: '0.32rem' }}>
                   {suggestion.title}
                 </h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.6 }}>
+                <p style={{ color: 'var(--fg-2)', fontSize: '0.84rem', lineHeight: 1.6 }}>
                   {suggestion.content.length > 140 ? `${suggestion.content.slice(0, 140)}...` : suggestion.content}
                 </p>
               </div>
@@ -361,7 +361,7 @@ export default function SuggestionManagement() {
                 {getPriorityIcon(suggestion.priority)}
               </div>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.7rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.7rem', color: 'var(--fg-3)', fontSize: '0.75rem' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
                 <User size={12} />
                 {suggestion.user.name}
@@ -384,10 +384,10 @@ export default function SuggestionManagement() {
             style={{
               padding: '2.2rem',
               textAlign: 'center',
-              color: 'var(--text-secondary)',
+              color: 'var(--fg-2)',
               borderRadius: '14px',
-              border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-              background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+              border: '1px solid color-mix(in srgb, var(--line) 76%, transparent 24%)',
+              background: 'color-mix(in srgb, var(--bg-1) 90%, white 10%)',
             }}
           >
             <MessageSquare size={42} style={{ margin: '0 auto 0.6rem', opacity: 0.45 }} />
@@ -415,17 +415,17 @@ export default function SuggestionManagement() {
               maxHeight: '88vh',
               overflow: 'auto',
               borderRadius: '18px',
-              border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-              background: 'color-mix(in srgb, var(--bg-primary) 94%, white 6%)',
+              border: '1px solid color-mix(in srgb, var(--line) 76%, transparent 24%)',
+              background: 'color-mix(in srgb, var(--bg-0) 94%, white 6%)',
               boxShadow: '0 26px 56px rgba(15, 23, 42, 0.22)',
               padding: '1rem',
             }}
           >
-            <h3 style={{ fontSize: '1.06rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.8rem' }}>
+            <h3 style={{ fontSize: '1.06rem', fontWeight: 700, color: 'var(--fg)', marginBottom: '0.8rem' }}>
               {selectedSuggestion.title}
             </h3>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.7rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.7rem', fontSize: '0.8rem', color: 'var(--fg-2)' }}>
               <span>提交者：{selectedSuggestion.user.name}</span>
               <span>分类：{getCategoryText(selectedSuggestion.category)}</span>
               <span>优先级：{getPriorityText(selectedSuggestion.priority)}</span>
@@ -436,11 +436,11 @@ export default function SuggestionManagement() {
               style={{
                 padding: '0.8rem',
                 borderRadius: '12px',
-                border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
-                background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+                border: '1px solid color-mix(in srgb, var(--line) 78%, transparent 22%)',
+                background: 'color-mix(in srgb, var(--bg-1) 90%, white 10%)',
                 marginBottom: '0.8rem',
                 lineHeight: 1.7,
-                color: 'var(--text-primary)',
+                color: 'var(--fg)',
                 fontSize: '0.9rem',
               }}
             >
@@ -448,7 +448,7 @@ export default function SuggestionManagement() {
             </div>
 
             <div style={{ marginBottom: '0.8rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--text-primary)', fontSize: '0.82rem', fontWeight: 700 }}>
+              <label style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--fg)', fontSize: '0.82rem', fontWeight: 700 }}>
                 状态
               </label>
               <select
@@ -458,9 +458,9 @@ export default function SuggestionManagement() {
                   width: '100%',
                   padding: '0.6rem',
                   borderRadius: '10px',
-                  border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
-                  background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
-                  color: 'var(--text-primary)',
+                  border: '1px solid color-mix(in srgb, var(--line) 78%, transparent 22%)',
+                  background: 'color-mix(in srgb, var(--bg-1) 90%, white 10%)',
+                  color: 'var(--fg)',
                   fontSize: '0.84rem',
                 }}
               >
@@ -472,7 +472,7 @@ export default function SuggestionManagement() {
             </div>
 
             <div style={{ marginBottom: '0.9rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--text-primary)', fontSize: '0.82rem', fontWeight: 700 }}>
+              <label style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--fg)', fontSize: '0.82rem', fontWeight: 700 }}>
                 管理员回复
               </label>
               <textarea
@@ -483,9 +483,9 @@ export default function SuggestionManagement() {
                 style={{
                   width: '100%',
                   borderRadius: '10px',
-                  border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
-                  background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
-                  color: 'var(--text-primary)',
+                  border: '1px solid color-mix(in srgb, var(--line) 78%, transparent 22%)',
+                  background: 'color-mix(in srgb, var(--bg-1) 90%, white 10%)',
+                  color: 'var(--fg)',
                   fontSize: '0.84rem',
                   lineHeight: 1.6,
                   resize: 'vertical',
@@ -500,9 +500,9 @@ export default function SuggestionManagement() {
                 style={{
                   padding: '0.56rem 0.9rem',
                   borderRadius: '10px',
-                  border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
-                  background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
-                  color: 'var(--text-primary)',
+                  border: '1px solid color-mix(in srgb, var(--line) 78%, transparent 22%)',
+                  background: 'color-mix(in srgb, var(--bg-1) 90%, white 10%)',
+                  color: 'var(--fg)',
                   fontSize: '0.82rem',
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -516,8 +516,8 @@ export default function SuggestionManagement() {
                 style={{
                   padding: '0.56rem 0.9rem',
                   borderRadius: '10px',
-                  border: '1px solid color-mix(in srgb, var(--accent-primary) 32%, transparent 68%)',
-                  background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
+                  border: '1px solid color-mix(in srgb, var(--accent) 32%, transparent 68%)',
+                  background: 'linear-gradient(135deg, var(--accent), var(--accent))',
                   color: '#fff',
                   fontSize: '0.82rem',
                   fontWeight: 700,

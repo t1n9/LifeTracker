@@ -56,7 +56,7 @@ export default function ProfilePage() {
   });
 
   const pageShellStyle: React.CSSProperties = {
-    backgroundColor: 'var(--bg-primary)',
+    backgroundColor: 'var(--bg-0)',
     height: '100vh',
     overflowY: 'auto',
     overflowX: 'hidden',
@@ -219,17 +219,17 @@ export default function ProfilePage() {
   // 页面加载中
   if (isAuthLoading || !hasInitialized || isPageLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={pageShellStyle}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p style={{ color: 'var(--text-secondary)' }}>加载用户信息中...</p>
+      <div style={{ ...pageShellStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: '36px', height: '36px', border: '3px solid var(--line)', borderTop: '3px solid var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 14px' }} />
+          <p style={{ margin: 0, color: 'var(--fg-3)', fontSize: '13px' }}>加载用户信息中…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={pageShellStyle}>
+    <div style={pageShellStyle}>
 
       <div className="profile-container">
         {/* 页面头部 */}
@@ -303,31 +303,31 @@ export default function ProfilePage() {
               <form onSubmit={handleProfileUpdate} className="form-container">
                 <div className="form-group">
                   <label htmlFor="name">姓名 *</label>
-                  <div className="input-with-icon">
-                    <User size={18} />
+                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--line-2)', borderRadius: '10px', background: 'var(--bg-0)', overflow: 'hidden' }}>
+                    <User size={16} style={{ flexShrink: 0, margin: '0 10px', color: 'var(--fg-4)' }} />
                     <input
                       type="text"
                       id="name"
-                      className="form-input"
                       value={userData.name}
                       onChange={(e) => setUserData(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="请输入姓名"
                       required
+                      style={{ flex: 1, padding: '10px 12px 10px 0', border: 'none', background: 'transparent', color: 'var(--fg)', fontSize: '14px', fontFamily: 'var(--font-sans)', outline: 'none' }}
                     />
                   </div>
                 </div>
 
                 <div className="form-group">
                   <label htmlFor="email">邮箱</label>
-                  <div className="input-with-icon">
-                    <Mail size={18} />
+                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--line-2)', borderRadius: '10px', background: 'var(--bg-0)', overflow: 'hidden', opacity: 0.7 }}>
+                    <Mail size={16} style={{ flexShrink: 0, margin: '0 10px', color: 'var(--fg-4)' }} />
                     <input
-                      type="email"
+                      type="text"
                       id="email"
-                      className="form-input"
                       value={userData.email}
                       disabled
                       placeholder="邮箱不可修改"
+                      style={{ flex: 1, padding: '10px 12px 10px 0', border: 'none', background: 'transparent', color: 'var(--fg-3)', fontSize: '14px', fontFamily: 'var(--font-sans)', outline: 'none', cursor: 'not-allowed' }}
                     />
                   </div>
                   <small className="form-help">邮箱地址不可修改</small>
@@ -363,80 +363,39 @@ export default function ProfilePage() {
           {/* 修改密码标签页 */}
           {activeTab === 'password' && (
             <form onSubmit={handlePasswordChange} className="form-container">
-              <div className="form-group">
-                <label htmlFor="currentPassword">当前密码 *</label>
-                <div className="password-input">
-                  <input
-                    type={showPasswords.current ? 'text' : 'password'}
-                    id="currentPassword"
-                    className="form-input"
-                    value={passwordData.currentPassword}
-                    onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                    placeholder="请输入当前密码"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    onClick={() => togglePasswordVisibility('current')}
-                  >
-                    {showPasswords.current ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="newPassword">新密码 *</label>
-                <div className="password-input">
-                  <input
-                    type={showPasswords.new ? 'text' : 'password'}
-                    id="newPassword"
-                    className="form-input"
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                    placeholder="请输入新密码（至少6位）"
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    onClick={() => togglePasswordVisibility('new')}
-                  >
-                    {showPasswords.new ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="confirmPassword">确认新密码 *</label>
-                <div className="password-input">
-                  <input
-                    type={showPasswords.confirm ? 'text' : 'password'}
-                    id="confirmPassword"
-                    className="form-input"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                    placeholder="请再次输入新密码"
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    onClick={() => togglePasswordVisibility('confirm')}
-                  >
-                    {showPasswords.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-
+              {(['current', 'new', 'confirm'] as const).map((field) => {
+                const labels = { current: '当前密码 *', new: '新密码 *', confirm: '确认新密码 *' };
+                const placeholders = { current: '请输入当前密码', new: '请输入新密码（至少6位）', confirm: '请再次输入新密码' };
+                const keys = { current: 'currentPassword', new: 'newPassword', confirm: 'confirmPassword' } as const;
+                return (
+                  <div key={field} className="form-group">
+                    <label htmlFor={keys[field]}>{labels[field]}</label>
+                    <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--line-2)', borderRadius: '10px', background: 'var(--bg-0)', overflow: 'hidden' }}>
+                      <input
+                        type={showPasswords[field] ? 'text' : 'password'}
+                        id={keys[field]}
+                        value={passwordData[keys[field]]}
+                        onChange={(e) => setPasswordData(prev => ({ ...prev, [keys[field]]: e.target.value }))}
+                        placeholder={placeholders[field]}
+                        required
+                        minLength={field !== 'current' ? 6 : undefined}
+                        style={{ flex: 1, padding: '10px 0 10px 12px', border: 'none', background: 'transparent', color: 'var(--fg)', fontSize: '14px', fontFamily: 'var(--font-sans)', outline: 'none' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => togglePasswordVisibility(field)}
+                        style={{ padding: '0 12px', background: 'none', border: 'none', color: 'var(--fg-4)', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                        onMouseEnter={e => (e.currentTarget.style.color = 'var(--fg)')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg-4)')}
+                      >
+                        {showPasswords[field] ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
               <div className="form-actions">
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={isLoading}
-                >
+                <button type="submit" className="btn btn-primary" disabled={isLoading}>
                   <Lock size={16} />
                   {isLoading ? '修改中...' : '修改密码'}
                 </button>

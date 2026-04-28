@@ -9,6 +9,42 @@
   font-family: var(--font-sans);
 }
 
+/* 顶栏的过渡能力 */
+.topbar {
+  max-height: 200px;
+  transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 专注模式：隐藏顶栏 + 页脚 */
+.boardFocus .topbar {
+  flex: 0 0 0;
+  height: 0;
+  min-height: 0;
+  opacity: 0;
+  max-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border-bottom: none;
+  pointer-events: none;
+}
+
+.boardFocus .topbarRow1,
+.boardFocus .topbarRow2 {
+  height: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.boardFocus .footer {
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* ── 顶栏 ─────────────────────────────────────────────── */
 
 .topbar {
@@ -213,6 +249,79 @@
   display: grid;
   grid-template-columns: 360px 1fr 360px;
   gap: 0;
+  transition: grid-template-columns 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+              grid-template-rows 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── 专注模式：左右栏收缩，中栏扩展 ── */
+.columns.focusMode {
+  grid-template-columns: 0px 1fr 0px;
+}
+
+.columns.focusMode .colLeft,
+.columns.focusMode .aiCol {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.columns.focusMode .colMid {
+  /* 中栏自然扩展，无需额外样式 */
+}
+
+/* 退出专注按钮 */
+.focusExitBtn {
+  position: fixed;
+  top: 68px;
+  right: 20px;
+  z-index: 50;
+  appearance: none;
+  border: 1px solid var(--line-2);
+  background: var(--bg-1);
+  color: var(--fg-2);
+  font: 600 12px var(--font-sans);
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  animation: focusExitIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.focusExitBtn:hover {
+  background: var(--bg-2);
+  color: var(--fg);
+  border-color: var(--accent);
+}
+
+@keyframes focusExitIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 中栏退出专注图标按钮 */
+.centerFocusExit {
+  appearance: none;
+  border: 1px solid var(--line-2);
+  background: var(--bg-1);
+  color: var(--fg-3);
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.centerFocusExit:hover {
+  background: var(--bg-2);
+  color: var(--fg);
+  border-color: var(--accent);
 }
 
 /* ── 列通用 ───────────────────────────────────────────── */
@@ -228,11 +337,17 @@
   composes: col;
   border-right: 1px solid var(--line);
   background: var(--bg-1);
+  transition:
+    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    max-height 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.45s ease;
+  overflow: hidden;
 }
 
 .colMid {
   composes: col;
   background: var(--bg-1);
+  transition: min-height 0.65s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .colRight {
@@ -306,12 +421,101 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ── 专注模式信息条 ──────────────────────────────────────── */
+
+.focusInfoBar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  border-bottom: 0px solid var(--line);
+  transition: max-height 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+              border-bottom-width 0.4s ease,
+              padding 0.4s ease;
+}
+
+.focusInfoBarVisible {
+  max-height: 48px;
+  opacity: 1;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.focusInfoClock {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  line-height: 48px;
+}
+
+.focusInfoDivider {
+  width: 1px;
+  height: 16px;
+  background: var(--line);
+  flex-shrink: 0;
+}
+
+.focusInfoLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.focusInfoPill {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
+
+.focusInfoMono {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.focusInfoTask {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
 .pomodoroWrap {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+}
+
+/* 专注模式下锁定不可滚动，内容必须适配容器 */
+.columns.focusMode .pomodoroWrap {
+  overflow: hidden;
 }
 
 .pomodoroWrap > div {
@@ -326,6 +530,8 @@
 
 .aiCol {
   composes: colRight;
+  overflow: hidden;
+  transition: opacity 0.35s ease;
 }
 
 /* ── 平板响应式 ───────────────────────────────────────── */
@@ -334,11 +540,18 @@
   .columns {
     grid-template-columns: 320px 1fr 320px;
   }
+  .columns.focusMode {
+    grid-template-columns: 0px 1fr 0px;
+  }
 }
 
 @media (max-width: 900px) {
   .columns {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: min(340px, 50%) 1fr;
+  }
+
+  .columns.focusMode {
+    grid-template-columns: 0px 1fr;
   }
 
   /* 第一行窄屏：隐藏 statusStrip，品牌+工具紧凑布局 */
@@ -357,12 +570,12 @@
   .topbarRow2 {
     display: flex;
     align-items: center;
-    height: 36px;
+    height: 32px;
     padding: 0 14px;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid color-mix(in srgb, var(--line) 50%, transparent 50%);
     overflow-x: auto;
     scrollbar-width: none;
-    background: var(--bg-0);
+    background: transparent;
     font-size: 11px;
   }
 
@@ -413,16 +626,29 @@
 }
 
 @media (max-width: 600px) {
+  /* 移动端：退出固定视口模式，改为自然页面流 */
   .board {
+    height: auto;
+    min-height: 100dvh;
     overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .topbar {
     height: auto;
-    min-height: 56px;
-    grid-template-columns: 1fr auto;
-    gap: 10px;
-    padding: 10px 14px;
+    min-height: 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 0;
+    gap: 0;
+  }
+
+  .topbarRow1 {
+    grid-template-columns: auto auto;
+    justify-content: space-between;
+    padding: 0 14px;
+    height: 48px;
   }
 
   .brand {
@@ -435,6 +661,42 @@
     display: none;
   }
 
+  .topbarRow2 {
+    display: flex;
+    height: 28px;
+    padding: 0 12px;
+    font-size: 10.5px;
+    border-top: 1px solid color-mix(in srgb, var(--line) 50%, transparent 50%);
+    background: transparent;
+  }
+
+  .topbarRow2 .clock {
+    font-size: 12px;
+  }
+
+  .topbarRow2 .clockSec {
+    display: none;
+  }
+
+  .topbarRow2 .seg {
+    padding: 0 10px;
+    height: 22px;
+    gap: 5px;
+  }
+
+  .topbarRow2 .segLabel {
+    font-size: 8px;
+  }
+
+  .topbarRow2 .segVal {
+    font-size: 10.5px;
+  }
+
+  .topbarRow2 .goalPill {
+    font-size: 9.5px;
+    padding: 1px 5px;
+  }
+
   .rightTools {
     gap: 6px;
   }
@@ -445,22 +707,103 @@
     border-radius: 7px;
   }
 
+  /* 移动端：columns 恢复自然高度，不固定 flex */
   .columns {
-    grid-template-columns: 1fr;
-    min-height: auto;
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    min-height: 0;
+    height: auto;
+  }
+
+  /* 移动端专注模式：隐藏任务列 */
+  .columns.focusMode .colLeft {
+    max-height: 0 !important;
+    opacity: 0;
+    pointer-events: none;
+    border-bottom-color: transparent;
   }
 
   .colLeft {
     border-right: none;
     border-bottom: 1px solid var(--line);
+    max-height: 2000px;
+    flex-shrink: 0;
+    overflow: visible;
+    transition: max-height 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+                border-color 0.45s ease;
   }
 
   .colMid {
-    display: flex;
+    flex: none;
+    min-height: 0;
+    display: block;
   }
 
+  /* 移动端 pomodoroWrap 自然高度，不锁定 */
   .taskWrap,
   .pomodoroWrap {
     overflow: visible;
+    flex: none;
+    height: auto;
+  }
+
+  /* 移动端专注模式下 pomodoroWrap 不锁定（覆盖宽屏规则） */
+  .columns.focusMode .pomodoroWrap {
+    overflow: visible;
+  }
+
+  .focusExitBtn {
+    top: 10px;
+    right: 10px;
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  /* 移动端专注模式：固定视口、撑满全屏 */
+  .boardFocus {
+    position: fixed;
+    inset: 0;
+    height: 100dvh;
+    overflow: hidden;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .boardFocus .topbar {
+    position: static;
+    flex-shrink: 0;
+  }
+
+  .boardFocus .columns {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .boardFocus .colMid {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .boardFocus .pomodoroWrap {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .boardFocus .centerBody {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 }

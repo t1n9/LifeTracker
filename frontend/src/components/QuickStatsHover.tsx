@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, Wallet } from 'lucide-react';
 import { exerciseAPI, expenseAPI } from '@/lib/api';
+import { AGENT_DATA_CHANGED_EVENT, eventAffectsDomains } from '@/lib/agent-events';
 
 /* ── types ── */
 interface ExerciseLog {
@@ -29,7 +30,8 @@ function CombinedPanel() {
   const [loadingEx, setLoadingEx] = useState(true);
   const [loadingExp, setLoadingExp] = useState(true);
 
-  useEffect(() => {
+  const loadExercise = useCallback(() => {
+    setLoadingEx(true);
     exerciseAPI.getTodayLogs()
       .then(r => {
         const payload = r.data?.data ?? r.data;
@@ -37,16 +39,32 @@ function CombinedPanel() {
       })
       .catch(() => setExercise([]))
       .finally(() => setLoadingEx(false));
+  }, []);
 
+  const loadExpense = useCallback(() => {
+    setLoadingExp(true);
     expenseAPI.getTodayExpenses()
       .then(r => {
-        // controller returns { data: { meals, others, totalMeal, totalOther } }
         const payload = r.data?.data ?? r.data;
         setExpense(payload ?? null);
       })
       .catch(() => setExpense(null))
       .finally(() => setLoadingExp(false));
   }, []);
+
+  useEffect(() => {
+    loadExercise();
+    loadExpense();
+  }, [loadExercise, loadExpense]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      if (eventAffectsDomains(event, ['exercise'])) loadExercise();
+      if (eventAffectsDomains(event, ['expenses'])) loadExpense();
+    };
+    window.addEventListener(AGENT_DATA_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(AGENT_DATA_CHANGED_EVENT, handler);
+  }, [loadExercise, loadExpense]);
 
   const activeEx = (exercise ?? []).filter(r => r.totalValue > 0);
 
@@ -117,6 +135,71 @@ function CombinedPanel() {
   );
 }
 
+/* ── shared panel styles ── */
+const PANEL_CSS = `
+  .qs-panel-head {
+    padding: 8px 14px 6px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--fg-4);
+    background: var(--bg-2);
+  }
+  .qs-divider { height: 1px; background: var(--line); margin: 0; }
+  .qs-body { padding: 9px 12px; display: flex; flex-direction: column; gap: 7px; }
+  .qs-empty { margin:0; font-size:12px; color:var(--fg-4); text-align:center; padding:2px 0; }
+  .qs-grid { display:flex; flex-direction:column; gap:4px; }
+  .qs-stat {
+    display:flex; align-items:center; gap:8px;
+    padding:5px 8px;
+    background:var(--bg-2); border:1px solid var(--line); border-radius:8px;
+  }
+  .qs-stat-icon { font-size:13px; }
+  .qs-stat-name { flex:1; font-size:12px; color:var(--fg-2); font-weight:500; }
+  .qs-stat-val  { font-size:12.5px; font-weight:700; color:var(--fg); font-family:var(--font-mono); }
+  .qs-stat-unit { font-size:10px; color:var(--fg-3); margin-left:2px; font-weight:400; }
+  .qs-meal-row { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; }
+  .qs-meal {
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    padding:6px 4px;
+    background:var(--bg-2); border:1px solid var(--line); border-radius:8px;
+  }
+  .qs-meal-label { font-size:9px; color:var(--fg-3); font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+  .qs-meal-val   { font-size:12.5px; font-weight:700; color:var(--fg); font-family:var(--font-mono); }
+  .qs-others { display:flex; flex-direction:column; gap:3px; max-height:90px; overflow-y:auto; }
+  .qs-other-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:3px 6px; font-size:11.5px;
+    background:var(--bg-2); border-radius:6px;
+  }
+  .qs-other-name { color:var(--fg-2); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .qs-other-amt  { color:var(--accent); font-weight:600; font-family:var(--font-mono); margin-left:8px; flex-shrink:0; }
+  .qs-total { font-size:11.5px; color:var(--fg-3); text-align:right; padding-top:4px; border-top:1px solid var(--line); }
+  .qs-total strong { color:var(--accent); font-family:var(--font-mono); font-size:12.5px; }
+`;
+
+/* ── inline panel export for mobile ── */
+export function QuickStatsInline() {
+  return (
+    <>
+      <style>{`
+        ${PANEL_CSS}
+        .qs-inline {
+          margin: 0 0 12px;
+          border: 1px solid var(--line);
+          border-radius: 16px;
+          background: var(--bg-1);
+          overflow: hidden;
+        }
+      `}</style>
+      <div className="qs-inline">
+        <CombinedPanel />
+      </div>
+    </>
+  );
+}
+
 /* ── pill with hover dropdown ── */
 export default function QuickStatsHover() {
   const [open, setOpen] = useState(false);
@@ -157,6 +240,7 @@ export default function QuickStatsHover() {
           background: var(--line-2);
           display: inline-block;
         }
+        ${PANEL_CSS}
         /* dropdown */
         .qs-dropdown {
           position: absolute;
@@ -175,52 +259,6 @@ export default function QuickStatsHover() {
           from { opacity:0; transform:translateY(-4px); }
           to   { opacity:1; transform:translateY(0); }
         }
-        .qs-panel-head {
-          padding: 8px 14px 6px;
-          font-size: 9.5px;
-          font-weight: 700;
-          letter-spacing: .12em;
-          text-transform: uppercase;
-          color: var(--fg-4);
-          background: var(--bg-2);
-        }
-        .qs-divider {
-          height: 1px;
-          background: var(--line);
-          margin: 0;
-        }
-        .qs-body { padding: 9px 12px; display: flex; flex-direction: column; gap: 7px; }
-        .qs-empty { margin:0; font-size:12px; color:var(--fg-4); text-align:center; padding:2px 0; }
-        /* exercise */
-        .qs-grid { display:flex; flex-direction:column; gap:4px; }
-        .qs-stat {
-          display:flex; align-items:center; gap:8px;
-          padding:5px 8px;
-          background:var(--bg-2); border:1px solid var(--line); border-radius:8px;
-        }
-        .qs-stat-icon { font-size:13px; }
-        .qs-stat-name { flex:1; font-size:12px; color:var(--fg-2); font-weight:500; }
-        .qs-stat-val  { font-size:12.5px; font-weight:700; color:var(--fg); font-family:var(--font-mono); }
-        .qs-stat-unit { font-size:10px; color:var(--fg-3); margin-left:2px; font-weight:400; }
-        /* expense */
-        .qs-meal-row { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; }
-        .qs-meal {
-          display:flex; flex-direction:column; align-items:center; gap:2px;
-          padding:6px 4px;
-          background:var(--bg-2); border:1px solid var(--line); border-radius:8px;
-        }
-        .qs-meal-label { font-size:9px; color:var(--fg-3); font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
-        .qs-meal-val   { font-size:12.5px; font-weight:700; color:var(--fg); font-family:var(--font-mono); }
-        .qs-others { display:flex; flex-direction:column; gap:3px; max-height:90px; overflow-y:auto; }
-        .qs-other-row {
-          display:flex; justify-content:space-between; align-items:center;
-          padding:3px 6px; font-size:11.5px;
-          background:var(--bg-2); border-radius:6px;
-        }
-        .qs-other-name { color:var(--fg-2); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .qs-other-amt  { color:var(--accent); font-weight:600; font-family:var(--font-mono); margin-left:8px; flex-shrink:0; }
-        .qs-total { font-size:11.5px; color:var(--fg-3); text-align:right; padding-top:4px; border-top:1px solid var(--line); }
-        .qs-total strong { color:var(--accent); font-family:var(--font-mono); font-size:12.5px; }
       `}</style>
 
       <div className="qs-pill-wrap" onMouseEnter={show} onMouseLeave={hide}>

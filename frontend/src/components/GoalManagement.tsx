@@ -9,26 +9,26 @@ interface GoalManagementProps {
 type GoalForm = StartGoalData & { startDate?: string };
 
 const CARD_STYLE: React.CSSProperties = {
-  border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-  background: 'color-mix(in srgb, var(--bg-secondary) 97%, #eef2ef 3%)',
+  border: '1px solid color-mix(in srgb, var(--line) 76%, transparent 24%)',
+  background: 'color-mix(in srgb, var(--bg-1) 97%, #eef2ef 3%)',
   boxShadow: '0 14px 28px rgba(15, 23, 42, 0.045)',
   borderRadius: '16px',
   padding: '1.25rem',
 };
 
 const BLOCK_STYLE: React.CSSProperties = {
-  border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
-  background: 'color-mix(in srgb, var(--bg-tertiary) 90%, var(--bg-secondary) 10%)',
+  border: '1px solid color-mix(in srgb, var(--line) 78%, transparent 22%)',
+  background: 'color-mix(in srgb, var(--bg-2) 90%, var(--bg-1) 10%)',
   borderRadius: '14px',
   padding: '1rem',
 };
 
 const INPUT_STYLE: React.CSSProperties = {
   width: '100%',
-  border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
+  border: '1px solid color-mix(in srgb, var(--line) 78%, transparent 22%)',
   borderRadius: '8px',
-  background: 'color-mix(in srgb, var(--bg-secondary) 96%, #e7ece9 4%)',
-  color: 'var(--text-primary)',
+  background: 'color-mix(in srgb, var(--bg-1) 96%, #e7ece9 4%)',
+  color: 'var(--fg)',
   padding: '0.55rem 0.7rem',
 };
 
@@ -202,7 +202,7 @@ export default function GoalManagement({ onGoalChange }: GoalManagementProps) {
   if (loading) {
     return (
       <div style={CARD_STYLE}>
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>加载中...</div>
+        <div style={{ textAlign: 'center', color: 'var(--fg-3)' }}>加载中...</div>
       </div>
     );
   }
@@ -211,7 +211,7 @@ export default function GoalManagement({ onGoalChange }: GoalManagementProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <div style={CARD_STYLE}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: 700 }}>当前目标</h3>
+          <h3 style={{ margin: 0, color: 'var(--fg)', fontSize: '1.05rem', fontWeight: 700 }}>当前目标</h3>
           <button
             onClick={() => {
               setEditingGoal(null);
@@ -220,7 +220,7 @@ export default function GoalManagement({ onGoalChange }: GoalManagementProps) {
               resetForm();
             }}
             className="btn btn-primary btn-sm"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', alignSelf: 'flex-start' }}
           >
             <Plus size={14} />
             {showNewGoalForm ? '收起新目标' : '开启新目标'}
@@ -228,14 +228,14 @@ export default function GoalManagement({ onGoalChange }: GoalManagementProps) {
         </div>
 
         {currentGoal ? (
-          <div style={{ ...BLOCK_STYLE, borderColor: 'color-mix(in srgb, var(--accent-primary) 24%, var(--border-color) 76%)' }}>
+          <div style={{ ...BLOCK_STYLE, borderColor: 'color-mix(in srgb, var(--accent) 24%, var(--line) 76%)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.8rem', flexWrap: 'wrap' }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: 'var(--text-primary)', fontSize: '1.03rem', fontWeight: 700 }}>{currentGoal.goalName}</div>
+                <div style={{ color: 'var(--fg)', fontSize: '1.03rem', fontWeight: 700 }}>{currentGoal.goalName}</div>
                 {currentGoal.description && (
-                  <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem', lineHeight: 1.6 }}>{currentGoal.description}</div>
+                  <div style={{ color: 'var(--fg-2)', marginTop: '0.25rem', lineHeight: 1.6 }}>{currentGoal.description}</div>
                 )}
-                <div style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.88rem', display: 'flex', gap: '0.9rem', flexWrap: 'wrap' }}>
+                <div style={{ marginTop: '0.5rem', color: 'var(--fg-2)', fontSize: '0.88rem', display: 'flex', gap: '0.9rem', flexWrap: 'wrap' }}>
                   <span>开始：{formatDate(currentGoal.startDate)}</span>
                   {currentGoal.targetDate && <span>目标：{formatDate(currentGoal.targetDate)}</span>}
                 </div>
@@ -244,7 +244,7 @@ export default function GoalManagement({ onGoalChange }: GoalManagementProps) {
                 onClick={handleCompleteGoal}
                 disabled={isSubmitting}
                 className="btn btn-sm"
-                style={{ background: '#16a34a', color: '#fff', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                style={{ background: 'var(--success-color)', color: '#fff', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', alignSelf: 'flex-start', flexShrink: 0 }}
               >
                 <Check size={14} />
                 完成目标
@@ -252,14 +252,14 @@ export default function GoalManagement({ onGoalChange }: GoalManagementProps) {
             </div>
           </div>
         ) : (
-          <div style={{ ...BLOCK_STYLE, borderStyle: 'dashed', color: 'var(--text-muted)', textAlign: 'center' }}>
+          <div style={{ ...BLOCK_STYLE, borderStyle: 'dashed', color: 'var(--fg-3)', textAlign: 'center' }}>
             暂无当前目标，建议先开启一个新的阶段目标。
           </div>
         )}
 
         {showNewGoalForm && (
           <div style={{ ...BLOCK_STYLE, marginTop: '0.9rem' }}>
-            <h4 style={{ margin: '0 0 0.75rem', color: 'var(--text-primary)', fontSize: '0.96rem' }}>开启新目标</h4>
+            <h4 style={{ margin: '0 0 0.75rem', color: 'var(--fg)', fontSize: '0.96rem' }}>开启新目标</h4>
             <form onSubmit={handleStartNewGoal} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
               <input
                 type="text"
@@ -301,9 +301,9 @@ export default function GoalManagement({ onGoalChange }: GoalManagementProps) {
       </div>
 
       <div style={CARD_STYLE}>
-        <h3 style={{ margin: '0 0 0.9rem', color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: 700 }}>目标历史</h3>
+        <h3 style={{ margin: '0 0 0.9rem', color: 'var(--fg)', fontSize: '1.05rem', fontWeight: 700 }}>目标历史</h3>
         {goalHistory.length === 0 ? (
-          <div style={{ ...BLOCK_STYLE, textAlign: 'center', color: 'var(--text-muted)' }}>暂无历史目标</div>
+          <div style={{ ...BLOCK_STYLE, textAlign: 'center', color: 'var(--fg-3)' }}>暂无历史目标</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
             {goalHistory.map((goal) => {
@@ -313,7 +313,7 @@ export default function GoalManagement({ onGoalChange }: GoalManagementProps) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.7rem', flexWrap: 'wrap' }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                        <strong style={{ color: 'var(--text-primary)' }}>{goal.goalName}</strong>
+                        <strong style={{ color: 'var(--fg)' }}>{goal.goalName}</strong>
                         <span
                           style={{
                             fontSize: '0.74rem',
@@ -327,12 +327,12 @@ export default function GoalManagement({ onGoalChange }: GoalManagementProps) {
                           {goal.status === 'COMPLETED' ? '已完成' : goal.status === 'TERMINATED' ? '已终止' : '进行中'}
                         </span>
                       </div>
-                      <div style={{ marginTop: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.84rem', display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+                      <div style={{ marginTop: '0.35rem', color: 'var(--fg-2)', fontSize: '0.84rem', display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
                         <span>开始：{formatDate(goal.startDate)}</span>
                         {goal.targetDate && <span>目标：{formatDate(goal.targetDate)}</span>}
                         {goal.endDate && <span>结束：{formatDate(goal.endDate)}</span>}
                       </div>
-                      {goal.description && <div style={{ marginTop: '0.25rem', color: 'var(--text-secondary)', fontSize: '0.86rem' }}>{goal.description}</div>}
+                      {goal.description && <div style={{ marginTop: '0.25rem', color: 'var(--fg-2)', fontSize: '0.86rem' }}>{goal.description}</div>}
                     </div>
                     <button
                       onClick={() => {
@@ -345,7 +345,7 @@ export default function GoalManagement({ onGoalChange }: GoalManagementProps) {
                         }
                       }}
                       className="btn btn-primary btn-sm"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', alignSelf: 'flex-start', flexShrink: 0 }}
                     >
                       <Edit size={14} />
                       {isEditing ? '收起编辑' : '编辑'}
@@ -353,7 +353,7 @@ export default function GoalManagement({ onGoalChange }: GoalManagementProps) {
                   </div>
 
                   {isEditing && (
-                    <form onSubmit={handleUpdateGoal} style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    <form onSubmit={handleUpdateGoal} style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid color-mix(in srgb, var(--line) 76%, transparent 24%)', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                       <input
                         type="text"
                         value={formData.goalName}

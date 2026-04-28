@@ -5,18 +5,17 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   CalendarClock, History, LayoutDashboard,
-  Moon, Settings2, Sun, Sunrise, Sunset,
+  Moon, Settings2, Sun, X,
 } from 'lucide-react';
-import { userAPI, studyAPI, taskAPI } from '@/lib/api';
-import { AGENT_DATA_CHANGED_EVENT, eventAffectsDomains } from '@/lib/agent-events';
+import { userAPI, studyAPI, taskAPI, dailyAPI } from '@/lib/api';
+import { AGENT_DATA_CHANGED_EVENT, eventAffectsDomains, PROACTIVE_TRIGGER_EVENT } from '@/lib/agent-events';
 import { goalService, UserGoal } from '../services/goalService';
-import DayReflection from './daily/DayReflection';
 import HistoryViewer from './HistoryViewer';
 import PomodoroTimer, { PomodoroTimerRef } from './PomodoroTimer';
 import PendingTasks from './PendingTasks';
 import AgentChatPanel from './AgentChatPanel';
 import StudyPlanSidebar, { StudyPlanSidebarRef } from './StudyPlanSidebar';
-import QuickStatsHover from './QuickStatsHover';
+import QuickStatsHover, { QuickStatsInline } from './QuickStatsHover';
 import '../styles/theme.css';
 import styles from './DashboardBoard.module.css';
 
@@ -47,12 +46,10 @@ export default function Dashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
-  const [isDayReflectionOpen, setIsDayReflectionOpen] = useState(false);
-  const [dayReflectionMode, setDayReflectionMode] = useState<'start' | 'reflection'>('start');
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [dayStarted, setDayStarted] = useState(false);
+  const [isFocusMode, setIsFocusMode] = useState(false);
 
-  const [dayStartRefreshTrigger, setDayStartRefreshTrigger] = useState(0);
   const [pomodoroCompleteRefreshTrigger, setPomodoroCompleteRefreshTrigger] = useState(0);
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0);
 
@@ -126,10 +123,29 @@ export default function Dashboard() {
     loadTasks();
   }, []);
 
+  // ── 晨间流检测：若无 dayStart 则发送 morning 主动推送 ──
+  useEffect(() => {
+    let cancelled = false;
+    const checkDayStart = async () => {
+      try {
+        const res = await dailyAPI.getTodayStatus();
+        const hasDayStart = res.data?.dayStart;
+        if (!cancelled && !hasDayStart) {
+          window.dispatchEvent(
+            new CustomEvent(PROACTIVE_TRIGGER_EVENT, {
+              detail: { trigger: 'morning' },
+            }),
+          );
+        }
+      } catch { /* 静默失败，不影响主流程 */ }
+    };
+    void checkDayStart();
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     const handler = (event: Event) => {
       if (eventAffectsDomains(event, ['tasks'])) { loadTasks(); setTaskRefreshTrigger(n => n + 1); }
-      if (eventAffectsDomains(event, ['dayStart'])) setDayStartRefreshTrigger(n => n + 1);
       if (eventAffectsDomains(event, ['study'])) loadTodayStats();
       if (eventAffectsDomains(event, ['pomodoro'])) pomodoroTimerRef.current?.refreshSession();
     };
@@ -141,6 +157,14 @@ export default function Dashboard() {
     const t = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // ── 专注模式 Escape 退出 ──
+  useEffect(() => {
+    if (!isFocusMode) return;
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsFocusMode(false); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isFocusMode]);
 
   useEffect(() => {
     const updateViewportWidth = () => setViewportWidth(window.innerWidth);
@@ -242,7 +266,7 @@ export default function Dashboard() {
   // ── 渲染 ──────────────────────────────────────────────────────────
 
   return (
-    <div className={styles.board}>
+    <div className={`${styles.board}${isFocusMode ? ` ${styles.boardFocus}` : ''}`}>
 
       {/* ── 顶栏 ── */}
       <header className={styles.topbar}>
@@ -300,14 +324,6 @@ export default function Dashboard() {
 
           {/* 右侧工具 */}
           <div className={styles.rightTools}>
-            <button className={styles.iconBtn} title="开启今日"
-              onClick={() => { setDayReflectionMode('start'); setIsDayReflectionOpen(true); }}>
-              <Sunrise size={14} />
-            </button>
-            <button className={styles.iconBtn} title="今日总结"
-              onClick={() => { setDayReflectionMode('reflection'); setIsDayReflectionOpen(true); }}>
-              <Sunset size={16} />
-            </button>
             <button className={styles.iconBtn} title="学习计划"
               onClick={() => studyPlanSidebarRef.current?.open()}>
               <CalendarClock size={16} />
@@ -324,9 +340,9 @@ export default function Dashboard() {
               onClick={() => router.push('/profile')}>
               <Settings2 size={16} />
             </button>
-            <span className={styles.toolDivider} />
-            <QuickStatsHover />
-            <span className={styles.toolDivider} />
+            {!isMobile && <span className={styles.toolDivider} />}
+            {!isMobile && <QuickStatsHover />}
+            {!isMobile && <span className={styles.toolDivider} />}
             <button className={styles.iconBtn} title="切换主题" onClick={handleThemeToggle}>
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
@@ -367,7 +383,7 @@ export default function Dashboard() {
       </header>
 
       {/* ── 三列主区 ── */}
-      <div className={styles.columns}>
+      <div className={`${styles.columns}${isFocusMode ? ` ${styles.focusMode}` : ''}`}>
 
         {/* 左列：任务列表 */}
         <div className={styles.colLeft}>
@@ -377,7 +393,6 @@ export default function Dashboard() {
               onStartCountUp={handleStartCountUp}
               currentBoundTask={currentBoundTask}
               isRunning={isPomodoroRunning}
-              dayStartRefreshTrigger={dayStartRefreshTrigger}
               pomodoroCompleteRefreshTrigger={pomodoroCompleteRefreshTrigger}
               onCompleteTaskWithPomodoro={handleCompleteTaskWithPomodoro}
               onCompleteTaskCancelPomodoro={handleCompleteTaskCancelPomodoro}
@@ -392,13 +407,48 @@ export default function Dashboard() {
         {/* 中列：番茄钟 */}
         <div className={styles.colMid}>
           <div className={styles.centerBody}>
+            {/* 常驻标题栏 */}
             <div className={styles.centerHeader}>
               <div className={styles.centerTitleWrap}>
                 <span className={styles.centerTitle}>专注计时</span>
               </div>
-              <span className={styles.centerMeta}>
-                {currentBoundTask ? '已绑定任务' : '未绑定任务'}
+              {isFocusMode && (
+                <button
+                  className={styles.centerFocusExit}
+                  onClick={() => setIsFocusMode(false)}
+                  title="退出专注模式 (Esc)"
+                  aria-label="退出专注模式"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+            {/* 专注模式信息条：时钟 + 目标 + 今日进度 */}
+            <div className={`${styles.focusInfoBar}${isFocusMode ? ` ${styles.focusInfoBarVisible}` : ''}`}>
+              <span className={styles.focusInfoClock}>
+                {hh}<span style={{ opacity: 0.4, fontWeight: 300 }}>:</span>{mm}
               </span>
+              <span className={styles.focusInfoDivider} />
+              {currentGoal && (
+                <>
+                  <span className={styles.focusInfoLabel}>{goalSummary.title}</span>
+                  {goalSummary.daysLeft !== null && (
+                    <span className={styles.focusInfoPill}>{goalSummary.daysLeft}天</span>
+                  )}
+                  <span className={styles.focusInfoDivider} />
+                </>
+              )}
+              <span className={styles.focusInfoLabel}>今日</span>
+              <span className={styles.focusInfoMono}>{pomodoroCount} 🍅</span>
+              <span className={styles.focusInfoMono}>{focusH}h {focusM}m</span>
+              {currentBoundTask && tasks.find(t => t.id === currentBoundTask) && (
+                <>
+                  <span className={styles.focusInfoDivider} />
+                  <span className={styles.focusInfoTask}>
+                    ◎ {tasks.find(t => t.id === currentBoundTask)?.title}
+                  </span>
+                </>
+              )}
             </div>
             <div className={styles.pomodoroWrap}>
               <PomodoroTimer
@@ -407,6 +457,7 @@ export default function Dashboard() {
                 currentBoundTask={currentBoundTask}
                 compactMode={isMobile}
                 hideHeader
+                isFocusMode={isFocusMode}
                 studyTime={studyTime}
                 pomodoroCount={pomodoroCount}
                 theme={theme}
@@ -420,9 +471,15 @@ export default function Dashboard() {
                   loadTasks();
                   setPomodoroCompleteRefreshTrigger(n => n + 1);
                 }}
-                onEnterFocusMode={() => undefined}
+                onEnterFocusMode={() => setIsFocusMode(true)}
               />
             </div>
+            {/* 单栏：运动 & 消费内联展示在番茄钟下方 */}
+            {isMobile && !isFocusMode && (
+              <div style={{ padding: '0 16px 16px' }}>
+                <QuickStatsInline />
+              </div>
+            )}
           </div>
         </div>
 
@@ -439,18 +496,10 @@ export default function Dashboard() {
 
       {/* ── 弹窗 ── */}
       <HistoryViewer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
-
-      {isDayReflectionOpen && (
-        <DayReflection
-          mode={dayReflectionMode}
-          onClose={() => setIsDayReflectionOpen(false)}
-          onSave={() => { setDayStartRefreshTrigger(n => n + 1); setDayStarted(true); }}
-        />
-      )}
       <StudyPlanSidebar ref={studyPlanSidebarRef} showFloatingTrigger={false} />
 
       {/* 备案 */}
-            {!isMobile ? (
+      {!isMobile ? (
         <footer className={styles.footer} style={{
           position: 'fixed', bottom: 0, left: 0, right: 0,
           display: 'flex', justifyContent: 'center', gap: 16,
@@ -460,8 +509,8 @@ export default function Dashboard() {
         }}>
           {footerContent}
         </footer>
-      ) : (
-        <footer className={styles.footer} style={{
+      ) : !isFocusMode ? (
+        <footer style={{
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
@@ -476,7 +525,7 @@ export default function Dashboard() {
         }}>
           {footerContent}
         </footer>
-      )}
+      ) : null}
     </div>
   );
 }

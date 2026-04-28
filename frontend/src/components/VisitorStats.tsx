@@ -17,23 +17,11 @@ interface VisitorStatsData {
     visitCount: number;
     firstVisitAt?: string | Date;
     lastVisitAt?: string | Date;
-    visitorUser?: {
-      name?: string;
-      email?: string;
-    };
+    visitorUser?: { name?: string; email?: string };
   }>;
-  deviceStats: Array<{
-    deviceType: 'DESKTOP' | 'MOBILE' | 'TABLET';
-    count: number;
-  }>;
-  referrerStats: Array<{
-    referrer: string;
-    count: number;
-  }>;
-  dailyStats: Array<{
-    date: string;
-    visits: number;
-  }>;
+  deviceStats: Array<{ deviceType: 'DESKTOP' | 'MOBILE' | 'TABLET'; count: number }>;
+  referrerStats: Array<{ referrer: string; count: number }>;
+  dailyStats: Array<{ date: string; visits: number }>;
 }
 
 interface VisitorStatsProps {
@@ -75,11 +63,7 @@ const VisitorStats: React.FC<VisitorStatsProps> = ({ userId, isOwner = false }) 
 
           const response = await api.get(`/visitor/count/${userId}`);
           const data = response.data?.data ?? {};
-          setStats({
-            ...emptyStats,
-            totalVisitors: data.totalVisitors || 0,
-            totalVisits: data.totalVisits || 0,
-          });
+          setStats({ ...emptyStats, totalVisitors: data.totalVisitors || 0, totalVisits: data.totalVisits || 0 });
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : '加载访客统计失败');
@@ -88,73 +72,46 @@ const VisitorStats: React.FC<VisitorStatsProps> = ({ userId, isOwner = false }) 
       }
     };
 
-    if (userId) {
-      void load();
-    }
+    if (userId) void load();
   }, [isOwner, userId]);
 
   if (loading) {
-    return (
-      <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-        加载访客统计中...
-      </div>
-    );
+    return <div style={{ padding: '12px', color: 'var(--fg-4)', fontSize: '12px' }}>加载访客统计中…</div>;
   }
 
   if (error) {
-    return (
-      <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--error-color)' }}>
-        {error}
-      </div>
-    );
+    return <div style={{ padding: '12px', color: 'var(--danger)', fontSize: '12px' }}>{error}</div>;
   }
 
   if (!stats) return null;
 
+  const metaCards = [
+    { icon: <Users size={13} />,    label: '访客数',  value: stats.totalVisitors },
+    { icon: <TrendingUp size={13} />, label: '访问次数', value: stats.totalVisits },
+    ...(isOwner
+      ? [{ icon: <Calendar size={13} />, label: '近7天', value: stats.dailyStats.reduce((s, d) => s + (d.visits || 0), 0) }]
+      : []),
+  ];
+
   return (
-    <div
-      style={{
-        background: 'color-mix(in srgb, var(--bg-tertiary) 84%, white 16%)',
-        borderRadius: '16px',
-        padding: '1.2rem',
-        border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-        <Eye size={18} style={{ color: 'var(--accent-primary)' }} />
-        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>访客统计</h3>
+    <div style={{ background: 'var(--bg-2)', borderRadius: '14px', padding: '14px 16px', border: '1px solid var(--line)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '12px' }}>
+        <Eye size={15} style={{ color: 'var(--accent)' }} />
+        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)', textTransform: 'uppercase', letterSpacing: '.06em' }}>访客统计</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem' }}>
-        <div style={{ padding: '0.7rem', borderRadius: '10px', background: 'var(--bg-secondary)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-            <Users size={14} /> 访客数
-          </div>
-          <div style={{ marginTop: '0.35rem', color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: 700 }}>
-            {stats.totalVisitors}
-          </div>
-        </div>
-        <div style={{ padding: '0.7rem', borderRadius: '10px', background: 'var(--bg-secondary)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-            <TrendingUp size={14} /> 访问次数
-          </div>
-          <div style={{ marginTop: '0.35rem', color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: 700 }}>
-            {stats.totalVisits}
-          </div>
-        </div>
-        {isOwner && (
-          <div style={{ padding: '0.7rem', borderRadius: '10px', background: 'var(--bg-secondary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-              <Calendar size={14} /> 近7天
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
+        {metaCards.map(({ icon, label, value }) => (
+          <div key={label} style={{ padding: '10px 12px', borderRadius: '10px', background: 'var(--bg-1)', border: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--fg-3)', fontSize: '11px', marginBottom: '5px' }}>
+              {icon} {label}
             </div>
-            <div style={{ marginTop: '0.35rem', color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: 700 }}>
-              {stats.dailyStats.reduce((sum, d) => sum + (d.visits || 0), 0)}
+            <div style={{ color: 'var(--fg)', fontSize: '16px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+              {value}
             </div>
           </div>
-        )}
+        ))}
       </div>
-
-      
     </div>
   );
 };

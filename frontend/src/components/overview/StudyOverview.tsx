@@ -8,96 +8,6 @@ import StudyChart from './StudyChart';
 import VisitorStats from '../VisitorStats';
 import { overviewAPI, shareLinkAPI } from '@/lib/api';
 
-// 模拟数据生成函数
-const generateMockHeatmapData = () => {
-  const data = [];
-  const today = new Date();
-  
-  for (let i = 365; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    
-    // 随机生成任务完成数量
-    const count = Math.floor(Math.random() * 12);
-    let level = 0;
-    
-    if (count === 0) level = 0;
-    else if (count <= 2) level = 1;
-    else if (count <= 4) level = 2;
-    else if (count <= 7) level = 3;
-    else level = 4;
-    
-    data.push({
-      date: date.toISOString().split('T')[0],
-      count,
-      level,
-    });
-  }
-  
-  return data;
-};
-
-const generateMockActivities = () => {
-  const activities = [
-    {
-      id: '1',
-      type: 'task' as const,
-      title: '完成数学作业第三章',
-      description: '解决了所有练习题，重点掌握了微积分基础',
-      timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    },
-    {
-      id: '2',
-      type: 'pomodoro' as const,
-      title: '专注学习英语',
-      duration: 25,
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    },
-    {
-      id: '3',
-      type: 'reflection' as const,
-      title: '今日复盘总结',
-      description: '今天学习效率很高，明天继续保持',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
-    },
-    {
-      id: '4',
-      type: 'study' as const,
-      title: '阅读《算法导论》',
-      duration: 90,
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    },
-    {
-      id: '5',
-      type: 'task' as const,
-      title: '整理学习笔记',
-      description: '整理了本周所有课程的重点内容',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 36).toISOString(),
-    },
-  ];
-  
-  return activities;
-};
-
-const generateMockChartData = () => {
-  const data = [];
-  const today = new Date();
-  
-  for (let i = 29; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    
-    data.push({
-      date: date.toISOString().split('T')[0],
-      studyTime: Math.floor(Math.random() * 180) + 30, // 30-210分钟
-      tasksCompleted: Math.floor(Math.random() * 8) + 1, // 1-8个任务
-      pomodoroCount: Math.floor(Math.random() * 6) + 1, // 1-6个番茄钟
-    });
-  }
-  
-  return data;
-};
-
 interface StudyOverviewProps {
   userId?: string;
   theme?: 'dark' | 'light';
@@ -115,82 +25,20 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
 
-  useEffect(() => {
-    loadOverviewData();
-  }, []);
-
-  // 应用主题
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-
-  // 分享功能
-  const handleShare = async () => {
-    setShowShareModal(true);
-
-    // 检查是否已有分享链接
-    try {
-      setShareLoading(true);
-      const response = await shareLinkAPI.getUserShareLink();
-      if (response.data.shareCode) {
-        setShareLink(response.data.shareUrl);
-      } else {
-        // 创建新的分享链接（由后端根据数据库用户姓名生成标题与描述）
-        const createResponse = await shareLinkAPI.createShareLink({});
-        setShareLink(createResponse.data.shareUrl);
-      }
-    } catch (err) {
-      console.error('获取分享链接失败:', err);
-      setShareLink(null);
-    } finally {
-      setShareLoading(false);
-    }
-  };
-
-  const handleCopyShareLink = async () => {
-    if (!shareLink) return;
-
-    try {
-      await navigator.clipboard.writeText(shareLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('复制失败:', err);
-      // 降级方案：选择文本
-      const textArea = document.createElement('textarea');
-      textArea.value = shareLink;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
+  useEffect(() => { void loadOverviewData(); }, []);
 
   const loadOverviewData = async () => {
     try {
       setLoading(true);
       setError(null);
-
-      // 尝试加载真实数据
       const response = await overviewAPI.getFullOverview();
       const data = response.data;
-
       setHeatmapData(data.heatmapData || []);
       setActivities(data.activities || []);
       setChartData(data.chartData || []);
       setStats(data.stats || {});
-    } catch (error) {
-      console.error('加载概况数据失败:', error);
+    } catch {
       setError('加载数据失败，请稍后重试');
-
-      // 如果API失败，使用模拟数据
       setHeatmapData([]);
       setActivities([]);
       setChartData([]);
@@ -200,429 +48,184 @@ const StudyOverview: React.FC<StudyOverviewProps> = ({ userId, theme = 'light' }
     }
   };
 
-  // 使用API返回的统计数据，如果没有则从热力图数据计算
-  const totalTasks = stats.totalTasks ?? heatmapData.reduce((sum, day) => sum + day.count, 0);
-  const activeDays = stats.activeDays ?? heatmapData.filter(day => day.count > 0).length;
+  const handleShare = async () => {
+    setShowShareModal(true);
+    try {
+      setShareLoading(true);
+      const response = await shareLinkAPI.getUserShareLink();
+      if (response.data.shareCode) {
+        setShareLink(response.data.shareUrl);
+      } else {
+        const createResponse = await shareLinkAPI.createShareLink({});
+        setShareLink(createResponse.data.shareUrl);
+      }
+    } catch {
+      setShareLink(null);
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!shareLink) return;
+    try {
+      await navigator.clipboard.writeText(shareLink);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = shareLink;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const totalTasks = stats.totalTasks ?? heatmapData.reduce((s: number, d: any) => s + d.count, 0);
+  const activeDays = stats.activeDays ?? heatmapData.filter((d: any) => d.count > 0).length;
   const avgTasksPerDay = stats.avgTasksPerDay ?? (activeDays > 0 ? (totalTasks / activeDays).toFixed(1) : '0');
   const currentStreak = stats.currentStreak ?? (() => {
     let streak = 0;
     for (let i = heatmapData.length - 1; i >= 0; i--) {
-      if (heatmapData[i].count > 0) {
-        streak++;
-      } else {
-        break;
-      }
+      if (heatmapData[i].count > 0) streak++;
+      else break;
     }
     return streak;
   })();
 
-  const statCardStyle: React.CSSProperties = {
-    background: 'color-mix(in srgb, var(--bg-tertiary) 84%, white 16%)',
-    borderRadius: '16px',
-    border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-    padding: '20px',
-    textAlign: 'center',
-    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.05)',
-  };
+  const statCards = [
+    { icon: <Calendar size={20} style={{ color: 'var(--accent)' }} />,        value: totalTasks,       label: '总完成任务' },
+    { icon: <TrendingUp size={20} style={{ color: 'var(--success-color)' }} />, value: avgTasksPerDay,   label: '日均完成任务' },
+    { icon: <Award size={20} style={{ color: 'var(--warn)' }} />,              value: currentStreak,    label: '当前连续天数' },
+    { icon: <Clock size={20} style={{ color: 'var(--accent)' }} />,            value: activeDays,       label: '活跃天数' },
+  ];
 
   if (loading) {
     return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '400px',
-        color: 'var(--text-secondary)',
-      }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px', color: 'var(--fg-3)' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            border: '3px solid var(--border-color)',
-            borderTop: '3px solid var(--primary-color)',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 16px',
-          }} />
-          <p>加载学习数据中...</p>
+          <div style={{ width: '36px', height: '36px', border: '3px solid var(--line)', borderTop: '3px solid var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 14px' }} />
+          <p style={{ margin: 0, fontSize: '13px' }}>加载学习数据中…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{
-      maxWidth: '1200px',
-      margin: '0 auto',
-      padding: '0 16px',
-      width: '100%',
-    }}>
-      {/* 页面标题 */}
-      <div style={{
-        marginBottom: '32px',
-        textAlign: 'center',
-        position: 'relative',
-      }}>
-        <h1
-          className="overview-title"
-          style={{
-            fontSize: '2.5rem',
-            fontWeight: '700',
-            color: 'var(--text-primary)',
-            margin: '0 0 8px 0',
-          }}
-        >
-          学习概况
-        </h1>
-        <p
-          className="overview-subtitle"
-          style={{
-            fontSize: '1.125rem',
-            color: 'var(--text-secondary)',
-            margin: '0 0 16px 0',
-          }}
-        >
-          追踪你的学习进度和成就
-        </p>
-
-        {/* 分享按钮 */}
+    <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+      {/* header */}
+      <div style={{ marginBottom: '28px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--fg)', margin: '0 0 6px', letterSpacing: '-0.03em' }}>学习概况</h1>
+        <p style={{ fontSize: '14px', color: 'var(--fg-3)', margin: '0 0 14px' }}>追踪你的学习进度和成就</p>
         <button
           onClick={handleShare}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '7px',
             padding: '8px 16px',
-            backgroundColor: 'var(--primary-color)',
-            color: 'white',
+            background: 'var(--accent)',
+            color: 'var(--accent-ink)',
             border: 'none',
-            borderRadius: '8px',
-            fontSize: '0.875rem',
-            fontWeight: '500',
+            borderRadius: '10px',
+            fontSize: '13px',
+            fontWeight: 700,
             cursor: 'pointer',
-            transition: 'all 0.2s ease',
+            boxShadow: '0 4px 14px var(--accent-glow)',
+            transition: 'opacity .15s',
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--primary-hover)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--primary-color)';
-          }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '.85')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
         >
-          <Share2 size={16} />
+          <Share2 size={14} />
           分享我的学习概况
         </button>
         {error && (
-          <div style={{
-            marginTop: '12px',
-            padding: '8px 16px',
-            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            borderRadius: '6px',
-            color: '#f59e0b',
-            fontSize: '0.875rem',
-          }}>
+          <div style={{ marginTop: '10px', padding: '8px 14px', background: 'color-mix(in srgb, var(--warn) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--warn) 24%, transparent)', borderRadius: '8px', color: 'var(--warn)', fontSize: '12.5px' }}>
             {error}
           </div>
         )}
       </div>
 
-      {/* 统计卡片 */}
-      <div
-        className="stats-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '16px',
-          marginBottom: '32px',
-        }}
-      >
-        <div style={statCardStyle}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            marginBottom: '12px',
-          }}>
-            <Calendar size={24} style={{ color: '#3b82f6' }} />
+      {/* stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+        {statCards.map(({ icon, value, label }) => (
+          <div key={label} style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: '14px', padding: '18px', textAlign: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>{icon}</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--fg)', marginBottom: '4px', fontFamily: 'var(--font-mono)', letterSpacing: '-0.04em' }}>{value}</div>
+            <div style={{ fontSize: '12px', color: 'var(--fg-3)' }}>{label}</div>
           </div>
-          <div style={{
-            fontSize: '2rem',
-            fontWeight: '700',
-            color: 'var(--text-primary)',
-            marginBottom: '4px',
-          }}>
-            {totalTasks}
-          </div>
-          <div style={{
-            fontSize: '0.875rem',
-            color: 'var(--text-secondary)',
-          }}>
-            总完成任务
-          </div>
-        </div>
-
-        <div style={statCardStyle}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            marginBottom: '12px',
-          }}>
-            <TrendingUp size={24} style={{ color: '#10b981' }} />
-          </div>
-          <div style={{
-            fontSize: '2rem',
-            fontWeight: '700',
-            color: 'var(--text-primary)',
-            marginBottom: '4px',
-          }}>
-            {avgTasksPerDay}
-          </div>
-          <div style={{
-            fontSize: '0.875rem',
-            color: 'var(--text-secondary)',
-          }}>
-            日均完成任务
-          </div>
-        </div>
-
-        <div style={statCardStyle}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            marginBottom: '12px',
-          }}>
-            <Award size={24} style={{ color: '#f59e0b' }} />
-          </div>
-          <div style={{
-            fontSize: '2rem',
-            fontWeight: '700',
-            color: 'var(--text-primary)',
-            marginBottom: '4px',
-          }}>
-            {currentStreak}
-          </div>
-          <div style={{
-            fontSize: '0.875rem',
-            color: 'var(--text-secondary)',
-          }}>
-            当前连续天数
-          </div>
-        </div>
-
-        <div style={statCardStyle}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            marginBottom: '12px',
-          }}>
-            <Clock size={24} style={{ color: '#8b5cf6' }} />
-          </div>
-          <div style={{
-            fontSize: '2rem',
-            fontWeight: '700',
-            color: 'var(--text-primary)',
-            marginBottom: '4px',
-          }}>
-            {activeDays}
-          </div>
-          <div style={{
-            fontSize: '0.875rem',
-            color: 'var(--text-secondary)',
-          }}>
-            活跃天数
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* 任务完成热力图 */}
-      <div style={{ marginBottom: '32px' }}>
+      {/* heatmap */}
+      <div style={{ marginBottom: '24px' }}>
         <TaskHeatmap data={heatmapData} theme={theme} />
       </div>
 
-      {/* 访客统计 */}
+      {/* visitor stats */}
       {userId && (
-        <div style={{ marginBottom: '32px' }}>
+        <div style={{ marginBottom: '24px' }}>
           <VisitorStats userId={userId} isOwner={true} />
         </div>
       )}
 
-      {/* 图表和活动 */}
-      <div
-        className="chart-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: '24px',
-          marginBottom: '0',
-        }}
-      >
-        <div style={{
-          minWidth: '0',
-          backgroundColor: 'var(--bg-secondary)',
-          borderRadius: '12px',
-          border: '1px solid var(--border-color)',
-          padding: '20px',
-        }}> {/* 防止内容溢出 */}
+      {/* chart + activities */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+        <div style={{ minWidth: 0, background: 'var(--bg-1)', borderRadius: '14px', border: '1px solid var(--line)', padding: '18px' }}>
+          <h3 style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: 700, color: 'var(--fg)', textTransform: 'uppercase', letterSpacing: '.06em' }}>学习趋势</h3>
           <StudyChart data={chartData} theme={theme} />
         </div>
-        <div style={{
-          minWidth: '0',
-          backgroundColor: 'var(--bg-secondary)',
-          borderRadius: '12px',
-          border: '1px solid var(--border-color)',
-          padding: '20px',
-        }}> {/* 防止内容溢出 */}
+        <div style={{ minWidth: 0, background: 'var(--bg-1)', borderRadius: '14px', border: '1px solid var(--line)', padding: '18px' }}>
+          <h3 style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: 700, color: 'var(--fg)', textTransform: 'uppercase', letterSpacing: '.06em' }}>最近活动</h3>
           <RecentActivities activities={activities} theme={theme} />
         </div>
       </div>
 
-      {/* 分享模态框 */}
+      {/* share modal */}
       {showShareModal && (
         <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.56)',
-            backdropFilter: 'blur(6px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.44)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
           onClick={() => setShowShareModal(false)}
         >
           <div
-            style={{
-              backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 88%, white 12%)',
-              borderRadius: '20px',
-              padding: '24px',
-              maxWidth: '500px',
-              width: '90%',
-              border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-              boxShadow: '0 28px 56px rgba(15, 23, 42, 0.22)',
-            }}
-            onClick={(e) => e.stopPropagation()}
+            style={{ background: 'var(--bg-1)', borderRadius: '20px', padding: '24px', maxWidth: '480px', width: '90%', border: '1px solid var(--line)', boxShadow: '0 28px 56px rgba(0,0,0,.2)' }}
+            onClick={e => e.stopPropagation()}
           >
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '16px',
-            }}>
-              <h3 style={{
-                margin: 0,
-                fontSize: '1.25rem',
-                fontWeight: '600',
-                color: 'var(--text-primary)',
-              }}>
-                分享我的学习概况
-              </h3>
-              <button
-                onClick={() => setShowShareModal(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '1.5rem',
-                  cursor: 'pointer',
-                  color: 'var(--text-secondary)',
-                  padding: '4px',
-                }}
-              >
-                ×
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--fg)' }}>分享学习概况</h3>
+              <button onClick={() => setShowShareModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--fg-3)', padding: '2px 6px', borderRadius: '6px' }}>×</button>
             </div>
-
-            <p style={{
-              margin: '0 0 16px 0',
-              color: 'var(--text-secondary)',
-              fontSize: '0.875rem',
-            }}>
-              复制下面的链接，分享给朋友查看你的学习概况
-            </p>
-
+            <p style={{ margin: '0 0 14px', color: 'var(--fg-3)', fontSize: '13px' }}>复制下面的链接，分享给朋友查看你的学习概况</p>
             {shareLoading ? (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '20px',
-                color: 'var(--text-secondary)',
-              }}>
-                <div style={{
-                  width: '20px',
-                  height: '20px',
-                  border: '2px solid var(--border-color)',
-                  borderTop: '2px solid var(--primary-color)',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  marginRight: '8px',
-                }} />
-                生成分享链接中...
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px', color: 'var(--fg-3)', fontSize: '13px' }}>
+                <div style={{ width: '16px', height: '16px', border: '2px solid var(--line-2)', borderTop: '2px solid var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                生成分享链接中…
               </div>
             ) : shareLink ? (
-              <div style={{
-                display: 'flex',
-                gap: '8px',
-                marginBottom: '16px',
-              }}>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                 <input
                   type="text"
                   value={shareLink}
                   readOnly
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    backgroundColor: 'var(--bg-secondary)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.875rem',
-                  }}
+                  style={{ flex: 1, padding: '8px 10px', border: '1px solid var(--line-2)', borderRadius: '8px', background: 'var(--bg-2)', color: 'var(--fg)', fontSize: '12.5px', outline: 'none' }}
                 />
                 <button
                   onClick={handleCopyShareLink}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '8px 12px',
-                    backgroundColor: copied ? 'var(--success-color)' : 'var(--primary-color)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 14px', background: copied ? 'var(--success-color)' : 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', transition: 'background .2s' }}
                 >
-                  {copied ? <Check size={16} /> : <Copy size={16} />}
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
                   {copied ? '已复制' : '复制'}
                 </button>
               </div>
             ) : (
-              <div style={{
-                padding: '20px',
-                textAlign: 'center',
-                color: 'var(--text-secondary)',
-                backgroundColor: 'var(--bg-secondary)',
-                borderRadius: '6px',
-                marginBottom: '16px',
-              }}>
+              <div style={{ padding: '16px', textAlign: 'center', color: 'var(--fg-3)', background: 'var(--bg-2)', borderRadius: '8px', marginBottom: '12px', fontSize: '13px' }}>
                 生成分享链接失败，请稍后重试
               </div>
             )}
-
-            <div style={{
-              padding: '12px',
-              backgroundColor: 'var(--bg-secondary)',
-              borderRadius: '6px',
-              fontSize: '0.75rem',
-              color: 'var(--text-secondary)',
-            }}>
-              💡 分享链接是公开的，任何人都可以通过此短链接查看你的学习概况。链接格式简洁易分享！
+            <div style={{ padding: '10px 12px', background: 'var(--bg-2)', borderRadius: '8px', fontSize: '11.5px', color: 'var(--fg-3)' }}>
+              分享链接是公开的，任何人都可以通过此链接查看你的学习概况。
             </div>
           </div>
         </div>

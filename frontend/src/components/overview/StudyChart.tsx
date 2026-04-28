@@ -5,7 +5,7 @@ import { TrendingUp, Clock, Target, BookOpen } from 'lucide-react';
 
 interface ChartData {
   date: string;
-  studyTime: number; // 分钟
+  studyTime: number;
   tasksCompleted: number;
   pomodoroCount: number;
 }
@@ -15,360 +15,167 @@ interface StudyChartProps {
   theme?: 'dark' | 'light';
 }
 
-const StudyChart: React.FC<StudyChartProps> = ({ data, theme = 'light' }) => {
-  const [activeMetric, setActiveMetric] = useState<'studyTime' | 'tasksCompleted' | 'pomodoroCount'>('studyTime');
+const METRICS = {
+  studyTime:      { label: '学习时间', icon: <Clock size={13} />,   color: 'var(--accent)',        format: (v: number) => `${Math.round(v)}分钟` },
+  tasksCompleted: { label: '完成任务', icon: <Target size={13} />,  color: 'var(--success-color)', format: (v: number) => `${v}个` },
+  pomodoroCount:  { label: '番茄钟',   icon: <BookOpen size={13} />, color: 'var(--warn)',           format: (v: number) => `${v}个` },
+} as const;
+
+type MetricKey = keyof typeof METRICS;
+
+const StudyChart: React.FC<StudyChartProps> = ({ data }) => {
+  const [activeMetric, setActiveMetric] = useState<MetricKey>('studyTime');
   const chartScrollRef = React.useRef<HTMLDivElement>(null);
 
-  const metrics = {
-    studyTime: {
-      label: '学习时间',
-      icon: <Clock size={16} />,
-      color: '#3b82f6',
-      unit: '分钟',
-      format: (value: number) => `${Math.round(value)}分钟`,
-    },
-    tasksCompleted: {
-      label: '完成任务',
-      icon: <Target size={16} />,
-      color: '#10b981',
-      unit: '个',
-      format: (value: number) => `${value}个`,
-    },
-    pomodoroCount: {
-      label: '番茄钟',
-      icon: <BookOpen size={16} />,
-      color: '#f59e0b',
-      unit: '个',
-      format: (value: number) => `${value}个`,
-    },
-  };
-
-  const currentMetric = metrics[activeMetric];
-  
-  // 获取数据范围
+  const metric = METRICS[activeMetric];
   const values = data.map(d => d[activeMetric]);
   const maxValue = Math.max(...values, 1);
   const minValue = Math.min(...values, 0);
   const range = maxValue - minValue || 1;
 
-  // SVG 尺寸
-  const width = 600;
-  const height = 200;
-  const padding = { top: 20, right: 20, bottom: 40, left: 50 };
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
+  const W = 600, H = 200;
+  const pad = { top: 20, right: 20, bottom: 40, left: 50 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
 
-  // 生成网格线
-  const generateGridLines = () => {
-    const lines = [];
-    const steps = 5;
-    
-    for (let i = 0; i <= steps; i++) {
-      const y = padding.top + (i / steps) * chartHeight;
-      lines.push(
-        <line
-          key={`grid-${i}`}
-          x1={0}
-          y1={y}
-          x2={Math.max(chartWidth, 400 - padding.right)}
-          y2={y}
-          stroke={theme === 'dark' ? '#4b5563' : '#e5e7eb'}
-          strokeWidth="1"
-          opacity="0.3"
-        />
-      );
-    }
-    
-    return lines;
-  };
-
-  // 计算统计数据
-  const totalValue = values.reduce((sum, val) => sum + val, 0);
+  const totalValue = values.reduce((s, v) => s + v, 0);
   const avgValue = values.length > 0 ? totalValue / values.length : 0;
   const trend = values.length > 1 ? values[values.length - 1] - values[0] : 0;
 
-  // 滚动到最右边（最新数据）
   React.useEffect(() => {
-    if (chartScrollRef.current) {
-      chartScrollRef.current.scrollLeft = chartScrollRef.current.scrollWidth;
-    }
+    if (chartScrollRef.current) chartScrollRef.current.scrollLeft = chartScrollRef.current.scrollWidth;
   }, [data, activeMetric]);
 
   return (
-    <div style={{
-      backgroundColor: 'transparent', // 移除背景，使用父容器的背景
-      borderRadius: '12px',
-      padding: '0', // 移除内边距，使用父容器的内边距
-    }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '20px',
-      }}>
-        {/* 指标切换按钮 */}
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          backgroundColor: theme === 'dark' ? '#374151' : '#f3f4f6',
-          padding: '4px',
-          borderRadius: '8px',
-          border: `1px solid ${theme === 'dark' ? '#4b5563' : '#d1d5db'}`,
-        }}>
-          {Object.entries(metrics).map(([key, metric]) => (
-            <button
-              key={key}
-              onClick={() => setActiveMetric(key as any)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: activeMetric === key ? currentMetric.color : 'transparent',
-                color: activeMetric === key ? 'white' : (theme === 'dark' ? '#d1d5db' : '#6b7280'),
-                fontSize: '0.75rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              {metric.icon}
-              {metric.label}
-            </button>
-          ))}
-        </div>
+    <div>
+      {/* metric toggle */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', background: 'var(--bg-2)', padding: '3px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+        {(Object.entries(METRICS) as [MetricKey, typeof METRICS[MetricKey]][]).map(([key, m]) => (
+          <button
+            key={key}
+            onClick={() => setActiveMetric(key)}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              padding: '6px 10px',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeMetric === key ? 'var(--bg-0)' : 'transparent',
+              color: activeMetric === key ? 'var(--fg)' : 'var(--fg-3)',
+              fontSize: '11.5px',
+              fontWeight: activeMetric === key ? 700 : 500,
+              cursor: 'pointer',
+              boxShadow: activeMetric === key ? '0 1px 4px rgba(0,0,0,.08)' : 'none',
+              transition: 'all .15s',
+            }}
+          >
+            <span style={{ color: activeMetric === key ? m.color : 'var(--fg-4)' }}>{m.icon}</span>
+            {m.label}
+          </button>
+        ))}
       </div>
 
-      {/* 统计卡片 */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '12px',
-        marginBottom: '20px',
-      }}>
-        <div style={{
-          padding: '12px',
-          backgroundColor: theme === 'dark' ? '#374151' : '#f9fafb',
-          borderRadius: '8px',
-          border: `1px solid ${theme === 'dark' ? '#4b5563' : '#e5e7eb'}`,
-        }}>
-          <div style={{
-            fontSize: '0.75rem',
-            color: theme === 'dark' ? '#9ca3af' : '#6b7280',
-            marginBottom: '4px',
-          }}>
-            总计
+      {/* summary cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px', marginBottom: '14px' }}>
+        {[
+          { label: '总计', value: metric.format(totalValue) },
+          { label: '平均', value: activeMetric === 'studyTime' ? `${Math.round(avgValue)}分钟` : `${Math.round(avgValue * 10) / 10}个` },
+          { label: '趋势', value: `${trend >= 0 ? '+' : ''}${metric.format(Math.abs(trend))}`, icon: true },
+        ].map(({ label, value, icon }) => (
+          <div key={label} style={{ padding: '10px 12px', background: 'var(--bg-2)', borderRadius: '10px', border: '1px solid var(--line)' }}>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--fg-4)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '4px' }}>{label}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', fontWeight: 700, color: metric.color, fontFamily: 'var(--font-mono)' }}>
+              {icon && <TrendingUp size={13} style={{ transform: trend < 0 ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />}
+              {value}
+            </div>
           </div>
-          <div style={{
-            fontSize: '1.25rem',
-            fontWeight: '600',
-            color: currentMetric.color,
-          }}>
-            {currentMetric.format(totalValue)}
-          </div>
-        </div>
-
-        <div style={{
-          padding: '12px',
-          backgroundColor: theme === 'dark' ? '#374151' : '#f9fafb',
-          borderRadius: '8px',
-          border: `1px solid ${theme === 'dark' ? '#4b5563' : '#e5e7eb'}`,
-        }}>
-          <div style={{
-            fontSize: '0.75rem',
-            color: theme === 'dark' ? '#9ca3af' : '#6b7280',
-            marginBottom: '4px',
-          }}>
-            平均
-          </div>
-          <div style={{
-            fontSize: '1.25rem',
-            fontWeight: '600',
-            color: currentMetric.color,
-          }}>
-            {(() => {
-              // 为平均值创建简化的格式化
-              if (activeMetric === 'studyTime') {
-                return `${Math.round(avgValue)}分钟`;
-              } else {
-                return `${Math.round(avgValue * 10) / 10}个`;
-              }
-            })()}
-          </div>
-        </div>
-
-        <div style={{
-          padding: '12px',
-          backgroundColor: theme === 'dark' ? '#374151' : '#f9fafb',
-          borderRadius: '8px',
-          border: `1px solid ${theme === 'dark' ? '#4b5563' : '#e5e7eb'}`,
-        }}>
-          <div style={{
-            fontSize: '0.75rem',
-            color: theme === 'dark' ? '#9ca3af' : '#6b7280',
-            marginBottom: '4px',
-          }}>
-            趋势
-          </div>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontSize: '1.25rem',
-            fontWeight: '600',
-            color: currentMetric.color,
-          }}>
-            <TrendingUp
-              size={16}
-              style={{
-                transform: trend < 0 ? 'rotate(180deg)' : 'none',
-                transition: 'transform 0.2s ease',
-                color: currentMetric.color,
-              }}
-            />
-            {trend >= 0 ? '+' : ''}{currentMetric.format(Math.abs(trend))}
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* 图表 */}
-      <div style={{
-        backgroundColor: '#374151',
-        borderRadius: '8px',
-        border: '1px solid #4b5563',
-        padding: '16px',
-        overflow: 'hidden', // 防止内容超出容器
-      }}>
+      {/* chart */}
+      <div style={{ background: 'var(--bg-2)', borderRadius: '10px', border: '1px solid var(--line)', padding: '14px', overflow: 'hidden' }}>
         {data.length === 0 ? (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '200px',
-            color: '#9ca3af',
-          }}>
-            <TrendingUp size={40} style={{ opacity: 0.5, marginBottom: '12px' }} />
-            <p>暂无数据</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '180px', color: 'var(--fg-4)', gap: '10px' }}>
+            <TrendingUp size={36} style={{ opacity: 0.35 }} />
+            <span style={{ fontSize: '12px' }}>暂无数据</span>
           </div>
         ) : (
-          <div style={{ 
-            position: 'relative',
-            width: '100%',
-            height: height,
-          }}>
-            {/* 固定的Y轴 */}
-            <div style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              width: padding.left,
-              height: height,
-              backgroundColor: '#374151',
-              borderRight: '1px solid #4b5563',
-              zIndex: 10,
-            }}>
-              <svg width={padding.left} height={height}>
-                {/* Y轴标签 */}
+          <div style={{ position: 'relative', width: '100%', height: H }}>
+            {/* fixed y-axis */}
+            <div style={{ position: 'absolute', left: 0, top: 0, width: pad.left, height: H, background: 'var(--bg-2)', borderRight: '1px solid var(--line)', zIndex: 10 }}>
+              <svg width={pad.left} height={H}>
                 {Array.from({ length: 6 }, (_, i) => {
-                  const value = minValue + (range * i / 5);
-                  const y = padding.top + chartHeight - (i / 5) * chartHeight;
-                  return (
-                    <text
-                      key={`y-label-${i}`}
-                      x={padding.left - 10}
-                      y={y + 4}
-                      textAnchor="end"
-                      fontSize="12"
-                      fill="#9ca3af"
-                    >
-                      {Math.round(value)}
-                    </text>
-                  );
+                  const val = minValue + (range * i / 5);
+                  const y = pad.top + cH - (i / 5) * cH;
+                  return <text key={i} x={pad.left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="var(--fg-4)">{Math.round(val)}</text>;
                 })}
               </svg>
             </div>
 
-            {/* 可滚动的图表区域 */}
-            <div 
-              ref={chartScrollRef}
-              style={{ 
-                marginLeft: padding.left,
-                width: `calc(100% - ${padding.left}px)`,
-                overflowX: 'auto',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-              }}
-              className="chart-scroll-container"
-            >
-              <svg 
-                width={Math.max(width - padding.left, 400)} 
-                height={height} 
-                style={{ 
-                  minWidth: '400px',
-                  display: 'block',
-                }}
-              >
-                {/* 网格线 */}
-                {generateGridLines()}
-                
-                {/* X轴标签 */}
+            {/* scrollable chart */}
+            <div ref={chartScrollRef} style={{ marginLeft: pad.left, width: `calc(100% - ${pad.left}px)`, overflowX: 'auto', scrollbarWidth: 'none' }}>
+              <svg width={Math.max(W - pad.left, 400)} height={H} style={{ minWidth: '400px', display: 'block' }}>
+                {/* grid */}
+                {Array.from({ length: 6 }, (_, i) => {
+                  const y = pad.top + (i / 5) * cH;
+                  return <line key={i} x1={0} y1={y} x2={Math.max(cW, 400 - pad.right)} y2={y} stroke="var(--line)" strokeWidth="1" />;
+                })}
+
+                {/* x labels */}
                 {data.map((d, i) => {
                   if (data.length <= 1 || i % Math.ceil(data.length / 7) !== 0) return null;
-                  const chartWidthAdjusted = Math.max(width - padding.left - padding.right, 400 - padding.right);
-                  const x = (i / (data.length - 1)) * chartWidthAdjusted;
-                  const date = new Date(d.date);
-                  return (
-                    <text
-                      key={`x-label-${i}`}
-                      x={x}
-                      y={height - 10}
-                      textAnchor="middle"
-                      fontSize="12"
-                      fill="#9ca3af"
-                    >
-                      {date.getMonth() + 1}/{date.getDate()}
-                    </text>
-                  );
+                  const adjW = Math.max(W - pad.left - pad.right, 400 - pad.right);
+                  const x = (i / (data.length - 1)) * adjW;
+                  const dt = new Date(d.date);
+                  return <text key={i} x={x} y={H - 10} textAnchor="middle" fontSize="10" fill="var(--fg-4)">{dt.getMonth() + 1}/{dt.getDate()}</text>;
                 })}
-                
-                {/* 数据线 */}
+
+                {/* area fill */}
                 <path
                   d={(() => {
                     if (data.length === 0) return '';
-                    const chartWidthAdjusted = Math.max(width - padding.left - padding.right, 400 - padding.right);
-                    const points = data.map((d, i) => {
-                      const x = (i / (data.length - 1)) * chartWidthAdjusted;
-                      const y = padding.top + chartHeight - ((d[activeMetric] - minValue) / range) * chartHeight;
+                    const adjW = Math.max(W - pad.left - pad.right, 400 - pad.right);
+                    const pts = data.map((d, i) => {
+                      const x = data.length === 1 ? adjW / 2 : (i / (data.length - 1)) * adjW;
+                      const y = pad.top + cH - ((d[activeMetric] - minValue) / range) * cH;
                       return `${x},${y}`;
                     });
-                    return `M ${points.join(' L ')}`;
+                    const first = pts[0].split(',');
+                    const last = pts[pts.length - 1].split(',');
+                    return `M ${pts.join(' L ')} L ${last[0]},${pad.top + cH} L ${first[0]},${pad.top + cH} Z`;
+                  })()}
+                  fill={metric.color}
+                  opacity="0.07"
+                />
+
+                {/* line */}
+                <path
+                  d={(() => {
+                    if (data.length === 0) return '';
+                    const adjW = Math.max(W - pad.left - pad.right, 400 - pad.right);
+                    const pts = data.map((d, i) => {
+                      const x = data.length === 1 ? adjW / 2 : (i / (data.length - 1)) * adjW;
+                      const y = pad.top + cH - ((d[activeMetric] - minValue) / range) * cH;
+                      return `${x},${y}`;
+                    });
+                    return `M ${pts.join(' L ')}`;
                   })()}
                   fill="none"
-                  stroke={currentMetric.color}
+                  stroke={metric.color}
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
-                
-                {/* 数据点 */}
+
+                {/* dots */}
                 {data.map((d, i) => {
-                  const chartWidthAdjusted = Math.max(width - padding.left - padding.right, 400 - padding.right);
-                  const x = data.length === 1 ? chartWidthAdjusted / 2 : (i / (data.length - 1)) * chartWidthAdjusted;
-                  const y = padding.top + chartHeight - ((d[activeMetric] - minValue) / range) * chartHeight;
-                  return (
-                    <circle
-                      key={`point-${i}`}
-                      cx={x}
-                      cy={y}
-                      r="4"
-                      fill={currentMetric.color}
-                      stroke="var(--bg-primary)"
-                      strokeWidth="2"
-                    />
-                  );
+                  const adjW = Math.max(W - pad.left - pad.right, 400 - pad.right);
+                  const x = data.length === 1 ? adjW / 2 : (i / (data.length - 1)) * adjW;
+                  const y = pad.top + cH - ((d[activeMetric] - minValue) / range) * cH;
+                  return <circle key={i} cx={x} cy={y} r="3.5" fill={metric.color} stroke="var(--bg-2)" strokeWidth="2" />;
                 })}
               </svg>
             </div>

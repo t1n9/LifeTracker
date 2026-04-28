@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 interface DayData {
   date: string;
   count: number;
-  level: number; // 0-4 对应不同的颜色深度
+  level: number;
 }
 
 interface TaskHeatmapProps {
@@ -13,165 +13,77 @@ interface TaskHeatmapProps {
   theme?: 'dark' | 'light';
 }
 
+const LIGHT_COLORS = ['var(--bg-3)', '#c6f0e8', '#7dd8c8', '#34b5a0', 'var(--accent)'];
+const DARK_COLORS  = ['var(--bg-3)', '#0e3a34', '#145e53', '#1a8a7a', '#0f766e'];
+
 const TaskHeatmap: React.FC<TaskHeatmapProps> = ({ data, theme = 'light' }) => {
   const [hoveredDay, setHoveredDay] = useState<DayData | null>(null);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const scrollRef = React.useRef<HTMLDivElement>(null);
 
-  // 生成过去一年的日期数组
+  const colors = theme === 'dark' ? DARK_COLORS : LIGHT_COLORS;
+
   const generateYearDates = () => {
-    const dates = [];
+    const dates: Date[] = [];
     const today = new Date();
-    const oneYearAgo = new Date(today);
-    oneYearAgo.setFullYear(today.getFullYear() - 1);
-    
-    // 找到一年前的周日
-    const startDate = new Date(oneYearAgo);
-    startDate.setDate(startDate.getDate() - startDate.getDay());
-    
-    const currentDate = new Date(startDate);
-    while (currentDate <= today) {
-      dates.push(new Date(currentDate));
-      currentDate.setDate(currentDate.getDate() + 1);
+    const start = new Date(today);
+    start.setFullYear(today.getFullYear() - 1);
+    start.setDate(start.getDate() - start.getDay());
+    const cur = new Date(start);
+    while (cur <= today) {
+      dates.push(new Date(cur));
+      cur.setDate(cur.getDate() + 1);
     }
-    
     return dates;
   };
 
   const yearDates = generateYearDates();
-  
-  // 将数据转换为日期映射
   const dataMap = new Map(data.map(d => [d.date, d]));
-
-  // 获取颜色 - 支持深色模式的红色系
-  const getColor = (level: number) => {
-    const lightColors = [
-      '#ebedf0', // 0 - 灰色（无任务）
-      '#fecaca', // 1 - 浅红色（1-2个任务）
-      '#fca5a5', // 2 - 中浅红色（3-4个任务）
-      '#f87171', // 3 - 中红色（5-7个任务）
-      '#ef4444', // 4 - 深红色（8+个任务）
-    ];
-    const darkColors = [
-      '#374151', // 0 - 深灰色（无任务）
-      '#7f1d1d', // 1 - 深红色（1-2个任务）
-      '#991b1b', // 2 - 中深红色（3-4个任务）
-      '#b91c1c', // 3 - 红色（5-7个任务）
-      '#dc2626', // 4 - 亮红色（8+个任务）
-    ];
-    const colors = theme === 'dark' ? darkColors : lightColors;
-    return colors[level] || colors[0];
-  };
-
-  // 按周分组
-  const weeks = [];
-  for (let i = 0; i < yearDates.length; i += 7) {
-    weeks.push(yearDates.slice(i, i + 7));
-  }
+  const weeks: Date[][] = [];
+  for (let i = 0; i < yearDates.length; i += 7) weeks.push(yearDates.slice(i, i + 7));
 
   const handleMouseMove = (e: React.MouseEvent, day: DayData) => {
     setHoveredDay(day);
-
-    // 计算提示框位置，避免超出屏幕
-    const rect = e.currentTarget.getBoundingClientRect();
-    const containerRect = scrollContainerRef.current?.getBoundingClientRect();
-
-    let x = e.clientX + 10;
-    let y = e.clientY - 10;
-
-    // 检查是否会超出右边界
-    const tooltipWidth = 200; // 估算提示框宽度
-    if (x + tooltipWidth > window.innerWidth) {
-      x = e.clientX - tooltipWidth - 10; // 显示在鼠标左侧
-    }
-
-    // 检查是否会超出下边界
-    const tooltipHeight = 60; // 估算提示框高度
-    if (y + tooltipHeight > window.innerHeight) {
-      y = e.clientY - tooltipHeight - 10; // 显示在鼠标上方
-    }
-
-    setMousePosition({ x, y });
+    let x = e.clientX + 12, y = e.clientY - 12;
+    if (x + 180 > window.innerWidth) x = e.clientX - 190;
+    if (y + 56 > window.innerHeight) y = e.clientY - 66;
+    setMousePos({ x, y });
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long'
-    });
-  };
-
-  // 滚动到最右边（最新日期）
   React.useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
-    }
+    if (scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
   }, [data]);
 
   return (
     <div style={{ position: 'relative' }}>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '20px',
-        backgroundColor: 'var(--bg-secondary)',
-        borderRadius: '12px',
-        border: '1px solid var(--border-color)',
-      }}>
-
-
-        {/* 可滚动的热力图容器 */}
+      <div style={{ background: 'var(--bg-1)', borderRadius: '14px', border: '1px solid var(--line)', padding: '16px 18px' }}>
+        {/* scroll area */}
         <div
-          ref={scrollContainerRef}
-          style={{
-            overflowX: 'auto', // 只有这部分可以水平滚动
-            marginBottom: '16px',
-            // 隐藏滚动条但保持滚动功能
-            scrollbarWidth: 'none', // Firefox
-            msOverflowStyle: 'none', // IE/Edge
-          }}
-          className="heatmap-scroll-container"
+          ref={scrollRef}
+          style={{ overflowX: 'auto', marginBottom: '10px', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
         >
-          <div style={{
-            minWidth: '800px', // 确保有足够的宽度显示完整的热力图
-            padding: '8px 0', // 添加一些垂直间距
-          }}>
-            {/* 简化的热力图网格 - 去掉月份和星期标签 */}
-            <div style={{
-              display: 'flex',
-              gap: '3px',
-              justifyContent: 'flex-start',
-            }}>
-              {/* 日期网格 */}
-              {weeks.map((week, weekIndex) => (
-                <div key={weekIndex} style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '3px',
-                  marginRight: '3px',
-                }}>
-                  {week.map((date, dayIndex) => {
-                    const dateStr = date.toISOString().split('T')[0];
-                    const dayData = dataMap.get(dateStr) || { date: dateStr, count: 0, level: 0 };
-
+          <div style={{ minWidth: '720px', padding: '4px 0' }}>
+            <div style={{ display: 'flex', gap: '3px' }}>
+              {weeks.map((week, wi) => (
+                <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  {week.map((date, di) => {
+                    const ds = date.toISOString().split('T')[0];
+                    const day = dataMap.get(ds) || { date: ds, count: 0, level: 0 };
                     return (
                       <div
-                        key={dayIndex}
+                        key={di}
                         style={{
                           width: '11px',
                           height: '11px',
-                          backgroundColor: getColor(dayData.level),
+                          background: colors[day.level] || colors[0],
                           borderRadius: '2px',
                           cursor: 'pointer',
-                          border: '1px solid rgba(27,31,35,0.06)',
-                          transition: 'all 0.1s ease',
+                          border: '1px solid var(--line)',
+                          transition: 'opacity .1s',
                         }}
-                        onMouseEnter={(e) => handleMouseMove(e, dayData)}
+                        onMouseEnter={(e) => handleMouseMove(e, day)}
                         onMouseLeave={() => setHoveredDay(null)}
-                        onMouseMove={(e) => handleMouseMove(e, dayData)}
+                        onMouseMove={(e) => handleMouseMove(e, day)}
                       />
                     );
                   })}
@@ -181,53 +93,35 @@ const TaskHeatmap: React.FC<TaskHeatmapProps> = ({ data, theme = 'light' }) => {
           </div>
         </div>
 
-        {/* 固定图例 */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          fontSize: '12px',
-          color: 'var(--text-secondary)',
-          gap: '8px',
-        }}>
+        {/* legend */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '5px', fontSize: '11px', color: 'var(--fg-4)' }}>
           <span>少</span>
-          {[0, 1, 2, 3, 4].map(level => (
-            <div
-              key={level}
-              style={{
-                width: '11px',
-                height: '11px',
-                backgroundColor: getColor(level),
-                borderRadius: '2px',
-                border: '1px solid rgba(27,31,35,0.06)',
-              }}
-            />
+          {[0, 1, 2, 3, 4].map(l => (
+            <div key={l} style={{ width: '10px', height: '10px', background: colors[l], borderRadius: '2px', border: '1px solid var(--line)' }} />
           ))}
           <span>多</span>
         </div>
       </div>
 
-      {/* 悬浮提示 */}
+      {/* tooltip */}
       {hoveredDay && (
-        <div
-          style={{
-            position: 'fixed',
-            left: mousePosition.x,
-            top: mousePosition.y,
-            backgroundColor: '#1f2937', // 深灰色背景
-            color: '#f9fafb', // 浅色文字
-            padding: '8px 12px',
-            borderRadius: '8px',
-            border: '1px solid #374151',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            fontSize: '12px',
-            pointerEvents: 'none',
-            zIndex: 1000,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <div style={{ fontWeight: '500' }}>{formatDate(hoveredDay.date)}</div>
-          <div style={{ color: '#d1d5db' }}>{hoveredDay.count} 个任务完成</div>
+        <div style={{
+          position: 'fixed',
+          left: mousePos.x,
+          top: mousePos.y,
+          background: 'var(--bg-0)',
+          color: 'var(--fg)',
+          padding: '7px 11px',
+          borderRadius: '9px',
+          border: '1px solid var(--line-2)',
+          boxShadow: '0 8px 24px rgba(0,0,0,.12)',
+          fontSize: '12px',
+          pointerEvents: 'none',
+          zIndex: 1000,
+          whiteSpace: 'nowrap',
+        }}>
+          <div style={{ fontWeight: 600 }}>{new Date(hoveredDay.date).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}</div>
+          <div style={{ color: 'var(--fg-3)', marginTop: '2px' }}>{hoveredDay.count} 个任务完成</div>
         </div>
       )}
     </div>

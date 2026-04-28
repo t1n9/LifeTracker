@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, f
 import { createPortal } from 'react-dom';
 import { Play, Pause, RotateCcw, Focus, Square } from 'lucide-react';
 import { pomodoroAPI } from '@/lib/api';
-import FocusMode from './FocusMode';
+import { PROACTIVE_TRIGGER_EVENT } from '@/lib/agent-events';
 import BreakMode from './BreakMode';
 import styles from './PomodoroTimer.module.css';
 
@@ -23,6 +23,7 @@ interface PomodoroTimerProps {
   onElapsedTimeChange?: (elapsedTime: number) => void;
   compactMode?: boolean;
   hideHeader?: boolean;
+  isFocusMode?: boolean;
 }
 
 export interface PomodoroTimerRef {
@@ -56,6 +57,7 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
   onElapsedTimeChange,
   compactMode = false,
   hideHeader = false,
+  isFocusMode = false,
 }, ref) => {
   const [selectedMinutes, setSelectedMinutes] = useState(25); // 默认25分钟
   const [timeLeft, setTimeLeft] = useState(selectedMinutes * 60); // 秒数
@@ -65,7 +67,6 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [serverConnected, setServerConnected] = useState(true);
   const [startBoundTask, setStartBoundTask] = useState<string | null>(null);
-  const [showFocusMode, setShowFocusMode] = useState(false);
   const [showBreakMode, setShowBreakMode] = useState(false);
   const [breakTimeLeft, setBreakTimeLeft] = useState(0);
   const [breakType, setBreakType] = useState<'short' | 'long'>('short');
@@ -260,10 +261,7 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
       );
 
       // 进入专注模式
-      setShowFocusMode(true);
-      if (onEnterFocusMode) {
-        onEnterFocusMode();
-      }
+      onEnterFocusMode?.();
     } catch (error) {
       console.error('启动正计时失败:', error);
       // 回退到本地模式
@@ -272,10 +270,7 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
       setIsCompleted(false);
       setStartBoundTask(taskId);
 
-      setShowFocusMode(true);
-      if (onEnterFocusMode) {
-        onEnterFocusMode();
-      }
+      onEnterFocusMode?.();
     }
   }, [selectedMinutes, serverConnected, tasks, onEnterFocusMode]);
 
@@ -450,6 +445,22 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
             // 如果运行时间超过5分钟，计入番茄数
             if (actualRunTime >= 300) {
               console.log('🍅 运行时间超过5分钟，计入番茄数');
+              // Dispatch proactive pomodoro_done for WORK pomodoros
+              if (!isCountUpMode) {
+                const boundTask = startBoundTask ? tasks.find((t) => t.id === startBoundTask) : null;
+                window.dispatchEvent(
+                  new CustomEvent(PROACTIVE_TRIGGER_EVENT, {
+                    detail: {
+                      trigger: 'pomodoro_done' as const,
+                      context: {
+                        taskId: startBoundTask || undefined,
+                        taskTitle: boundTask?.title,
+                        pomodoroCount: pomodoroCount + 1,
+                      },
+                    },
+                  }),
+                );
+              }
               onPomodoroComplete?.();
             } else {
               console.log('🍅 运行时间不足5分钟，不计入番茄数');
@@ -556,6 +567,21 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
         // 停止所有定时器
         stopLocalTimer();
         stopSync();
+
+        // Dispatch proactive pomodoro_done event
+        const boundTask = startBoundTask ? tasks.find((t) => t.id === startBoundTask) : null;
+        window.dispatchEvent(
+          new CustomEvent(PROACTIVE_TRIGGER_EVENT, {
+            detail: {
+              trigger: 'pomodoro_done' as const,
+              context: {
+                taskId: startBoundTask || undefined,
+                taskTitle: boundTask?.title,
+                pomodoroCount: pomodoroCount + 1,
+              },
+            },
+          }),
+        );
 
         // 调用完成回调
         if (onPomodoroComplete) {
@@ -773,10 +799,7 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
         );
 
         // 进入专注模式
-        setShowFocusMode(true);
-        if (onEnterFocusMode) {
-          onEnterFocusMode();
-        }
+        onEnterFocusMode?.();
       }
 
       // 如果连接到现有运行中的会话，也启动计时器和同步
@@ -812,10 +835,7 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
       '/favicon.ico'
     );
 
-    setShowFocusMode(true);
-    if (onEnterFocusMode) {
-      onEnterFocusMode();
-    }
+    onEnterFocusMode?.();
   };
 
   // 暂停服务器端番茄钟
@@ -882,6 +902,23 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
 
         // 播放完成提示音
         playNotificationSound('complete');
+
+        // Dispatch proactive pomodoro_done for WORK pomodoros
+        if (!isCountUpMode) {
+          const boundTask = startBoundTask ? tasks.find((t) => t.id === startBoundTask) : null;
+          window.dispatchEvent(
+            new CustomEvent(PROACTIVE_TRIGGER_EVENT, {
+              detail: {
+                trigger: 'pomodoro_done' as const,
+                context: {
+                  taskId: startBoundTask || undefined,
+                  taskTitle: boundTask?.title,
+                  pomodoroCount: pomodoroCount + 1,
+                },
+              },
+            }),
+          );
+        }
 
         // 调用完成回调
         if (onPomodoroComplete) {
@@ -1164,11 +1201,7 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
   };
 
   const handleEnterFocusMode = () => {
-    setShowFocusMode(true);
-  };
-
-  const handleExitFocusMode = () => {
-    setShowFocusMode(false);
+    onEnterFocusMode?.();
   };
 
 
@@ -1185,7 +1218,6 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
     setBreakType(isLongBreak ? 'long' : 'short');
     setBreakTimeLeft(breakDuration * 60);
     setShowBreakMode(true);
-    setShowFocusMode(false);
 
     // 发送休息开始通知
     sendNotification(
@@ -1318,7 +1350,6 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
     setIsPaused(false);
     setStartBoundTask(null);
     setSessionId(null);
-    setShowFocusMode(false);
 
     // 确保时间重置为初始值，并且不会被同步覆盖
     const resetTime = selectedMinutes * 60;
@@ -1387,7 +1418,7 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
   }
 
   return (
-    <div className={`${styles.card} ${compactMode ? styles.cardCompact : ''}`}>
+    <div className={`${styles.card} ${compactMode ? styles.cardCompact : ''} ${isFocusMode ? styles.focusExpand : ''}`}>
       {!hideHeader && (
       <div className={styles.header}>
         <div className={styles.titleWrap}>
@@ -1492,14 +1523,16 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
                 {isCountUpMode ? <Square size={18} /> : <RotateCcw size={18} />}
                 <span>{isCountUpMode ? '结束' : '重置'}</span>
               </button>
-              <button
-                onClick={handleEnterFocusMode}
-                className={styles.ghostButton}
-                title='进入专注模式'
-              >
-                <Focus size={18} />
-                <span>专注模式</span>
-              </button>
+              {!isFocusMode && (
+                <button
+                  onClick={handleEnterFocusMode}
+                  className={styles.ghostButton}
+                  title='进入专注模式'
+                >
+                  <Focus size={18} />
+                  <span>专注模式</span>
+                </button>
+              )}
             </div>
 
             {!isCountUpMode && !isRunning && !isPaused && (
@@ -1550,29 +1583,6 @@ const PomodoroTimer = forwardRef<PomodoroTimerRef, PomodoroTimerProps>(({
         <div className={`${styles.status} ${styles.statusRunning}`}>
           {boundTask ? `正在专注：${boundTask.title}` : '专注进行中，先别被别的事情打断。'}
         </div>
-      )}
-
-      {/* 专注模式覆盖层 - 使用Portal渲染到body */}
-      {showFocusMode && typeof window !== 'undefined' && createPortal(
-        <FocusMode
-          timeLeft={timeLeft}
-          selectedMinutes={selectedMinutes}
-          isRunning={isRunning}
-          isPaused={isPaused}
-          onStart={handleStart}
-          onPause={handlePause}
-          onReset={handleReset}
-          onExit={handleExitFocusMode}
-          currentBoundTask={displayTaskId || undefined}
-          tasks={tasks}
-          studyTime={studyTime}
-          pomodoroCount={pomodoroCount}
-          theme={theme}
-          onToggleTheme={onToggleTheme}
-          isCountUpMode={isCountUpMode}
-          countUpTime={countUpTime}
-        />,
-        document.body
       )}
 
       {/* 休息模式覆盖层 - 使用Portal渲染到body */}

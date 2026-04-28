@@ -71,7 +71,7 @@ export default function SystemConfigPanel() {
 
   if (loading) {
     return (
-      <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+      <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--fg-2)' }}>
         加载配置中...
       </div>
     );
@@ -80,10 +80,10 @@ export default function SystemConfigPanel() {
   return (
     <div style={{ padding: '0.25rem' }}>
       <div style={{ marginBottom: '1rem' }}>
-        <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
+        <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--fg)', marginBottom: '0.35rem' }}>
           系统配置管理
         </h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+        <p style={{ color: 'var(--fg-2)', fontSize: '0.88rem' }}>
           管理系统关键配置项，修改后会立即生效。
         </p>
       </div>
@@ -120,8 +120,8 @@ export default function SystemConfigPanel() {
               style={{
                 padding: '1rem',
                 borderRadius: '16px',
-                border: '1px solid color-mix(in srgb, var(--border-color) 76%, transparent 24%)',
-                background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
+                border: '1px solid color-mix(in srgb, var(--line) 76%, transparent 24%)',
+                background: 'color-mix(in srgb, var(--bg-1) 90%, white 10%)',
                 boxShadow: '0 12px 28px rgba(15, 23, 42, 0.06)',
               }}
             >
@@ -136,11 +136,11 @@ export default function SystemConfigPanel() {
                 }}
               >
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--fg)', marginBottom: '0.25rem' }}>
                     {getConfigLabel(config.key)}
                   </h3>
                   {config.description && (
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.6 }}>
+                    <p style={{ color: 'var(--fg-2)', fontSize: '0.82rem', lineHeight: 1.6 }}>
                       {config.description}
                     </p>
                   )}
@@ -154,11 +154,11 @@ export default function SystemConfigPanel() {
                     border: '1px solid',
                     borderColor: config.isPublic
                       ? 'color-mix(in srgb, var(--success-color) 36%, transparent 64%)'
-                      : 'color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
+                      : 'color-mix(in srgb, var(--line) 78%, transparent 22%)',
                     background: config.isPublic
                       ? 'color-mix(in srgb, var(--success-color) 14%, transparent 86%)'
-                      : 'color-mix(in srgb, var(--bg-tertiary) 88%, white 12%)',
-                    color: config.isPublic ? 'var(--success-color)' : 'var(--text-muted)',
+                      : 'color-mix(in srgb, var(--bg-2) 88%, white 12%)',
+                    color: config.isPublic ? 'var(--success-color)' : 'var(--fg-3)',
                   }}
                 >
                   {config.isPublic ? '公开' : '私有'}
@@ -167,7 +167,7 @@ export default function SystemConfigPanel() {
 
               {isBooleanSwitch ? (
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.7rem' }}>
-                  <span style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 600 }}>
+                  <span style={{ color: 'var(--fg)', fontSize: '0.9rem', fontWeight: 600 }}>
                     当前状态：{config.value === 'true' ? '已开启' : '已关闭'}
                   </span>
                   <button
@@ -192,7 +192,7 @@ export default function SystemConfigPanel() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.7rem' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>当前值</span>
+                  <span style={{ color: 'var(--fg-3)', fontSize: '0.8rem', fontWeight: 600 }}>当前值</span>
                   <input
                     type="text"
                     value={config.value}
@@ -211,9 +211,9 @@ export default function SystemConfigPanel() {
                       flex: 1,
                       minWidth: '220px',
                       borderRadius: '10px',
-                      border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
-                      background: 'color-mix(in srgb, var(--bg-primary) 90%, white 10%)',
-                      color: 'var(--text-primary)',
+                      border: '1px solid color-mix(in srgb, var(--line) 78%, transparent 22%)',
+                      background: 'color-mix(in srgb, var(--bg-0) 90%, white 10%)',
+                      color: 'var(--fg)',
                       padding: '0.52rem 0.72rem',
                       fontSize: '0.86rem',
                     }}
@@ -221,7 +221,7 @@ export default function SystemConfigPanel() {
                 </div>
               )}
 
-              <div style={{ marginTop: '0.7rem', color: 'var(--text-muted)', fontSize: '0.74rem' }}>
+              <div style={{ marginTop: '0.7rem', color: 'var(--fg-3)', fontSize: '0.74rem' }}>
                 更新时间：{new Date(config.updatedAt).toLocaleString()}
               </div>
             </div>
@@ -236,9 +236,9 @@ export default function SystemConfigPanel() {
           style={{
             padding: '0.62rem 1rem',
             borderRadius: '12px',
-            border: '1px solid color-mix(in srgb, var(--border-color) 78%, transparent 22%)',
-            background: 'color-mix(in srgb, var(--bg-secondary) 90%, white 10%)',
-            color: 'var(--text-primary)',
+            border: '1px solid color-mix(in srgb, var(--line) 78%, transparent 22%)',
+            background: 'color-mix(in srgb, var(--bg-1) 90%, white 10%)',
+            color: 'var(--fg)',
             fontSize: '0.84rem',
             fontWeight: 700,
             cursor: loading ? 'not-allowed' : 'pointer',

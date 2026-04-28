@@ -1,4 +1,20 @@
 export const AGENT_DATA_CHANGED_EVENT = 'agent:data-changed';
+export const PROACTIVE_TRIGGER_EVENT = 'agent:proactive_trigger';
+
+export type ProactiveTrigger =
+  | 'morning'
+  | 'pomodoro_done'
+  | 'task_done'
+  | 'evening';
+
+export interface ProactiveTriggerPayload {
+  trigger: ProactiveTrigger;
+  context?: {
+    taskId?: string;
+    taskTitle?: string;
+    pomodoroCount?: number;
+  };
+}
 
 export type AgentRefreshDomain =
   | 'tasks'

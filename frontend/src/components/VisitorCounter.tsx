@@ -33,40 +33,21 @@ const VisitorCounter: React.FC<VisitorCounterProps> = ({
 
         const countResponse = await api.get(`/visitor/count/${userId}`);
         setVisitorCount(countResponse.data?.data?.totalVisitors ?? 0);
-      } catch (error) {
-        console.warn('load visitor counter failed:', error);
+      } catch {
+        // ignore
       } finally {
         setLoading(false);
       }
     };
 
-    if (userId) {
-      void fetchAndRecord();
-    }
+    if (userId) void fetchAndRecord();
   }, [userId]);
 
   if (loading) {
     return (
-      <div
-        className={`visitor-counter loading ${className}`}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '0.25rem',
-          fontSize: '0.75rem',
-          color: 'var(--text-muted)',
-        }}
-      >
-        {showIcon && <Eye size={14} />}
-        <div
-          style={{
-            width: '20px',
-            height: '12px',
-            background: 'var(--bg-tertiary)',
-            borderRadius: '2px',
-            animation: 'pulse 1.5s ease-in-out infinite',
-          }}
-        />
+      <div className={className} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--fg-4)' }}>
+        {showIcon && <Eye size={13} />}
+        <div style={{ width: '24px', height: '11px', background: 'var(--bg-3)', borderRadius: '3px' }} />
       </div>
     );
   }
@@ -74,20 +55,11 @@ const VisitorCounter: React.FC<VisitorCounterProps> = ({
   if (visitorCount === null) return null;
 
   return (
-    <div
-      className={`visitor-counter ${className}`}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.25rem',
-        fontSize: '0.75rem',
-        color: 'var(--text-muted)',
-      }}
-    >
-      {showIcon && <Eye size={14} />}
+    <div className={className} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--fg-3)' }}>
+      {showIcon && <Eye size={13} />}
       <span>
         {showLabel && '访客 '}
-        <span style={{ fontWeight: 500, color: 'var(--accent-primary)' }}>
+        <span style={{ fontWeight: 600, color: 'var(--accent)' }}>
           {visitorCount.toLocaleString()}
         </span>
       </span>
