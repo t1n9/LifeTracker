@@ -377,7 +377,7 @@ export default function UserManagement() {
                       <option value="ADMIN">管理员</option>
                     </select>
                     <div className={styles.fieldHint}>
-                      会员身份由订阅方案决定，请在下方"订阅管理"中设置
+                      会员身份由订阅方案决定，请在下方「订阅管理」中设置
                     </div>
                     <button onClick={handleRoleChange} disabled={editRole === selectedUser.role}>
                       保存角色
