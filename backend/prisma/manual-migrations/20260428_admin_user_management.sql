@@ -22,3 +22,8 @@ WHERE id IN (
 
 -- 3. 确保所有管理员在用户列表查询中仍可通过 is_admin 找到
 -- （is_admin 字段保留，后续版本清理）
+
+-- 4. 将现有用户标记为邮箱已验证（注册时必须通过验证码才能创建）
+UPDATE users
+SET email_verified = true
+WHERE email_verified = false;

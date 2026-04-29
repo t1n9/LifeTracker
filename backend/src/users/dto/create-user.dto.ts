@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsEmail, IsString, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateUserDto {
@@ -15,7 +15,10 @@ export class CreateUserDto {
   @IsString()
   name?: string;
 
-
+  @ApiProperty({ description: '邮箱已验证', required: false })
+  @IsOptional()
+  @IsBoolean()
+  emailVerified?: boolean;
 
   @ApiProperty({ description: '主题', required: false })
   @IsOptional()

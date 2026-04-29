@@ -33,11 +33,12 @@ export class AuthService {
     // 加密密码
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // 创建用户
+    // 创建用户（验证码已通过，标记邮箱已验证）
     const user = await this.usersService.create({
       email,
       passwordHash: hashedPassword,
       name,
+      emailVerified: true,
     });
 
     // 生成JWT令牌
