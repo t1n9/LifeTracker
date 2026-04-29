@@ -24,6 +24,7 @@ interface AgentMessage {
   pendingAction?: any;
   confirmed?: boolean | null;
   createdAt: string;
+  isThinking?: boolean;
 }
 
 interface ConfirmCard {
@@ -447,23 +448,39 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
     }
   }, [loadingCaptures]);
 
-  // ── 主动推送：调用 /agent/proactive/stream ──
+  // ── 主动推送：调用 /agent/proactive/stream（真流式）──
   const fetchProactiveMessage = useCallback(async (trigger: string, context?: ProactiveTriggerPayload['context']) => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (!token) return;
+    const thinkingId = `thinking-proactive-${Date.now()}`;
+    // 显示"正在思考"占位消息
+    setMessages((prev) => [...prev, {
+      id: thinkingId,
+      role: 'assistant' as const,
+      content: '...',
+      createdAt: new Date().toISOString(),
+      isThinking: true,
+    }]);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api'}/agent/proactive/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ trigger, context }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
+        return;
+      }
       const reader = res.body?.getReader();
-      if (!reader) return;
+      if (!reader) {
+        setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
+        return;
+      }
       const decoder = new TextDecoder();
       let buffer = '';
       let messageId = '';
       let content = '';
+      let thinkingRemoved = false;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -474,9 +491,25 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
           if (!line.trim()) continue;
           try {
             const event = JSON.parse(line);
-            if (event.type === 'reply_start') {
+            if (event.type === 'progress') {
+              // 更新思考消息的文本，让用户感知 AI 在做什么
+              setMessages((prev) => prev.map((m) =>
+                m.id === thinkingId ? { ...m, content: event.text || '...' } : m
+              ));
+            } else if (event.type === 'progress_done') {
+              // 后端准备开始流式输出，移除思考消息
+              if (!thinkingRemoved) {
+                setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
+                thinkingRemoved = true;
+              }
+            } else if (event.type === 'reply_start') {
               messageId = event.id;
               content = '';
+              // 确保思考消息已移除
+              if (!thinkingRemoved) {
+                setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
+                thinkingRemoved = true;
+              }
             } else if (event.type === 'reply_delta') {
               content += event.chunk || '';
               setMessages((prev) => {
@@ -494,6 +527,7 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
       }
     } catch (err) {
       console.error('Proactive message fetch failed:', err);
+      setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
     }
   }, []);
 
@@ -1070,7 +1104,11 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
         return (
           <div key={msg.id} style={styles.row}>
             <div style={styles.assistantBubble}>
-              {renderMarkdownContent(msg.content)}
+              {msg.isThinking ? (
+                <span className="ai-typing-dots"><span /><span /><span /></span>
+              ) : (
+                renderMarkdownContent(msg.content)
+              )}
               {Array.isArray(msg.toolCalls) && msg.toolCalls.length > 0 && (
                 <div style={styles.tagWrap}>
                   {msg.toolCalls.map((item: any, index: number) => (

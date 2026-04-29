@@ -123,20 +123,26 @@ export default function Dashboard() {
     loadTasks();
   }, []);
 
-  // ── 晨间流检测：若无 dayStart 则发送 morning 主动推送 ──
+  // ── 晨间流检测：若无 dayStart 则发送 morning 主动推送（每天只发一次） ──
   useEffect(() => {
     let cancelled = false;
     const checkDayStart = async () => {
       try {
         const res = await dailyAPI.getTodayStatus();
         const hasDayStart = res.data?.dayStart;
-        if (!cancelled && !hasDayStart) {
-          window.dispatchEvent(
-            new CustomEvent(PROACTIVE_TRIGGER_EVENT, {
-              detail: { trigger: 'morning' },
-            }),
-          );
-        }
+        if (cancelled || hasDayStart) return;
+
+        // 当天已发送过则跳过，避免页面切换回来重复问候
+        const today = new Date().toISOString().slice(0, 10);
+        const lastSent = localStorage.getItem('proactive_morning_date');
+        if (lastSent === today) return;
+
+        localStorage.setItem('proactive_morning_date', today);
+        window.dispatchEvent(
+          new CustomEvent(PROACTIVE_TRIGGER_EVENT, {
+            detail: { trigger: 'morning' },
+          }),
+        );
       } catch { /* 静默失败，不影响主流程 */ }
     };
     void checkDayStart();

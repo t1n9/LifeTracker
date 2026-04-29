@@ -134,12 +134,15 @@ export class AgentController {
       toolResults: Array<{ tool: string; args?: any; result?: any }>,
     ) => {
       const content = String(text || '');
-      const chunkSize = 20;
       writeEvent({ type: 'reply_start', id: messageId });
 
-      for (let index = 0; index < content.length; index += chunkSize) {
-        writeEvent({ type: 'reply_delta', id: messageId, chunk: content.slice(index, index + chunkSize) });
-        await new Promise((resolve) => setTimeout(resolve, 30));
+      // 逐字符流式输出，模拟真实打字效果
+      for (let index = 0; index < content.length; index++) {
+        const char = content[index];
+        writeEvent({ type: 'reply_delta', id: messageId, chunk: char });
+        if (index % (1 + Math.floor(Math.random() * 3)) === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 5 + Math.random() * 10));
+        }
       }
 
       writeEvent({ type: 'reply_done', id: messageId, toolResults });
@@ -272,16 +275,32 @@ export class AgentController {
 
     try {
       writeEvent({ type: 'start' });
-      writeEvent({ type: 'progress', text: '正在生成主动消息...' });
+      writeEvent({ type: 'progress', text: '正在感知你的状态...' });
 
-      const result: any = await this.agentService.handleProactive(req.user.id, trigger, context);
+      let messageId: string | null = null;
+      let firstToken = true;
 
-      writeEvent({ type: 'progress_done' });
+      const result: any = await this.agentService.handleProactiveStream(
+        req.user.id,
+        trigger,
+        context,
+        {
+          onStart: (id: string) => {
+            messageId = id;
+          },
+          onToken: (token: string) => {
+            if (firstToken) {
+              writeEvent({ type: 'progress_done' });
+              writeEvent({ type: 'reply_start', id: messageId! });
+              firstToken = false;
+            }
+            writeEvent({ type: 'reply_delta', id: messageId!, chunk: token });
+          },
+        },
+      );
 
-      if (result.type === 'reply') {
-        await streamReply(result.reply || '', result.id);
-      } else {
-        writeEvent({ type: 'unknown', payload: result });
+      if (messageId) {
+        writeEvent({ type: 'reply_done', id: messageId });
       }
     } catch (error) {
       writeEvent({

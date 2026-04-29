@@ -8,6 +8,7 @@ import { AgentMemoryService } from './agent-memory.service';
 import { AgentProfileService } from './agent-profile.service';
 import { AgentTraceService } from './agent-trace.service';
 import { AgentToolsService, AGENT_TOOLS } from './agent-tools.service';
+import { StudyPlanService } from '../study-plan/study-plan.service';
 import { AgentMessageHints, extractAgentMessageHints, toTaskMatchKey } from './agent-intent.utils';
 
 interface LLMMessage {
@@ -106,6 +107,17 @@ const SYSTEM_PROMPT = `你是 LifeTracker 的专属助手，只服务于本网�
   应先记录运动，再记录运动感受，再为番茄准备任务并开启番茄
 - "资料分析任务完成"
   应匹配现有未完成任务后调用 complete_task({ taskTitle: "资料分析" }) 或 complete_task({ taskId: "..." })
+
+【晨间规划流程】
+当对话上下文显示用户在规划今天的安排时（比如用户提到了今天的时间段、任务安排、特殊事项等），你需要：
+1. 分析用户的时间段，合理安排任务顺序（难的科目放精力好的时段，简单的放疲劳时段）
+2. 如果用户有活跃学习计划，把今日学习安排的章节也纳入任务列表
+3. 用户提到的特殊任务（模考、运动、外出等）要单独列出来，不要遗漏
+4. 列出完整的全天计划表（按上午/下午/晚上分时段），每个时段标注要做的任务
+5. 计划列完后，先让用户确认，不要直接创建任务。例如："这个安排可以吗？需要调整的话告诉我"
+6. 用户确认后，用 create_tasks 一次性批量创建所有任务
+7. 创建完成后，主动询问："要开始第一个番茄钟吗？"
+8. 如果用户要求调整，根据反馈修改计划后再确认
 `;
 
 @Injectable()
@@ -121,6 +133,7 @@ export class AgentService {
     private agentProfileService: AgentProfileService,
     private agentTraceService: AgentTraceService,
     private agentToolsService: AgentToolsService,
+    private studyPlanService: StudyPlanService,
   ) {}
 
   /**
@@ -2367,6 +2380,117 @@ export class AgentService {
   }
 
   /**
+   * 主动触发（流式）：使用 DeepSeek SSE 实时流式生成消息
+   */
+  async handleProactiveStream(
+    userId: string,
+    trigger: string,
+    context: { taskId?: string; taskTitle?: string; pomodoroCount?: number } | undefined,
+    callbacks: {
+      onStart: (messageId: string) => void;
+      onToken: (token: string) => void;
+    },
+  ): Promise<{ id: string; reply: string }> {
+    const apiUrl = this.configService.get<string>('AI_API_URL');
+    const apiKey = this.configService.get<string>('AI_API_KEY');
+    const model = this.configService.get<string>('AI_MODEL', 'deepseek-v4-flash');
+    const timeout = parseInt(this.configService.get<string>('AI_TIMEOUT', '60000'), 10);
+
+    if (!apiUrl || !apiKey) {
+      throw new Error('AI_API_URL and AI_API_KEY must be configured');
+    }
+
+    const saved = await this.prisma.agentMessage.create({
+      data: {
+        userId,
+        role: 'assistant',
+        content: '',
+        toolCalls: { proactive: true },
+      },
+    });
+
+    callbacks.onStart(saved.id);
+
+    const systemPrompt = this.buildProactiveSystemPrompt(trigger);
+    const contextData = await this.buildProactiveContext(userId, trigger, context);
+    const contextPrompt = contextData ? [{ role: 'system' as const, content: contextData }] : [];
+
+    const messages: LLMMessage[] = [
+      { role: 'system', content: systemPrompt },
+      ...contextPrompt,
+      {
+        role: 'user',
+        content: trigger === 'morning'
+          ? '请向用户发送晨间问候，引导开启今天。'
+          : trigger === 'pomodoro_done'
+            ? '用户刚完成一个番茄钟。请发送一条简短的消息。'
+            : trigger === 'task_done'
+              ? '用户刚完成一个任务。请发送一条简短的消息。'
+              : '请向用户发送晚间复盘引导。',
+      },
+    ];
+
+    const response = await axios.post(
+      apiUrl,
+      {
+        model,
+        messages,
+        stream: true,
+        temperature: 1.0,
+        top_p: 1.0,
+      },
+      {
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        timeout,
+        responseType: 'stream',
+      },
+    );
+
+    let fullContent = '';
+
+    return new Promise((resolve, reject) => {
+      let sseBuffer = '';
+
+      response.data.on('data', (chunk: Buffer) => {
+        sseBuffer += chunk.toString();
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+
+          const data = trimmed.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta) {
+              fullContent += delta;
+              callbacks.onToken(delta);
+            }
+          } catch {
+            // 跳过不完整的 JSON 行
+          }
+        }
+      });
+
+      response.data.on('end', async () => {
+        await this.prisma.agentMessage.update({
+          where: { id: saved.id },
+          data: { content: fullContent },
+        });
+        resolve({ id: saved.id, reply: fullContent });
+      });
+
+      response.data.on('error', (err: Error) => {
+        reject(err);
+      });
+    });
+  }
+
+  /**
    * 构建主动触发专用的 system prompt
    */
   private buildProactiveSystemPrompt(trigger: string): string {
@@ -2384,13 +2508,35 @@ export class AgentService {
       case 'morning':
         return `${basePrompt}
 
-【场景】晨间问候
-用户刚打开 LifeTracker，今天还没有"开启今日"的记录。你需要：
-1. 用温暖但不油腻的语气问候（可以说"早上好"、"新的一天开始了"等）
-2. 自然地引导用户说说今天的起床时间
-3. 暗示可以帮用户规划今天的任务
+【场景】晨间问候与规划引导
+用户刚打开 LifeTracker，你需要主动发起一段温暖而有用的晨间对话，帮用户完成今天的规划。
 
-注意：不要直接说"请告诉我你今天几点起床"，要用更自然的方式引导。`;
+【你的核心目标】
+了解时间安排 → 整合学习计划+特殊任务 → 列出全天计划 → 用户确认 → 批量创建任务 → 询问是否开始番茄钟
+
+【当前这条消息你要做的事】
+1. 用自然温暖的方式打招呼，可以根据当前时间微调语气
+2. 如果上下文中有活跃学习计划，自然地提到它，但不要强制用户按计划执行
+3. 询问用户今天的空闲时间安排，例如"今天大概几点到几点有空？上午、下午、晚上哪个时段比较空？"
+4. 询问是否有特殊安排，例如"今天有什么特别的事情吗？比如模考、运动或者其他安排？"
+5. 语气要像朋友聊天，自然温暖，不要像填表格
+
+【重要行为规则】
+- 不要在这条消息里直接创建任务或列计划 — 你还没收集到足够的信息
+- 如果上下文显示用户之前已经说过今天的安排，可以直接列出计划方案并询问确认
+- 如果用户没有提到时间安排，一定要先问
+- 消息保持3-5句话，不要长篇大论
+- 不要用"你可以..."、"建议你..."这种说教语气
+- 结束时留一个开放式问题，让用户愿意回复
+
+【后续对话流程（在用户回复后通过聊天完成）】
+1. 用户分享了时间安排 → 分析时间段，结合学习计划和特殊任务，列出全天计划表
+2. 用户没分享时间 → 再次友好地询问，不要跳过
+3. 用户始终不愿说具体时间 → 灵活应变，基于学习计划建议默认方案
+4. 列出计划后务必先让用户确认，不要直接创建任务
+5. 用户确认后，用create_tasks批量创建所有任务
+6. 创建完成后，主动询问："要开始第一个番茄钟吗？"
+7. 特殊安排（模考、运动等）必须纳入全天计划表中`;
 
       case 'pomodoro_done':
         return `${basePrompt}
@@ -2446,10 +2592,37 @@ export class AgentService {
         where: { userId_date: { userId, date: today } },
       });
 
+      // 通用上下文：用户画像
+      const { contextText: profileContext } = await this.agentProfileService.buildProfileContext(userId);
+      if (profileContext) {
+        parts.push(profileContext);
+      }
+
       if (trigger === 'morning') {
         parts.push(`当前日期: ${today}`);
+        parts.push(`当前时间: ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`);
         if (dailyData?.dayStart) {
           parts.push(`今天的计划: ${dailyData.dayStart}`);
+        }
+
+        // 获取今日学习计划
+        const studyPlanSuggestion = await this.studyPlanService.getTodaySuggestion(userId);
+        if (studyPlanSuggestion.plan) {
+          parts.push(`活跃学习计划: "${studyPlanSuggestion.plan.title}"`);
+          if (studyPlanSuggestion.plan.examName) {
+            parts.push(`考试名称: ${studyPlanSuggestion.plan.examName}`);
+          }
+          if (studyPlanSuggestion.plan.examDate) {
+            parts.push(`考试日期: ${studyPlanSuggestion.plan.examDate}`);
+          }
+          if (studyPlanSuggestion.slots.length > 0) {
+            const slotLines = studyPlanSuggestion.slots.map(s =>
+              `  ${s.subjectName}: ${s.chapterTitle} (预计${s.plannedHours}h)`
+            );
+            parts.push(`今日学习安排:\n${slotLines.join('\n')}`);
+          } else {
+            parts.push('今日暂无学习安排');
+          }
         }
 
         // 获取当前目标
@@ -2461,12 +2634,21 @@ export class AgentService {
           parts.push(`用户当前目标: ${goal.goalName}`);
         }
 
-        // 获取今日任务数量
-        const pendingTasks = await this.prisma.task.count({
-          where: { userId, isCompleted: false },
+        // 任务列表
+        const allTasks = await this.prisma.task.findMany({
+          where: { userId },
+          select: { id: true, title: true, isCompleted: true },
+          orderBy: { sortOrder: 'asc' },
         });
-        if (pendingTasks > 0) {
-          parts.push(`待完成任务数: ${pendingTasks}`);
+        const completedTasks = allTasks.filter(t => t.isCompleted);
+        const pendingTasks = allTasks.filter(t => !t.isCompleted);
+        if (allTasks.length > 0) {
+          const taskLines = allTasks.map(t =>
+            `  ${t.isCompleted ? '✅' : '⬜'} ${t.title}`
+          );
+          parts.push(`今日任务 (${completedTasks.length}/${allTasks.length} 已完成):\n${taskLines.join('\n')}`);
+        } else {
+          parts.push('今日暂无任务');
         }
       }
 
@@ -2474,42 +2656,68 @@ export class AgentService {
         const pomodoroCount = context?.pomodoroCount ?? (dailyData?.pomodoroCount ?? 0);
         parts.push(`今日第 ${pomodoroCount} 个番茄钟`);
 
-        if (context?.taskTitle) {
-          parts.push(`关联任务: "${context.taskTitle}"`);
-        } else if (context?.taskId) {
+        let taskTitle = context?.taskTitle;
+        if (!taskTitle && context?.taskId) {
           const task = await this.prisma.task.findFirst({
             where: { id: context.taskId, userId },
             select: { title: true },
           });
-          if (task) {
-            parts.push(`关联任务: "${task.title}"`);
-          }
+          taskTitle = task?.title;
+        }
+        if (taskTitle) {
+          parts.push(`关联任务: "${taskTitle}"`);
         }
 
-        // 今日运动记录
         const exerciseCount = await this.prisma.exerciseLog.count({
           where: { userId, date: today },
         });
         parts.push(`今日运动记录: ${exerciseCount > 0 ? '已记录' : '未记录'}`);
 
-        // 剩余任务数
-        const pendingCount = await this.prisma.task.count({
-          where: { userId, isCompleted: false },
+        const allTasks = await this.prisma.task.findMany({
+          where: { userId },
+          select: { id: true, title: true, isCompleted: true },
         });
-        if (pendingCount > 0) {
-          parts.push(`剩余待完成任务: ${pendingCount} 个`);
+        const completedCount = allTasks.filter(t => t.isCompleted).length;
+        if (allTasks.length > 0) {
+          parts.push(`任务进度: ${completedCount}/${allTasks.length} 已完成`);
+          const pendingTitles = allTasks.filter(t => !t.isCompleted).map(t => t.title);
+          if (pendingTitles.length > 0) {
+            parts.push(`剩余任务: ${pendingTitles.join('、')}`);
+          }
+        }
+
+        if (dailyData) {
+          parts.push(`今日累计学习: ${dailyData.totalMinutes || 0} 分钟`);
         }
       }
 
       if (trigger === 'task_done') {
-        if (context?.taskTitle) {
-          parts.push(`刚完成的任务: "${context.taskTitle}"`);
+        let taskTitle = context?.taskTitle;
+        if (!taskTitle && context?.taskId) {
+          const task = await this.prisma.task.findFirst({
+            where: { id: context.taskId, userId },
+            select: { title: true },
+          });
+          taskTitle = task?.title;
+        }
+        if (taskTitle) {
+          parts.push(`刚完成的任务: "${taskTitle}"`);
         }
 
-        const pendingCount = await this.prisma.task.count({
-          where: { userId, isCompleted: false },
+        const allTasks = await this.prisma.task.findMany({
+          where: { userId },
+          select: { id: true, title: true, isCompleted: true },
         });
-        parts.push(`剩余待完成任务: ${pendingCount} 个`);
+        const completedCount = allTasks.filter(t => t.isCompleted).length;
+        if (allTasks.length > 0) {
+          parts.push(`任务进度: ${completedCount}/${allTasks.length} 已完成`);
+          const pendingTitles = allTasks.filter(t => !t.isCompleted).map(t => t.title);
+          if (pendingTitles.length > 0) {
+            parts.push(`待完成: ${pendingTitles.join('、')}`);
+          } else {
+            parts.push('今日任务已全部完成！');
+          }
+        }
 
         if (dailyData) {
           parts.push(`今日已专注: ${dailyData.totalMinutes || 0} 分钟`);
@@ -2526,16 +2734,18 @@ export class AgentService {
           }
         }
 
-        // 今日完成任务数
-        const completedCount = await this.prisma.task.count({
-          where: { userId, isCompleted: true },
-        });
-        const totalCount = await this.prisma.task.count({
+        const allTasks = await this.prisma.task.findMany({
           where: { userId },
+          select: { id: true, title: true, isCompleted: true },
         });
-        parts.push(`今日任务: 完成 ${completedCount}/${totalCount}`);
+        const completedCount = allTasks.filter(t => t.isCompleted).length;
+        if (allTasks.length > 0) {
+          const taskLines = allTasks.map(t =>
+            `  ${t.isCompleted ? '✅' : '❌'} ${t.title}`
+          );
+          parts.push(`今日任务 (${completedCount}/${allTasks.length}):\n${taskLines.join('\n')}`);
+        }
 
-        // 运动记录
         const exerciseCount = await this.prisma.exerciseLog.count({
           where: { userId, date: today },
         });

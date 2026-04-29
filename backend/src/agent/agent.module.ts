@@ -17,6 +17,7 @@ import { DailyModule } from '../daily/daily.module';
 import { StudyModule } from '../study/study.module';
 import { GoalsModule } from '../goals/goals.module';
 import { ImportantInfoModule } from '../important-info/important-info.module';
+import { StudyPlanModule } from '../study-plan/study-plan.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { ImportantInfoModule } from '../important-info/important-info.module';
     StudyModule,
     GoalsModule,
     ImportantInfoModule,
+    StudyPlanModule,
   ],
   controllers: [AgentController],
   providers: [
@@ -37,6 +39,7 @@ import { ImportantInfoModule } from '../important-info/important-info.module';
     AgentConfirmationService,
     AgentContextService,
     AgentMemoryService,
+    
     AgentProfileService,
     AgentTraceService,
     AgentToolsService,

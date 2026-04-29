@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckSquare, Plus, X, Check, GripVertical, Pencil, Trash2, Timer } from 'lucide-react';
 import { taskAPI } from '@/lib/api';
+import { PROACTIVE_TRIGGER_EVENT } from '@/lib/agent-events';
 import styles from './PendingTasks.module.css';
 import {
   DndContext,
@@ -477,6 +478,19 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       await taskAPI.updateTask(taskId, {
         isCompleted: !currentStatus
       });
+
+      // 任务完成时 dispatch task_done 事件，触发 AI 主动推送
+      if (!currentStatus) {
+        const completedTask = tasks.find(t => t.id === taskId);
+        window.dispatchEvent(
+          new CustomEvent(PROACTIVE_TRIGGER_EVENT, {
+            detail: {
+              trigger: 'task_done',
+              context: { taskId, taskTitle: completedTask?.title },
+            },
+          }),
+        );
+      }
 
     } catch (error) {
       console.error('????????:', error);
