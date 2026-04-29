@@ -10,6 +10,7 @@ interface AdminUser {
   name: string | null;
   role: 'USER' | 'MEMBER' | 'ADMIN';
   isActive: boolean;
+  emailVerified: boolean;
   bannedAt: string | null;
   banReason: string | null;
   createdAt: string;
@@ -75,6 +76,12 @@ export default function UserManagement() {
   const [subEnd, setSubEnd] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
+  useEffect(() => {
+    if (!actionMsg) return;
+    const timer = setTimeout(() => setActionMsg(''), 3000);
+    return () => clearTimeout(timer);
+  }, [actionMsg]);
+
   const limit = 20;
 
   const fetchUsers = useCallback(async () => {
@@ -134,13 +141,15 @@ export default function UserManagement() {
 
   const handleRoleChange = async () => {
     if (!selectedUser || editRole === selectedUser.role) return;
+    const targetLabel = ROLE_LABELS[editRole] || editRole;
+    if (!confirm(`确定要将 ${selectedUser.email} 的角色改为「${targetLabel}」吗？`)) return;
     try {
       await adminAPI.updateUserRole(selectedUser.id, editRole);
-      setActionMsg(`角色已更新为 ${ROLE_LABELS[editRole] || editRole}`);
+      setActionMsg(`角色已更新为 ${targetLabel}`);
       setSelectedUser({ ...selectedUser, role: editRole as UserDetail['role'] });
       fetchUsers();
-    } catch {
-      setActionMsg('角色修改失败');
+    } catch (e: any) {
+      setActionMsg(e?.response?.data?.message || '角色修改失败');
     }
   };
 
@@ -190,6 +199,13 @@ export default function UserManagement() {
     } catch {
       setActionMsg('订阅更新失败');
     }
+  };
+
+  const maskEmail = (email: string) => {
+    const [name, domain] = email.split('@');
+    if (!domain) return email;
+    if (name.length <= 3) return `${name[0]}***@${domain}`;
+    return `${name[0]}${'*'.repeat(name.length - 2)}${name[name.length - 1]}@${domain}`;
   };
 
   const formatDate = (d: string | null) => {
@@ -256,7 +272,12 @@ export default function UserManagement() {
                   <td>
                     <div className={styles.userCell}>
                       <span className={styles.userName}>{u.name || '未设置'}</span>
-                      <span className={styles.userEmail}>{u.email}</span>
+                      <span className={styles.userEmail} title={u.email}>
+                        {maskEmail(u.email)}
+                        {!u.emailVerified && (
+                          <span className={`${styles.tag} ${styles.tagUnverified}`}>未验证</span>
+                        )}
+                      </span>
                     </div>
                   </td>
                   <td>

@@ -1,6 +1,6 @@
 {
   "name": "lifetracker-backend",
-  "version": "4.1.1",
+  "version": "4.1.2",
   "description": "LifeTracker Backend API built with NestJS",
   "author": "Your Name",
   "private": true,

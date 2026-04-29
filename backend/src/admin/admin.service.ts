@@ -47,6 +47,7 @@ export class AdminService {
           name: true,
           role: true,
           isActive: true,
+          emailVerified: true,
           bannedAt: true,
           banReason: true,
           createdAt: true,
@@ -130,6 +131,9 @@ export class AdminService {
   // ── 修改角色 ──
 
   async updateUserRole(adminId: string, userId: string, dto: UpdateUserRoleDto) {
+    if (adminId === userId) {
+      throw new NotFoundException('不能修改自己的角色');
+    }
     const target = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!target) throw new NotFoundException('用户不存在');
 

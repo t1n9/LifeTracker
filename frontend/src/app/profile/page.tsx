@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/auth';
 import SystemConfigPanel from '@/components/admin/SystemConfigPanel';
 import SuggestionManagement from '@/components/admin/SuggestionManagement';
 import UserManagement from '@/components/admin/UserManagement';
+import AuditLogViewer from '@/components/admin/AuditLogViewer';
 import GoalManagement from '@/components/GoalManagement';
 import SystemSuggestion from '@/components/SystemSuggestion';
 import { VERSION_INFO, getVersionString } from '@/lib/version';
@@ -30,7 +31,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading, hasInitialized, initializeAuth, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'account' | 'suggestion' | 'admin'>('profile');
-  const [adminSubTab, setAdminSubTab] = useState<'config' | 'suggestions' | 'users'>('config');
+  const [adminSubTab, setAdminSubTab] = useState<'config' | 'suggestions' | 'users' | 'logs'>('config');
   const [isLoading, setIsLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [error, setError] = useState('');
@@ -511,12 +512,19 @@ export default function ProfilePage() {
                 >
                   用户管理
                 </button>
+                <button
+                  onClick={() => setAdminSubTab('logs')}
+                  className={`admin-subtab ${adminSubTab === 'logs' ? 'active' : ''}`}
+                >
+                  操作日志
+                </button>
               </div>
 
               {/* 子标签内容 */}
               {adminSubTab === 'config' && <SystemConfigPanel />}
               {adminSubTab === 'suggestions' && <SuggestionManagement />}
               {adminSubTab === 'users' && <UserManagement />}
+              {adminSubTab === 'logs' && <AuditLogViewer />}
             </div>
           )}
         </div>
