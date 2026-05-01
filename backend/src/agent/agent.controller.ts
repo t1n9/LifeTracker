@@ -108,6 +108,11 @@ export class AgentController {
     return this.agentService.chat(req.user.id, message, confirmMode ?? true);
   }
 
+  @Get('suggestions/empty-state')
+  async getEmptyStateSuggestions(@Req() req) {
+    return { suggestions: await this.agentService.getEmptyStateSuggestions(req.user.id) };
+  }
+
   @Post('chat/stream')
   async chatStream(
     @Req() req,
@@ -132,6 +137,7 @@ export class AgentController {
       text: string,
       messageId: string,
       toolResults: Array<{ tool: string; args?: any; result?: any }>,
+      suggestions: Array<{ label: string; send: string; hint?: string }> = [],
     ) => {
       const content = String(text || '');
       writeEvent({ type: 'reply_start', id: messageId });
@@ -145,7 +151,7 @@ export class AgentController {
         }
       }
 
-      writeEvent({ type: 'reply_done', id: messageId, toolResults });
+      writeEvent({ type: 'reply_done', id: messageId, toolResults, suggestions });
     };
 
     let progressTimer: NodeJS.Timeout | null = null;
@@ -176,7 +182,7 @@ export class AgentController {
       writeEvent({ type: 'progress_done' });
 
       if (result.type === 'reply') {
-        await streamReply(result.reply || '', result.id, result.toolResults || []);
+        await streamReply(result.reply || '', result.id, result.toolResults || [], result.suggestions || []);
       } else if (result.type === 'confirms') {
         if (result.previewReply) {
           await streamReply(String(result.previewReply), result.previewMessageId || `preview-${Date.now()}`, []);

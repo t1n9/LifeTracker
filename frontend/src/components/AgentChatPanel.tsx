@@ -16,6 +16,12 @@ import { dispatchAgentDataChanged, getAgentChangedDomains, PROACTIVE_TRIGGER_EVE
 
 type PanelMode = 'chat' | 'capture';
 
+interface ReplySuggestion {
+  label: string;
+  send: string;
+  hint?: string;
+}
+
 interface AgentMessage {
   id: string;
   role: 'user' | 'assistant' | 'confirm';
@@ -25,6 +31,7 @@ interface AgentMessage {
   confirmed?: boolean | null;
   createdAt: string;
   isThinking?: boolean;
+  suggestions?: ReplySuggestion[];
 }
 
 interface ConfirmCard {
@@ -256,6 +263,64 @@ const renderMarkdownContent = (content: string) => {
       continue;
     }
 
+    // 表格：以 | 开头的行
+    if (/^\s*\|/u.test(line)) {
+      const allRows: string[][] = [];
+      let separatorSeen = false;
+      let headerRow: string[] = [];
+
+      while (index < lines.length && /^\s*\|/u.test(lines[index])) {
+        const cells = lines[index]
+          .replace(/^\s*\||\|\s*$/gu, '')
+          .split('|')
+          .map((c) => c.trim());
+        // 分隔行（全是 :---: 这类），标记 header 已结束
+        if (cells.every((c) => /^:?-+:?$/.test(c))) {
+          separatorSeen = true;
+          index += 1;
+          continue;
+        }
+        if (!separatorSeen && headerRow.length === 0) {
+          headerRow = cells;
+        } else {
+          allRows.push(cells);
+        }
+        index += 1;
+      }
+
+      const tableRows = allRows;
+
+      blocks.push(
+        <div key={`table-${index}`} style={styles.markdownTableWrapper}>
+          <table style={styles.markdownTable}>
+            {headerRow.length > 0 && (
+              <thead>
+                <tr>
+                  {headerRow.map((cell, ci) => (
+                    <th key={ci} style={styles.markdownTh}>
+                      {renderMarkdownInline(cell, `th-${index}-${ci}`)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            )}
+            <tbody>
+              {tableRows.map((row, ri) => (
+                <tr key={ri} style={ri % 2 === 1 ? styles.markdownTrAlt : undefined}>
+                  {row.map((cell, ci) => (
+                    <td key={ci} style={styles.markdownTd}>
+                      {renderMarkdownInline(cell, `td-${index}-${ri}-${ci}`)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+      continue;
+    }
+
     const taskListMatch = line.match(/^\s*[-*]\s+\[( |x|X)\]\s+(.+)$/u);
     const unorderedMatch = line.match(/^\s*[-*]\s+(.+)$/u);
     const orderedMatch = line.match(/^\s*\d+[.)]\s+(.+)$/u);
@@ -313,6 +378,7 @@ const renderMarkdownContent = (content: string) => {
         || /^\s*```/u.test(current)
         || /^\s{0,3}#{1,4}\s+.+$/u.test(current)
         || /^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/u.test(current)
+        || /^\s*\|/u.test(current)
       ) {
         break;
       }
@@ -359,8 +425,11 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
   const [editDraft, setEditDraft] = useState<CaptureEditDraft | null>(null);
   const [savingCaptureId, setSavingCaptureId] = useState<string | null>(null);
   const [hintState, setHintState] = useState<PanelHintState>('idle');
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [emptyStateSuggestions, setEmptyStateSuggestions] = useState<ReplySuggestion[]>([]);
   const cooldownMapRef = useRef<Map<string, number>>(new Map());
   const pendingProactiveRef = useRef<ProactiveTriggerPayload | null>(null);
+  const isOpenRef = useRef(false);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -520,7 +589,16 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
                 return [...prev, { id: messageId, role: 'assistant' as const, content, createdAt: new Date().toISOString() }];
               });
             } else if (event.type === 'reply_done') {
-              setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, content, createdAt: new Date().toISOString() } : m)));
+              const suggestions = Array.isArray(event.suggestions) ? event.suggestions : undefined;
+              setMessages((prev) => prev.map((m) => (
+                m.id === messageId
+                  ? { ...m, content, createdAt: new Date().toISOString(), suggestions }
+                  : m
+              )));
+              if (!isOpenRef.current && !inline) {
+                setHintState('breathing');
+                setUnreadCount((n) => n + 1);
+              }
             }
           } catch { /* skip partial JSON lines */ }
         }
@@ -586,13 +664,42 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
     inputRef.current?.focus();
   }, [capturesLoaded, historyLoaded, isOpen, inline, loadCaptures, loadConfirmations, loadHistory, panelMode]);
 
+  // 空状态时拉取建议 chips
+  useEffect(() => {
+    if (panelMode !== 'chat') return;
+    if (!isOpen && !inline) return;
+    if (messages.length > 0) return;
+    if (emptyStateSuggestions.length > 0) return;
+    let cancelled = false;
+    api.get('/agent/suggestions/empty-state').then((res) => {
+      if (cancelled) return;
+      const list = res?.data?.suggestions;
+      if (Array.isArray(list)) setEmptyStateSuggestions(list);
+    }).catch(() => { /* 忽略，空 chips 即可 */ });
+    return () => { cancelled = true; };
+  }, [panelMode, isOpen, inline, messages.length, emptyStateSuggestions.length]);
+
   useEffect(() => {
     if (panelMode !== 'chat' || messages.length === 0) return;
     const last = messages[messages.length - 1];
     if (last.role !== 'confirm' || last.confirmed === null) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current?.scrollIntoView({ behavior: isOpen ? 'smooth' : 'auto' });
     }
-  }, [messages, panelMode]);
+  }, [messages, panelMode, isOpen]);
+
+  // 同步 isOpenRef（供流式回调内避免闭包问题）
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  // 展开时清除未读，并确保滚到底
+  useEffect(() => {
+    if (isOpen) {
+      setUnreadCount(0);
+      setHintState('idle');
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 50);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!input && inputRef.current) {
@@ -770,6 +877,13 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
         )));
       };
 
+      const applyAssistantSuggestions = (messageId: string, suggestions?: ReplySuggestion[]) => {
+        if (!Array.isArray(suggestions) || suggestions.length === 0) return;
+        setMessages((prev) => prev.map((message) => (
+          message.id === messageId ? { ...message, suggestions } : message
+        )));
+      };
+
       const appendConfirmMessages = (confirms: any[]) => {
         const confirmMsgs = mapConfirmationsToCards(confirms);
         if (confirmMsgs.length > 0) {
@@ -811,7 +925,13 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
             const messageId = String(event.id || currentAssistantId || `asst-${Date.now()}`);
             const toolResults = Array.isArray(event.toolResults) ? event.toolResults : [];
             applyAssistantToolCalls(messageId, toolResults);
+            applyAssistantSuggestions(messageId, event.suggestions as ReplySuggestion[] | undefined);
             dispatchAgentDataChanged(getAgentChangedDomains(toolResults));
+            // 面板收起时：亮呼吸动画 + 累计未读数
+            if (!isOpenRef.current && !inline) {
+              setHintState('breathing');
+              setUnreadCount((n) => n + 1);
+            }
             break;
           }
           case 'confirms': {
@@ -923,6 +1043,45 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
       return;
     }
     await sendChatMessage(text);
+  };
+
+  /**
+   * 输入框 placeholder 根据最近一条 AI 消息状态动态调整。
+   */
+  const computeChatPlaceholder = () => {
+    if (messages.length === 0) return '说点什么，或点上面按钮快速开始';
+    // 找最后一条 assistant 消息
+    let lastAssistant: AgentMessage | null = null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role === 'assistant' && !m.isThinking) { lastAssistant = m; break; }
+      if (m.role === 'user') break; // 用户已经在打字了，别覆盖
+    }
+    if (lastAssistant?.suggestions && lastAssistant.suggestions.length > 0) {
+      return '点上方按钮快速回复，或自己打字';
+    }
+    return '和 AI 说话，或者让它帮你安排今天...';
+  };
+
+  /**
+   * 点击建议 chip：
+   *  - 若 send 以冒号/中文冒号结尾，视为"半成品"，仅填充输入框，由用户继续补全
+   *  - 否则直接发送
+   */
+  const handleSuggestionClick = (suggestion: ReplySuggestion) => {
+    if (loading) return;
+    const send = suggestion.send;
+    const isPartial = /[:：]\s*$/u.test(send);
+    if (isPartial) {
+      setInput(send);
+      inputRef.current?.focus();
+      // 触发自适应高度
+      requestAnimationFrame(() => {
+        if (inputRef.current) resizeInput(inputRef.current);
+      });
+      return;
+    }
+    void sendChatMessage(send);
   };
 
   const handleConfirm = async (messageId: string) => {
@@ -1085,6 +1244,14 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
 
   const renderChat = () => {
     const hasThinkingMessage = messages.some((message) => message.id.startsWith('thinking-'));
+    // 找到最后一条已完成的 assistant 消息（用于显示 suggestions chips）
+    const lastAssistantId = (() => {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const m = messages[i];
+        if (m.role === 'assistant' && !m.isThinking) return m.id;
+      }
+      return null;
+    })();
 
     return (
       <div ref={messagesContainerRef} style={styles.body} onScroll={handleScroll}>
@@ -1093,7 +1260,25 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
         <div style={styles.emptyState}>
           <div style={styles.emptyIcon}>🤖</div>
           <div style={styles.emptyTitle}>我是 LifeTracker 助手</div>
-          <div style={styles.emptyText}>试试：“开启今天” 或 “帮我开 1 小时番茄”</div>
+          <div style={styles.emptyText}>试试下面的快捷开始，或直接打字</div>
+          {emptyStateSuggestions.length > 0 && (
+            <div style={styles.emptyChipsWrap}>
+              <div style={styles.emptyChipRow}>
+                {emptyStateSuggestions.map((s, idx) => (
+                  <button
+                    key={`empty-chip-${idx}`}
+                    type="button"
+                    onClick={() => handleSuggestionClick(s)}
+                    disabled={loading}
+                    title={s.hint}
+                    style={{ ...styles.suggestionChip, ...(loading ? styles.suggestionChipDisabled : {}) }}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
       {messages.map((msg) => {
@@ -1101,6 +1286,10 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
           return <div key={msg.id} style={{ ...styles.row, justifyContent: 'flex-end' }}><div style={styles.userBubble}>{msg.content}</div></div>;
         }
         if (msg.role === 'confirm') return null;
+        const showChips = msg.id === lastAssistantId
+          && Array.isArray(msg.suggestions)
+          && msg.suggestions.length > 0
+          && !msg.isThinking;
         return (
           <div key={msg.id} style={styles.row}>
             <div style={styles.assistantBubble}>
@@ -1113,6 +1302,22 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
                 <div style={styles.tagWrap}>
                   {msg.toolCalls.map((item: any, index: number) => (
                     <span key={`${msg.id}-${index}`} style={styles.tag}>{TOOL_LABELS[item.tool] || item.tool}</span>
+                  ))}
+                </div>
+              )}
+              {showChips && (
+                <div style={styles.suggestionWrap}>
+                  {msg.suggestions!.map((s, idx) => (
+                    <button
+                      key={`sug-${msg.id}-${idx}`}
+                      type="button"
+                      onClick={() => handleSuggestionClick(s)}
+                      disabled={loading}
+                      title={s.hint}
+                      style={{ ...styles.suggestionChip, ...(loading ? styles.suggestionChipDisabled : {}) }}
+                    >
+                      {s.label}
+                    </button>
                   ))}
                 </div>
               )}
@@ -1385,7 +1590,7 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
             resizeInput(event.target);
           }}
           onKeyDown={handleKeyDown}
-          placeholder={panelMode === 'chat' ? '和 AI 说话，或者让它帮你安排今天...' : '直接记下整句话，原文会完整保存...'}
+          placeholder={panelMode === 'chat' ? computeChatPlaceholder() : '直接记下整句话，原文会完整保存...'}
           style={styles.textarea}
           rows={1}
           disabled={loading}
@@ -1412,6 +1617,28 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
           aria-label="AI 助手"
         >
           <Bot size={24} />
+          {unreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: -4,
+              right: -4,
+              minWidth: 18,
+              height: 18,
+              borderRadius: 9,
+              background: '#ef4444',
+              color: '#fff',
+              fontSize: 11,
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 4px',
+              lineHeight: 1,
+              pointerEvents: 'none',
+            }}>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
         </button>
       )}
       {isOpen && panelContent}
@@ -1545,6 +1772,11 @@ const styles: Record<string, CSSProperties> = {
     background: 'var(--accent-soft)',
     color: 'var(--fg-2)',
   },
+  markdownTableWrapper: { overflowX: 'auto', borderRadius: '8px', border: '1px solid var(--line)' },
+  markdownTable: { width: '100%', borderCollapse: 'collapse', fontSize: '12px', lineHeight: 1.5 },
+  markdownTh: { padding: '6px 10px', background: 'var(--bg-2)', color: 'var(--fg)', fontWeight: 700, textAlign: 'left' as const, borderBottom: '1px solid var(--line)', whiteSpace: 'nowrap' as const },
+  markdownTd: { padding: '5px 10px', color: 'var(--fg-2)', borderBottom: '1px solid var(--line-2)', verticalAlign: 'middle' as const },
+  markdownTrAlt: { background: 'var(--bg-1)' },
   markdownLink: { color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '2px', fontWeight: 600 },
   markdownDeleted: { color: 'var(--fg-3)' },
   confirmActions: { display: 'flex', gap: '6px', marginTop: '8px' },
@@ -1553,6 +1785,42 @@ const styles: Record<string, CSSProperties> = {
   confirmStatus: { fontSize: '11px', marginTop: '8px' },
   tagWrap: { display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' },
   tag: { padding: '2px 6px', fontSize: '10px', color: 'var(--accent)', background: 'var(--accent-soft)', borderRadius: '999px' },
+  suggestionWrap: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '6px',
+    marginTop: '10px',
+    paddingTop: '8px',
+    borderTop: '1px dashed color-mix(in srgb, var(--line) 70%, transparent 30%)',
+  } as React.CSSProperties,
+  suggestionChip: {
+    padding: '5px 10px',
+    fontSize: '12px',
+    fontWeight: 500,
+    color: 'var(--accent)',
+    background: 'var(--accent-soft)',
+    border: '1px solid color-mix(in srgb, var(--accent) 35%, transparent 65%)',
+    borderRadius: '999px',
+    cursor: 'pointer',
+    transition: 'background 0.15s ease, transform 0.05s',
+    lineHeight: 1.3,
+    whiteSpace: 'nowrap' as const,
+  },
+  suggestionChipDisabled: { opacity: 0.5, cursor: 'not-allowed' } as React.CSSProperties,
+  emptyChipsWrap: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: '8px',
+    marginTop: '12px',
+  },
+  emptyChipRow: {
+    display: 'flex',
+    flexWrap: 'wrap' as const,
+    gap: '8px',
+    justifyContent: 'center',
+    maxWidth: '320px',
+  },
   notice: { padding: '8px 10px', borderRadius: '10px', fontSize: '12px', lineHeight: 1.5 },
   captureCard: {
     padding: '12px',

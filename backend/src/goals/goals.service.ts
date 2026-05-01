@@ -146,6 +146,45 @@ export class GoalsService {
     return updatedGoal;
   }
 
+  // 获取目标下的所有学习计划（含暂停、归档）
+  async getPlansForGoal(goalId: string, userId: string) {
+    const plans = await this.prisma.studyPlan.findMany({
+      where: { goalId, userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        subjects: { select: { id: true, name: true, weight: true } },
+        _count: { select: { dailySlots: true, weeklyPlans: true } },
+      },
+    });
+
+    return Promise.all(plans.map(async (p) => {
+      const totalSlots = await this.prisma.dailyStudySlot.count({ where: { planId: p.id } });
+      const completedSlots = await this.prisma.dailyStudySlot.count({ where: { planId: p.id, status: 'completed' } });
+      const plannedHours = await this.prisma.dailyStudySlot.aggregate({
+        where: { planId: p.id },
+        _sum: { plannedHours: true },
+      });
+      return {
+        id: p.id,
+        title: p.title,
+        examName: p.examName,
+        examDate: p.examDate ? p.examDate.toISOString() : null,
+        status: p.status,
+        weekdayHours: p.weekdayHours,
+        weekendHours: p.weekendHours,
+        createdAt: p.createdAt.toISOString(),
+        updatedAt: p.updatedAt.toISOString(),
+        subjects: p.subjects,
+        stats: {
+          totalSlots,
+          completedSlots,
+          completionRate: totalSlots > 0 ? Math.round((completedSlots / totalSlots) * 100) : 0,
+          plannedHours: plannedHours._sum.plannedHours ?? 0,
+        },
+      };
+    }));
+  }
+
   // 删除目标
   async deleteGoal(goalId: string, userId: string) {
     // 验证目标是否属于该用户

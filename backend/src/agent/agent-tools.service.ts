@@ -38,11 +38,14 @@ export const AGENT_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'start_day',
-      description: '开启今日，设置今日开启语/计划，也可以只记录起床时间。用户说"开启今天"、"新的一天"、"7:30起床"等时调用',
+      description: '开启今日：标记一天开始 + 记录起床时间 + 一句话主题/口号。\n严禁把当日任务列表/时段安排/做了什么塞进 dayStart——任务必须用 create_tasks 单独创建。\n用户说"开启今天"、"新的一天"、"7:30起床"时调用。如果用户同时给出了任务列表/时段安排，你必须先用 create_tasks 把任务建出来，再调用本工具。',
       parameters: {
         type: 'object',
         properties: {
-          dayStart: { type: 'string', description: '今日开启语或计划' },
+          dayStart: {
+            type: 'string',
+            description: '一句话主题/口号/心情，最多 30 字。例如："冲刺备考第3天"、"专注 + 早睡"、"考前最后一天"。绝不要写任务清单、时段安排、做了什么——那些必须用 create_tasks 创建为任务',
+          },
           wakeUpTime: { type: 'string', description: '起床时间，格式 HH:mm，如 "07:30"' },
         },
         required: [],
@@ -81,6 +84,25 @@ export const AGENT_TOOLS = [
           },
         },
         required: ['titles'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'update_task',
+      description: '修改一个已有任务的属性（标题、优先级、预估时长等）。用户说"把XX任务改成..."、"调整任务时间"、"XX任务优先级提高"等时调用。需要提供 taskId 或 taskTitle 来定位任务',
+      parameters: {
+        type: 'object',
+        properties: {
+          taskId: { type: 'string', description: '任务ID，优先使用' },
+          taskTitle: { type: 'string', description: '任务标题，用于匹配未完成任务（当没有 taskId 时）' },
+          newTitle: { type: 'string', description: '新标题' },
+          priority: { type: 'number', description: '优先级 0-3，3最高' },
+          estimatedHours: { type: 'number', description: '预估耗时（小时）' },
+          subject: { type: 'string', description: '学科/科目' },
+        },
+        required: [],
       },
     },
   },
@@ -240,7 +262,7 @@ export const AGENT_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'update_day_reflection',
-      description: '更新今日复盘/反思。仅在用户明确要求写复盘、总结今天时调用',
+      description: '更新今日复盘/反思。用户要求写复盘或总结今天时调用。注意：查完今日数据后必须调用此工具保存复盘内容，不能只输出文字而跳过保存步骤',
       parameters: {
         type: 'object',
         properties: {
@@ -315,6 +337,8 @@ export class AgentToolsService {
         } as any);
       case 'create_tasks':
         return this.createTasks(userId, args.titles);
+      case 'update_task':
+        return this.updateTask(userId, args);
       case 'complete_task':
         return this.completeTask(userId, args);
       case 'get_tasks':
@@ -443,6 +467,31 @@ export class AgentToolsService {
       skipped,
       requestedCount: titles.length,
     };
+  }
+
+  private async updateTask(userId: string, args: Record<string, any>) {
+    let taskId = typeof args.taskId === 'string' ? args.taskId.trim() : '';
+
+    if (!taskId && args.taskTitle) {
+      const resolution = await this.resolvePendingTask(userId, args.taskTitle);
+      if (resolution.status === 'none') return { error: `未找到任务"${args.taskTitle}"` };
+      if (resolution.status === 'ambiguous') return { error: `"${args.taskTitle}"匹配到多个任务，请提供更精确的标题` };
+      taskId = resolution.match!.taskId;
+    }
+
+    if (!taskId) return { error: '未找到任务，请提供 taskId 或有效的任务标题' };
+
+    const patch: Record<string, any> = {};
+    if (args.newTitle) patch.title = args.newTitle;
+    if (args.priority !== undefined) patch.priority = args.priority;
+    if (args.estimatedHours !== undefined) patch.estimatedHours = args.estimatedHours;
+    if (args.subject !== undefined) patch.subject = args.subject;
+
+    if (Object.keys(patch).length === 0) return { error: '未提供任何要修改的字段' };
+
+    await this.tasksService.update(userId, taskId, patch as any);
+    const updated = await this.tasksService.findOne(userId, taskId);
+    return { taskId, title: updated?.title, updated: patch };
   }
 
   private async completeTask(userId: string, args: Record<string, any>) {

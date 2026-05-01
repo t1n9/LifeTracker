@@ -39,10 +39,14 @@ export class StudyPlanService {
   }
 
   async create(userId: string, dto: CreateStudyPlanDto) {
+    // 先确定绑定的目标 ID（传入 goalId 优先，否则自动找/建同名活跃目标）
+    const goalId = await this.resolveOrCreateGoal(userId, dto);
+
     const plan = await this.prisma.$transaction(async (tx) => {
       const newPlan = await tx.studyPlan.create({
         data: {
           userId,
+          goalId: goalId ?? undefined,
           title: dto.title,
           examType: dto.examType,
           examName: dto.examName,
@@ -60,27 +64,49 @@ export class StudyPlanService {
       return this.getPlanDetailTx(tx, userId, newPlan.id);
     });
 
-    // 学习计划创建后自动同步系统目标（不阻塞主流程）
-    this.syncGoalFromPlan(userId, plan).catch(() => {});
-
     return plan;
   }
 
-  private async syncGoalFromPlan(userId: string, plan: any) {
-    const examDate = plan.examDate ?? plan.exam_date;
-    const goalName = plan.examName ?? plan.exam_name ?? plan.title ?? '学习目标';
+  /** 找到或创建与计划对应的目标，返回 goalId */
+  private async resolveOrCreateGoal(userId: string, dto: { goalId?: string; examName?: string; examDate?: string; title?: string }): Promise<string | null> {
+    // 前端直接传了 goalId 则直接用
+    if ((dto as any).goalId) return (dto as any).goalId;
 
-    // 同名活跃目标已存在则跳过，避免重复创建
+    const goalName = dto.examName || dto.title || '学习目标';
+    const examDate = dto.examDate;
+
+    // 查找同名活跃目标
     const existing = await this.prisma.userGoal.findFirst({
       where: { userId, goalName, isActive: true, status: 'ACTIVE' },
     });
-    if (existing) return;
+    if (existing) return existing.id;
 
-    await this.goalsService.startNewGoal(userId, {
+    // 自动创建目标并绑定
+    const newGoal = await this.goalsService.startNewGoal(userId, {
       goalName,
       targetDate: examDate ? new Date(examDate).toISOString() : undefined,
-      description: `备考 ${goalName}，来自学习计划「${plan.title}」`,
+      description: `备考 ${goalName}`,
     });
+    return newGoal.id;
+  }
+
+  /** 获取某个目标下的所有学习计划（含暂停、归档） */
+  async getPlansForGoal(userId: string, goalId: string) {
+    const plans = await this.prisma.studyPlan.findMany({
+      where: { userId, goalId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: { select: { dailySlots: true } },
+        subjects: {
+          select: { id: true, name: true, weight: true },
+        },
+      },
+    });
+
+    return Promise.all(plans.map(async (p) => {
+      const stats = await this.getStats(userId, p.id).catch(() => null);
+      return { ...p, stats };
+    }));
   }
 
   async findAll(userId: string) {

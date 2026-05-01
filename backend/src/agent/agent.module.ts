@@ -6,6 +6,7 @@ import { AgentContextService } from './agent-context.service';
 import { AgentMemoryService } from './agent-memory.service';
 import { AgentProfileService } from './agent-profile.service';
 import { AgentService } from './agent.service';
+import { AgentSessionService } from './agent-session.service';
 import { AgentTraceService } from './agent-trace.service';
 import { AgentToolsService } from './agent-tools.service';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -39,8 +40,8 @@ import { StudyPlanModule } from '../study-plan/study-plan.module';
     AgentConfirmationService,
     AgentContextService,
     AgentMemoryService,
-    
     AgentProfileService,
+    AgentSessionService,
     AgentTraceService,
     AgentToolsService,
   ],

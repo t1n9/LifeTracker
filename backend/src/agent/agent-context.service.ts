@@ -58,10 +58,22 @@ export class AgentContextService {
     const messages = conversationMessages
       .filter((message) => !this.isInternalExecutionEcho(message))
       .reverse()
-      .map((message): LLMMessage => ({
-        role: message.role === 'user' ? 'user' : 'assistant',
-        content: this.compactText(message.content),
-      }));
+      .map((message): LLMMessage => {
+        if (message.role !== 'assistant') {
+          return { role: 'user', content: this.compactText(message.content) };
+        }
+        // 把该轮执行过的写操作附加到 assistant 消息里，让 LLM 知道自己上轮做了什么
+        const toolCalls = Array.isArray(message.toolCalls) ? message.toolCalls : [];
+        const writeOps = (toolCalls as Array<{ tool?: string; args?: any; result?: any }>)
+          .filter(tc => tc.tool && !READ_ONLY_TOOLS.has(tc.tool))
+          .map(tc => this.summarizeToolCall(tc))
+          .filter(Boolean);
+        const content = this.compactText(message.content);
+        return {
+          role: 'assistant',
+          content: writeOps.length > 0 ? `${content}\n[本轮已执行：${writeOps.join('；')}]` : content,
+        };
+      });
 
     const toolSummary = this.buildToolSummary(toolResultMessages.reverse());
 
@@ -97,9 +109,10 @@ export class AgentContextService {
     }
 
     return [
-      '【近期工具结果摘要】以下是最近已执行操作的压缩结果，只用于理解上下文。',
-      '不要把这段内部摘要原样展示给用户；如果用户询问历史操作，可以用自然语言概括。',
-      ...lines.slice(-12).map((line) => `- ${line}`),
+      '【历史操作记录 — 仅供理解对话背景，严禁将其中的数据用于当前请求】',
+      '以下是你过去已经执行过的操作，仅用于理解对话上下文。',
+      '绝对不要把这里的任务名、金额、内容等照搬到当前用户请求中。用户当前说了什么就用什么。',
+      ...lines.slice(-12).map((line) => `- [历史] ${line}`),
     ].join('\n');
   }
 

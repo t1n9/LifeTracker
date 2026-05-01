@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, Req, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GoalsService } from './goals.service';
@@ -129,11 +129,17 @@ export class GoalsController {
   @Post('migrate')
   @ApiOperation({ summary: '迁移现有用户数据（管理员功能）' })
   async migrateExistingUsers(@Req() req: any) {
-    // 这里可以添加管理员权限检查
     const result = await this.goalsService.migrateExistingUsers();
     return {
       data: result,
       message: `成功迁移 ${result.migratedCount} 个用户的目标数据`
     };
+  }
+
+  @Get(':id/plans')
+  @ApiOperation({ summary: '获取目标下的所有学习计划（含暂停/归档）' })
+  async getPlansForGoal(@Param('id') goalId: string, @Req() req: any) {
+    const plans = await this.goalsService.getPlansForGoal(goalId, req.user.id);
+    return { data: plans };
   }
 }

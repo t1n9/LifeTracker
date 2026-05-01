@@ -239,7 +239,72 @@ export function extractExplicitTaskTitles(message: string) {
     }
   }
 
+  // 时段+动作描述：识别 "X点-Y点 做 Z" / "晚上8点开始 Z" / "上午9-12点 Z" 等自然语言计划
+  const timeBlockTitles = extractTimeBlockTaskTitles(message);
+  if (timeBlockTitles.length > 0) {
+    return timeBlockTitles;
+  }
+
   return [];
+}
+
+/**
+ * 从自然语言时段描述中抽取任务标题。
+ * 例：
+ *   "今晚八点开始进行资料分析学习" → ["资料分析学习"]
+ *   "上午9-12点写代码，下午2-5点开会，晚上7-9点跑步" → ["写代码", "开会", "跑步"]
+ *   "晚上8点-10点 看刑法" → ["看刑法"]
+ *
+ * 跳过：含 "起床/有事/休息/吃饭/睡觉" 等非任务的时段描述。
+ */
+const NON_TASK_TIME_BLOCK_KEYWORDS =
+  /(起床|睡觉|睡眠|休息|吃饭|早餐|午餐|晚餐|有事|没事|外出|出门|上班|下班|开会但已确认非任务)/u;
+
+// 时间数字部分：阿拉伯数字 或 中文数字（一二两三四五六七八九十）
+const TIME_NUM = '(?:[零一二两三四五六七八九十]+|\\d{1,2})';
+const TIME_PERIOD = '(?:早上|上午|中午|下午|傍晚|晚上|今早|今晚|今天上午|今天下午|今天晚上)?';
+
+const TIME_BLOCK_PATTERNS: RegExp[] = [
+  // "上午9-12点 X" / "晚上7-9点 X" / "下午2-5点 X"
+  new RegExp(
+    `${TIME_PERIOD}\\s*${TIME_NUM}\\s*(?:点|:|：)?\\s*${TIME_NUM}?\\s*[-到~至]\\s*${TIME_NUM}\\s*(?:点|:|：)?\\s*${TIME_NUM}?\\s*(?:计划|安排|要|想|打算|准备)?\\s*(?:进行|做|开始)?\\s*([^，,。；;！!？?\\n]+)`,
+    'u',
+  ),
+  // "晚上8点开始 X" / "今晚八点开始进行资料分析"
+  new RegExp(
+    `${TIME_PERIOD}\\s*${TIME_NUM}\\s*(?:点|:|：)\\s*${TIME_NUM}?\\s*(?:开始|起)\\s*(?:计划|安排|要|想|打算|准备)?\\s*(?:进行|做)?\\s*([^，,。；;！!？?\\n]+)`,
+    'u',
+  ),
+];
+
+export function extractTimeBlockTaskTitles(message: string): string[] {
+  const titles: string[] = [];
+  const seen = new Set<string>();
+
+  // 按段切，每段独立尝试匹配（避免一个正则吞下整句）
+  const segments = message.split(/[，,。；;！!？?\n]/u);
+  for (const seg of segments) {
+    if (!seg.trim()) continue;
+    if (NON_TASK_TIME_BLOCK_KEYWORDS.test(seg)) continue;
+
+    for (const pattern of TIME_BLOCK_PATTERNS) {
+      const match = seg.match(pattern);
+      if (!match?.[1]) continue;
+
+      let raw = match[1].trim();
+      // 去掉尾部 "一直到X点" / "到X点" 这种时间结尾
+      raw = raw.replace(/\s*(?:一直)?到\s*\d{1,2}\s*(?:点|:|：)?\s*\d{0,2}\s*$/u, '').trim();
+      const cleaned = sanitizeTaskTitle(raw);
+      const key = toTaskMatchKey(cleaned);
+
+      if (!key || seen.has(key) || !isLikelyTaskTitle(cleaned)) continue;
+      seen.add(key);
+      titles.push(cleaned);
+      break; // 一段只抽一个标题
+    }
+  }
+
+  return titles;
 }
 
 export function extractCompletionTaskTitle(message: string) {
@@ -308,6 +373,15 @@ export function extractPomodoroTaskTitle(message: string, explicitTaskTitles: st
     const taskMatch = clause.match(/(?:任务|内容)(?:是|为)?([^，,。；;！!？?\n]+)/u);
     if (taskMatch?.[1]) {
       const cleaned = sanitizeTaskTitle(taskMatch[1]);
+      if (isLikelyTaskTitle(cleaned)) {
+        return cleaned;
+      }
+    }
+
+    // 匹配"番茄钟，XXX"模式
+    const pomodoroTaskAfter = clause.match(/(?:番茄(?:钟)?|专注|计时)[：:，,、\s]+([^，,。；;！!？?\n]+)/u);
+    if (pomodoroTaskAfter?.[1]) {
+      const cleaned = sanitizeTaskTitle(pomodoroTaskAfter[1]);
       if (isLikelyTaskTitle(cleaned)) {
         return cleaned;
       }
@@ -431,8 +505,15 @@ export function findTaskMatches(taskTitle: string, tasks: AgentTaskCandidate[]):
       score = 120;
       matchType = 'exact';
     } else if (lookupKey.length >= 2 && taskKey.length >= 2 && (taskKey.includes(lookupKey) || lookupKey.includes(taskKey))) {
-      score = 90 - Math.abs(taskKey.length - lookupKey.length);
-      matchType = 'contains';
+      // 子串包含：要求较短的那个至少 2 字，且两者长度差不要太离谱
+      // 注意：模糊的"字符级重叠"已被移除——它会把"申论练习"误吞到"申论真题练习"
+      // 现在只保留"完全相等"和"子串包含"两种匹配方式，宁愿多创建任务也不静默忽略
+      const minLen = Math.min(lookupKey.length, taskKey.length);
+      const maxLen = Math.max(lookupKey.length, taskKey.length);
+      if (minLen >= 2 && maxLen <= minLen * 3) {
+        score = 90 - Math.abs(taskKey.length - lookupKey.length);
+        matchType = 'contains';
+      }
     }
 
     if (!matchType) {

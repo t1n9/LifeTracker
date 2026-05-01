@@ -1,5 +1,24 @@
 import { api } from '../lib/api';
 
+export interface GoalLinkedPlan {
+  id: string;
+  title: string;
+  examName: string;
+  examDate: string | null;
+  status: 'active' | 'paused' | 'archived' | 'completed';
+  weekdayHours: number;
+  weekendHours: number;
+  createdAt: string;
+  updatedAt: string;
+  subjects: Array<{ id: string; name: string; weight: number }>;
+  stats: {
+    totalSlots: number;
+    completedSlots: number;
+    completionRate: number;
+    plannedHours: number;
+  } | null;
+}
+
 export interface UserGoal {
   id: string;
   userId: string;
@@ -161,6 +180,27 @@ class GoalService {
       console.error('删除目标失败:', error);
       throw error;
     }
+  }
+
+  // 获取目标下的所有学习计划（含暂停/归档）
+  async getPlansForGoal(goalId: string): Promise<GoalLinkedPlan[]> {
+    try {
+      const response = await api.get(`/goals/${goalId}/plans`);
+      return response.data.data || [];
+    } catch (error) {
+      console.error('获取目标关联计划失败:', error);
+      return [];
+    }
+  }
+
+  // 暂停学习计划
+  async pausePlan(planId: string): Promise<void> {
+    await api.post(`/study-plans/${planId}/pause`);
+  }
+
+  // 继续学习计划
+  async resumePlan(planId: string): Promise<void> {
+    await api.post(`/study-plans/${planId}/resume`);
   }
 }
 

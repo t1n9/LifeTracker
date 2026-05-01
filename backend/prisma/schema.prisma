@@ -49,6 +49,7 @@ model User {
   systemSuggestions   SystemSuggestion[]
   tasks               Task[]
   agentProfile        UserAgentProfile?
+  agentSession        AgentSession?
   entitlements        UserEntitlement[]
   userGoals           UserGoal[]
   userSettings        UserSettings?
@@ -392,18 +393,19 @@ model SystemSuggestion {
 }
 
 model UserGoal {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id")
-  goalName    String    @map("goal_name")
-  targetDate  DateTime? @map("target_date") @db.Timestamptz(6)
-  startDate   DateTime  @map("start_date") @db.Timestamptz(6)
-  endDate     DateTime? @map("end_date") @db.Timestamptz(6)
-  isActive    Boolean   @default(true) @map("is_active")
-  status      String    @default("ACTIVE")
+  id          String      @id @default(uuid())
+  userId      String      @map("user_id")
+  goalName    String      @map("goal_name")
+  targetDate  DateTime?   @map("target_date") @db.Timestamptz(6)
+  startDate   DateTime    @map("start_date") @db.Timestamptz(6)
+  endDate     DateTime?   @map("end_date") @db.Timestamptz(6)
+  isActive    Boolean     @default(true) @map("is_active")
+  status      String      @default("ACTIVE")
   description String?
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  studyPlans  StudyPlan[]
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isActive])
   @@index([userId, status])
@@ -523,6 +525,20 @@ model UserAgentProfile {
   @@map("user_agent_profiles")
 }
 
+model AgentSession {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  flow      String
+  state     String
+  data      Json     @default("{}")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("agent_sessions")
+}
+
 model UserSubscription {
   id                 String    @id @default(uuid())
   userId             String    @unique @map("user_id")
@@ -625,6 +641,7 @@ enum UserRole {
 model StudyPlan {
   id               String           @id @default(uuid())
   userId           String           @map("user_id")
+  goalId           String?          @map("goal_id")
   title            String
   examType         String           @map("exam_type")
   examName         String           @map("exam_name")
@@ -638,6 +655,7 @@ model StudyPlan {
   generatedAt      DateTime?        @map("generated_at") @db.Timestamptz(6)
   createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  goal             UserGoal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   subjects         StudySubject[]
   weeklyPlans      WeeklyPlan[]
@@ -645,6 +663,7 @@ model StudyPlan {
   ocrUploads       OcrUpload[]
 
   @@index([userId, status])
+  @@index([goalId])
   @@map("study_plans")
 }
 
