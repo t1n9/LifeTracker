@@ -202,6 +202,10 @@ class GoalService {
   async resumePlan(planId: string): Promise<void> {
     await api.post(`/study-plans/${planId}/resume`);
   }
+
+  async deletePlanPermanently(planId: string): Promise<void> {
+    await api.delete(`/study-plans/${planId}/permanent`);
+  }
 }
 
 export const goalService = new GoalService();

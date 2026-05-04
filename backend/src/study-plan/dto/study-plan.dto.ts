@@ -47,6 +47,10 @@ export class CreateStudySubjectDto {
 }
 
 export class CreateStudyPlanDto {
+  @IsOptional()
+  @IsString()
+  goalId?: string;
+
   @IsString()
   title: string;
 
@@ -88,6 +92,10 @@ export class CreateStudyPlanDto {
 }
 
 export class UpdateStudyPlanDto {
+  @IsOptional()
+  @IsString()
+  goalId?: string;
+
   @IsOptional()
   @IsString()
   title?: string;
@@ -216,4 +224,3 @@ export class AiAssistDto {
   @IsOptional()
   context?: Record<string, unknown>; // current onboarding state
 }
-

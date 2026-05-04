@@ -50,10 +50,12 @@ function PlanCard({
   plan,
   onResume,
   onPause,
+  onDelete,
 }: {
   plan: GoalLinkedPlan;
   onResume: (id: string) => Promise<void>;
   onPause: (id: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [acting, setActing] = useState(false);
@@ -73,6 +75,10 @@ function PlanCard({
   const handlePause = async () => {
     setActing(true);
     try { await onPause(plan.id); } finally { setActing(false); }
+  };
+  const handleDelete = async () => {
+    setActing(true);
+    try { await onDelete(plan.id); } finally { setActing(false); }
   };
 
   return (
@@ -135,6 +141,21 @@ function PlanCard({
           >
             <PauseCircle size={13} />
             暂停
+          </button>
+        )}
+        {plan.status !== 'active' && (
+          <button
+            onClick={(e) => { e.stopPropagation(); void handleDelete(); }}
+            disabled={acting}
+            title="永久删除学习计划"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+              padding: '0.25rem 0.55rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600,
+              background: 'rgba(220,38,38,0.1)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.28)', cursor: 'pointer', flexShrink: 0,
+            }}
+          >
+            <Trash2 size={13} />
+            删除
           </button>
         )}
       </div>
@@ -220,11 +241,25 @@ function GoalPlans({ goalId, refreshKey }: { goalId: string; refreshKey: number 
   useEffect(() => { void load(); }, [load, refreshKey]);
 
   const handleResume = async (planId: string) => {
-    await goalService.resumePlan(planId);
-    await load();
+    try {
+      await goalService.resumePlan(planId);
+      await load();
+    } catch (error: any) {
+      alert(error?.response?.data?.message || '继续学习计划失败，请先暂停其他进行中的学习计划。');
+    }
   };
   const handlePause = async (planId: string) => {
     await goalService.pausePlan(planId);
+    await load();
+  };
+  const handleDelete = async (planId: string) => {
+    const plan = plans.find((item) => item.id === planId);
+    const planName = plan?.title || '这个学习计划';
+    const confirmed = window.confirm(
+      `确定永久删除「${planName}」吗？\n\n删除后会清空该学习计划的阶段、科目、章节、周计划和每日学习安排。未产生学习记录或番茄记录的关联任务也会一并删除。\n\n这个操作不可撤销。`,
+    );
+    if (!confirmed) return;
+    await goalService.deletePlanPermanently(planId);
     await load();
   };
 
@@ -234,7 +269,7 @@ function GoalPlans({ goalId, refreshKey }: { goalId: string; refreshKey: number 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.6rem' }}>
       {plans.map((p) => (
-        <PlanCard key={p.id} plan={p} onResume={handleResume} onPause={handlePause} />
+        <PlanCard key={p.id} plan={p} onResume={handleResume} onPause={handlePause} onDelete={handleDelete} />
       ))}
     </div>
   );

@@ -167,6 +167,12 @@ export class StudyPlanController {
     return this.studyPlanService.resume(req.user.id, id);
   }
 
+  @Delete(':id/permanent')
+  @ApiOperation({ summary: 'Permanently delete study plan and all related study plan data' })
+  deletePermanently(@Request() req, @Param('id') id: string) {
+    return this.studyPlanService.deletePermanently(req.user.id, id);
+  }
+
   @Post(':id/subjects')
   @ApiOperation({ summary: 'Create study subject' })
   createSubject(@Request() req, @Param('id') id: string, @Body() dto: CreateStudySubjectDto) {

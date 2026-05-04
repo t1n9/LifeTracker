@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
@@ -34,6 +34,7 @@ export class StudyPlanService {
   ) {}
 
   async create(userId: string, dto: CreateStudyPlanDto) {
+    await this.assertNoOtherActivePlan(userId);
     // 先确定绑定的目标 ID（传入 goalId 优先，否则自动找/建同名活跃目标）
     const goalId = await this.resolveOrCreateGoal(userId, dto);
 
@@ -64,7 +65,13 @@ export class StudyPlanService {
   /** 找到或创建与计划对应的目标，返回 goalId */
   private async resolveOrCreateGoal(userId: string, dto: { goalId?: string; examName?: string; examDate?: string; title?: string }): Promise<string | null> {
     // 前端直接传了 goalId 则直接用
-    if ((dto as any).goalId) return (dto as any).goalId;
+    if (dto.goalId) {
+      const goal = await this.prisma.userGoal.findFirst({
+        where: { id: dto.goalId, userId },
+      });
+      if (!goal) throw new BadRequestException('目标不存在或无权绑定');
+      return dto.goalId;
+    }
 
     const goalName = dto.examName || dto.title || '学习目标';
     const examDate = dto.examDate;
@@ -165,9 +172,14 @@ export class StudyPlanService {
 
   async update(userId: string, id: string, dto: UpdateStudyPlanDto) {
     await this.ensurePlan(userId, id);
+    if (dto.goalId) {
+      const goal = await this.prisma.userGoal.findFirst({ where: { id: dto.goalId, userId } });
+      if (!goal) throw new BadRequestException('目标不存在或无权绑定');
+    }
     return this.prisma.studyPlan.update({
       where: { id },
       data: {
+        ...(dto.goalId !== undefined ? { goalId: dto.goalId || null } : {}),
         ...(dto.title !== undefined ? { title: dto.title } : {}),
         ...(dto.examType !== undefined ? { examType: dto.examType } : {}),
         ...(dto.examName !== undefined ? { examName: dto.examName } : {}),
@@ -198,9 +210,49 @@ export class StudyPlanService {
 
   async resume(userId: string, id: string) {
     await this.ensurePlan(userId, id);
+    await this.assertNoOtherActivePlan(userId, id);
     return this.prisma.studyPlan.update({
       where: { id },
       data: { status: 'active' },
+    });
+  }
+
+  async deletePermanently(userId: string, id: string) {
+    await this.ensurePlan(userId, id);
+    return this.prisma.$transaction(async (tx) => {
+      const linkedSlots = await tx.dailyStudySlot.findMany({
+        where: { planId: id, userId, taskId: { not: null } },
+        select: { taskId: true },
+      });
+      const taskIds = [...new Set(linkedSlots.map(slot => slot.taskId).filter(Boolean) as string[])];
+
+      if (taskIds.length > 0) {
+        await tx.dailyStudySlot.updateMany({
+          where: { planId: id, userId, taskId: { in: taskIds } },
+          data: { taskId: null },
+        });
+      }
+
+      await tx.dailyStudySlot.deleteMany({ where: { planId: id, userId } });
+      await tx.weeklyPlan.deleteMany({ where: { planId: id } });
+      await tx.phasePlan.deleteMany({ where: { planId: id } });
+      await tx.ocrUpload.deleteMany({ where: { planId: id, userId } });
+      await tx.studyChapter.deleteMany({ where: { subject: { planId: id } } });
+      await tx.studySubject.deleteMany({ where: { planId: id } });
+      await tx.studyPlan.delete({ where: { id } });
+
+      if (taskIds.length > 0) {
+        await tx.task.deleteMany({
+          where: {
+            id: { in: taskIds },
+            userId,
+            studyRecords: { none: {} },
+            pomodoroSessions: { none: {} },
+          },
+        });
+      }
+
+      return { success: true, deletedPlanId: id };
     });
   }
 
@@ -716,6 +768,20 @@ export class StudyPlanService {
       throw new NotFoundException('Study plan not found');
     }
     return plan;
+  }
+
+  private async assertNoOtherActivePlan(userId: string, excludePlanId?: string) {
+    const activePlan = await this.prisma.studyPlan.findFirst({
+      where: {
+        userId,
+        status: 'active',
+        ...(excludePlanId ? { id: { not: excludePlanId } } : {}),
+      },
+      select: { id: true, title: true },
+    });
+    if (activePlan) {
+      throw new BadRequestException(`当前已有进行中的学习计划「${activePlan.title}」。请先在设置里暂停或删除该计划，再开始新的学习计划。`);
+    }
   }
 
   private async ensureSubject(userId: string, planId: string, subjectId: string) {

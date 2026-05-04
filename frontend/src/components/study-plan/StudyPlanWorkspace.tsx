@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, MessageSquare } from 'lucide-react';
 import { studyPlanAPI } from '@/lib/api';
+import { goalService, type UserGoal } from '@/services/goalService';
 import PhaseListPanel from './PhaseListPanel';
 import StudyPlanChat from './StudyPlanChat';
 import WeekCalendarView from './WeekCalendarView';
@@ -20,6 +21,7 @@ interface SubjectDraft {
 }
 
 interface CreatePlanForm {
+  goalId: string;
   examName: string;
   examType: string;
   examDate: string;
@@ -104,7 +106,10 @@ export default function StudyPlanWorkspace() {
   const [isMobile, setIsMobile] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [currentGoal, setCurrentGoal] = useState<UserGoal | null>(null);
+  const [availableGoals, setAvailableGoals] = useState<UserGoal[]>([]);
   const [createForm, setCreateForm] = useState<CreatePlanForm>({
+    goalId: '',
     examName: '公务员考试',
     examType: 'national_exam',
     examDate: defaultExamDate(),
@@ -120,6 +125,28 @@ export default function StudyPlanWorkspace() {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // 加载可绑定的目标列表（仅 ACTIVE 状态）
+  useEffect(() => {
+    Promise.all([
+      goalService.getCurrentGoal().catch(() => null),
+      goalService.getGoalHistory().catch(() => [] as UserGoal[]),
+    ]).then(([current, history]) => {
+      setCurrentGoal(current);
+      setAvailableGoals(history.filter((g) => g.status === 'ACTIVE'));
+      if (current) {
+        setCreateForm((prev) => ({
+          ...prev,
+          goalId: prev.goalId || current.id,
+          examName: prev.examName === '公务员考试' ? current.goalName : prev.examName,
+          examDate: current.targetDate ? formatDate(toDateOnly(current.targetDate)) : prev.examDate,
+        }));
+      }
+    }).catch(() => {
+      setCurrentGoal(null);
+      setAvailableGoals([]);
+    });
   }, []);
 
   const loadPlan = useCallback(async () => {
@@ -195,6 +222,7 @@ export default function StudyPlanWorkspace() {
     setCreateError(null);
     try {
       await studyPlanAPI.createPlan({
+        ...(createForm.goalId ? { goalId: createForm.goalId } : {}),
         title: `${createForm.examName.trim()}备考计划`,
         examName: createForm.examName.trim(),
         examType: createForm.examType,
@@ -269,6 +297,19 @@ export default function StudyPlanWorkspace() {
 
             <div style={styles.formGrid}>
               <label style={styles.field}>
+                <span style={styles.label}>绑定目标</span>
+                <select
+                  value={createForm.goalId || ''}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, goalId: e.target.value }))}
+                  style={styles.input}
+                >
+                  <option value="">不绑定（自动创建同名目标）</option>
+                  {availableGoals.map((g) => (
+                    <option key={g.id} value={g.id}>{g.goalName}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={styles.field}>
                 <span style={styles.label}>考试名称</span>
                 <input
                   value={createForm.examName}
@@ -335,17 +376,6 @@ export default function StudyPlanWorkspace() {
               </label>
             </div>
 
-            <div style={styles.subjectPreview}>
-              <span style={styles.label}>默认科目</span>
-              <div style={styles.subjectPills}>
-                {DEFAULT_SUBJECTS.map((subject) => (
-                  <span key={subject.name} style={styles.subjectPill}>
-                    {subject.name} · {subject.chapters.length} 章
-                  </span>
-                ))}
-              </div>
-              <p style={styles.hint}>创建后可以继续用 AI 拆阶段、改科目、生成本周和下周计划。</p>
-            </div>
 
             {createError && <div style={styles.errorText}>{createError}</div>}
 

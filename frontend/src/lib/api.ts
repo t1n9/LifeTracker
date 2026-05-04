@@ -253,6 +253,7 @@ export const studyPlanAPI = {
   getPlanDetail: (id: string) => api.get(`/study-plans/${id}`),
   updatePlan: (id: string, data: Record<string, unknown>) => api.patch(`/study-plans/${id}`, data),
   archivePlan: (id: string) => api.delete(`/study-plans/${id}`),
+  deletePlanPermanently: (id: string) => api.delete(`/study-plans/${id}/permanent`),
   regeneratePlan: (id: string) => api.post(`/study-plans/${id}/regenerate`),
   pausePlan: (id: string) => api.post(`/study-plans/${id}/pause`),
   resumePlan: (id: string) => api.post(`/study-plans/${id}/resume`),
