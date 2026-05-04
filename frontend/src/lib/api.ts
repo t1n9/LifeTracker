@@ -305,8 +305,8 @@ export const studyPlanAPI = {
     api.delete(`/study-plans/${planId}/week/${weekStart}`),
   estimateHours: (planId: string) =>
     api.post(`/study-plans/${planId}/estimate-hours`),
-  chat: (planId: string, message: string, weekStart?: string) =>
-    api.post(`/study-plans/${planId}/chat`, { message, weekStart }, { timeout: 30000 }),
+  chat: (planId: string, message: string, weekStart?: string, currentDraftSlots?: unknown[]) =>
+    api.post(`/study-plans/${planId}/chat`, { message, weekStart, currentDraftSlots }, { timeout: 30000 }),
   chatExecute: (planId: string, action: string, message: string, weekStart?: string, parsedIntent?: unknown) =>
     api.post(`/study-plans/${planId}/chat/execute`, { action, message, weekStart, parsedIntent }, { timeout: 90000 }),
 };

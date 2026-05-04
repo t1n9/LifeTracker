@@ -142,14 +142,18 @@ export default function StudyPlanChat({
     updateLastAssistant(buildPatch(result, weekForRequest));
   };
 
-  const getActiveDraftContext = (): { summary: string; weekStart?: string } | null => {
+  const getActiveDraftContext = (): { summary: string; weekStart?: string; slots?: SlotDraft[] } | null => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i];
       if (m.role !== 'assistant') continue;
       if (((m.draftSlots && m.draftSlots.length > 0) || (m.skipDates && m.skipDates.length > 0)) && m.draftWeekStart) {
-        const lines = (m.draftSlots ?? []).map((s) => `${s.date} ${s.subjectName}·${s.chapterTitle} ${s.plannedHours}h`);
+        const lines = (m.draftSlots ?? []).map((s) => `${s.date} ${s.timeSegment ? `[${s.timeSegment}] ` : ''}${s.subjectName}·${s.chapterTitle} ${s.plannedHours}h`);
         const skipLines = (m.skipDates ?? []).map((date) => `${date} 休息`);
-        return { summary: `【当前未保存草稿（${m.draftWeekStart} 这周）：\n${[...lines, ...skipLines].join('\n')}\n】`, weekStart: m.draftWeekStart };
+        return {
+          summary: `【当前未保存草稿（${m.draftWeekStart} 这周）：\n${[...lines, ...skipLines].join('\n')}\n】`,
+          weekStart: m.draftWeekStart,
+          slots: m.draftSlots,
+        };
       }
       if (m.draftPhases && m.draftPhases.length > 0) {
         const lines = m.draftPhases.map((p) => `${p.name} ${p.startDate}~${p.endDate}`);
@@ -176,7 +180,7 @@ export default function StudyPlanChat({
     appendMessage({ role: 'assistant', content: '理解中...', isThinking: true });
 
     try {
-      const response = await studyPlanAPI.chat(plan.id, messageWithContext, weekForRequest);
+      const response = await studyPlanAPI.chat(plan.id, messageWithContext, weekForRequest, draftCtx?.slots ?? undefined);
       const result = response.data as ChatIntentResult;
       handleChatResult(result, weekForRequest);
     } catch (err: unknown) {

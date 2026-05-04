@@ -313,6 +313,250 @@ export class PhasePlanService {
     };
   }
 
+  // ── Adjustment merge: LLM identifies which dates to regenerate; all other dates are kept from currentDraftSlots ──
+  private async applyAdjustmentToCurrentDraft(
+    userId: string,
+    planId: string,
+    currentDraftSlots: Array<{ date: string; chapterId: string; chapterTitle?: string; subjectName?: string; plannedHours: number; timeSegment?: string; phaseId?: string }>,
+    adjustText: string,
+    allPhasesThisWeek: Array<{ id: string; name: string; description: string | null; startDate: Date; endDate: Date }>,
+    examDateISO: string,
+  ): Promise<DraftSlot[]> {
+    // All distinct dates currently in the draft
+    const allDraftDates = [...new Set(currentDraftSlots.map(s => s.date))].sort();
+
+    // 查附近已入库的 slot（不含草稿），供用户引用（如"与5/9一致"）
+    // 扩大范围：草稿最早日期前7天 ~ 草稿最晚日期后7天，确保能引用到邻近日期
+    const confirmedSlots = allDraftDates.length > 0
+      ? await this.prisma.dailyStudySlot.findMany({
+          where: {
+            planId,
+            isDraft: false,
+            status: { not: 'skipped' },
+            date: {
+              gte: (() => { const d = this.toDateOnly(allDraftDates[0]); d.setUTCDate(d.getUTCDate() - 7); return d; })(),
+              lte: (() => { const d = this.toDateOnly(allDraftDates[allDraftDates.length - 1]); d.setUTCDate(d.getUTCDate() + 7); return d; })(),
+            },
+          },
+          select: { date: true, chapterTitle: true, subjectName: true, plannedHours: true, timeSegment: true },
+          orderBy: [{ date: 'asc' }, { timeSegment: 'asc' }],
+        })
+      : [];
+
+    const DAY_ZH = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const formatSlotLine = (date: string, slots: Array<{ timeSegment?: string | null; subjectName: string; chapterTitle: string; plannedHours: number }>) =>
+      slots.map(s => `${s.timeSegment ? `[${s.timeSegment}]` : ''}${s.subjectName ? s.subjectName + '·' : ''}${s.chapterTitle} ${s.plannedHours}h`).join(' / ');
+
+    const draftSummary = allDraftDates.map(date => {
+      const slots = currentDraftSlots.filter(s => s.date === date);
+      const d = new Date(date + 'T00:00:00Z');
+      return `${date}（${DAY_ZH[d.getUTCDay()]}）：${formatSlotLine(date, slots.map(s => ({ ...s, subjectName: s.subjectName ?? '', chapterTitle: s.chapterTitle ?? '' })))}`;
+    }).join('\n');
+
+    // 已入库但不在草稿里的日期（用户可引用，如"与5/9一致"）
+    const confirmedByDate = new Map<string, typeof confirmedSlots>();
+    for (const s of confirmedSlots) {
+      const iso = this.formatDate(s.date);
+      if (!confirmedByDate.has(iso)) confirmedByDate.set(iso, []);
+      confirmedByDate.get(iso)!.push(s);
+    }
+    const confirmedSummaryLines: string[] = [];
+    for (const [date, slots] of [...confirmedByDate.entries()].sort()) {
+      const d = new Date(date + 'T00:00:00Z');
+      confirmedSummaryLines.push(`${date}（${DAY_ZH[d.getUTCDay()]}）：${formatSlotLine(date, slots as any)}`);
+    }
+    const confirmedSummary = confirmedSummaryLines.length > 0
+      ? `\n已确认入库的本周安排（用户可能会引用这些日期的内容）：\n${confirmedSummaryLines.join('\n')}`
+      : '';
+
+    let datesToRegenerate: string[] = [];
+    let copyFromDate: string | null = null; // if user says "与X天一致", directly copy that date's slots
+    try {
+      const allKnownDates = [...allDraftDates, ...[...confirmedByDate.keys()]].filter((v, i, a) => a.indexOf(v) === i).sort();
+      const raw = await this.callLLMStrict(
+        `你是学习计划助手。用户有一份未保存的草稿计划，想对其中某几天做调整。
+请根据用户的调整意图分析两件事：
+1. 草稿中哪几天需要重新生成（YYYY-MM-DD格式）
+2. 用户是否希望某天"与某个已知日期完全一致"（例如"与5/9一致"）
+
+所有已知日期：${allKnownDates.join(', ')}
+
+当前草稿：
+${draftSummary}
+${confirmedSummary}
+
+用户调整意图：${adjustText}
+
+输出JSON对象，格式：
+{
+  "datesToRegenerate": ["2026-05-08"],
+  "copyFromDate": "2026-05-09"
+}
+说明：
+- datesToRegenerate: 草稿中需要重新生成的日期列表（从草稿日期中选）
+- copyFromDate: 如果用户明确说某天要"与X日完全一致"或"照X的安排"，填X的YYYY-MM-DD；否则填null
+只输出JSON对象，不含其他文字。`,
+        '请识别需要重新生成的日期和复制来源。',
+        400,
+      );
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]) as { datesToRegenerate?: string[]; copyFromDate?: string | null };
+        datesToRegenerate = (parsed.datesToRegenerate ?? []).filter(d => allDraftDates.includes(d));
+        copyFromDate = parsed.copyFromDate && allKnownDates.includes(parsed.copyFromDate) ? parsed.copyFromDate : null;
+      } else {
+        // fallback: try to parse as plain array
+        const arrMatch = raw.match(/\[[\s\S]*\]/);
+        if (arrMatch) datesToRegenerate = (JSON.parse(arrMatch[0]) as string[]).filter(d => allDraftDates.includes(d));
+      }
+      this.logger.log(`[applyAdjustment] datesToRegenerate=${datesToRegenerate.join(',')} copyFromDate=${copyFromDate}`);
+    } catch (e) {
+      this.logger.warn(`[applyAdjustment] LLM识别日期失败，全部重新生成: ${e}`);
+      datesToRegenerate = allDraftDates;
+    }
+
+    if (datesToRegenerate.length === 0) {
+      // LLM无法识别，全部保留原样
+      return currentDraftSlots.map(s => ({
+        date: s.date, chapterId: s.chapterId, chapterTitle: s.chapterTitle ?? '',
+        subjectName: s.subjectName ?? '', plannedHours: s.plannedHours,
+        timeSegment: s.timeSegment ?? '', phaseId: s.phaseId,
+      }));
+    }
+
+    // 对需要重新生成的天，用 parseWeekIntent 解析用户意图后生成
+    const plan = await this.prisma.studyPlan.findFirst({ where: { id: planId }, include: { goal: { select: { targetDate: true } } } });
+    const subjects = await this.prisma.studySubject.findMany({
+      where: { planId },
+      include: { chapters: { where: { status: { not: 'completed' } }, orderBy: { sortOrder: 'asc' } } },
+      orderBy: { sortOrder: 'asc' },
+    });
+    const subjectMaps: SubjectChapterMap[] = subjects.map(s => ({
+      subjectName: s.name,
+      chapters: s.chapters.map(c => ({ chapterId: c.id, chapterTitle: c.title, remainingHours: Math.max(0.5, (c.estimatedHours || 2) - (c.actualHours || 0)) })),
+    }));
+    const chapters = subjects.flatMap(s => s.chapters.map(c => ({
+      chapterId: c.id, chapterTitle: c.title, subjectName: s.name,
+      remainingHours: Math.max(0.5, (c.estimatedHours || 2) - (c.actualHours || 0)),
+    })));
+
+    const regen = datesToRegenerate.filter(d => d < examDateISO);
+
+    // Use the earliest regen date as weekStart for parseWeekIntent
+    const regenWeekStart = regen[0] ?? allDraftDates[0];
+    const subjectGroup = new Map<string, SubjectChapterMap>();
+    for (const sm of subjectMaps) subjectGroup.set(sm.subjectName, sm);
+
+    // Parse user's adjustment intent specifically for the dates being regenerated
+    let regenSlots: DraftSlot[] = [];
+    if (regen.length > 0 && chapters.length > 0) {
+      const dailyHoursForRegen = regen.map(d => {
+        const slotsForDay = currentDraftSlots.filter(s => s.date === d);
+        const totalHours = slotsForDay.reduce((sum, s) => sum + s.plannedHours, 0);
+        return { date: d, hours: totalHours || (plan?.weekdayHours ?? 2) };
+      });
+
+      // Direct copy path: if user explicitly references another date's schedule
+      if (copyFromDate) {
+        const sourceSlots = confirmedByDate.get(copyFromDate);
+        if (sourceSlots && sourceSlots.length > 0) {
+          this.logger.log(`[applyAdjustment] copyFromDate=${copyFromDate} → ${sourceSlots.length} slots`);
+          for (const targetDate of regen) {
+            for (const src of sourceSlots) {
+              // Find a matching chapter by title in the plan, fall back to first chapter
+              const matched = chapters.find(c => c.chapterTitle === src.chapterTitle) ?? chapters[0];
+              if (matched) {
+                regenSlots.push({
+                  date: targetDate,
+                  chapterId: matched.chapterId,
+                  chapterTitle: src.chapterTitle ?? matched.chapterTitle,
+                  subjectName: src.subjectName ?? matched.subjectName,
+                  plannedHours: src.plannedHours,
+                  timeSegment: src.timeSegment ?? undefined,
+                  phaseId: (allPhasesThisWeek.find(p => {
+                    const dt = this.toDateOnly(targetDate);
+                    return p.startDate <= dt && p.endDate >= dt;
+                  }) ?? allPhasesThisWeek[allPhasesThisWeek.length - 1])?.id,
+                });
+              }
+            }
+          }
+        } else {
+          // copyFromDate is a draft date
+          const sourceDraftSlots = currentDraftSlots.filter(s => s.date === copyFromDate);
+          if (sourceDraftSlots.length > 0) {
+            this.logger.log(`[applyAdjustment] copyFromDate=${copyFromDate} from draft → ${sourceDraftSlots.length} slots`);
+            for (const targetDate of regen) {
+              for (const src of sourceDraftSlots) {
+                regenSlots.push({
+                  date: targetDate,
+                  chapterId: src.chapterId,
+                  chapterTitle: src.chapterTitle ?? '',
+                  subjectName: src.subjectName ?? '',
+                  plannedHours: src.plannedHours,
+                  timeSegment: src.timeSegment ?? undefined,
+                  phaseId: src.phaseId ?? (allPhasesThisWeek.find(p => {
+                    const dt = this.toDateOnly(targetDate);
+                    return p.startDate <= dt && p.endDate >= dt;
+                  }) ?? allPhasesThisWeek[allPhasesThisWeek.length - 1])?.id,
+                });
+              }
+            }
+          }
+        }
+      }
+
+      if (regenSlots.length === 0) {
+        const adjustIntent = await this.parseWeekIntent(adjustText, regenWeekStart, subjectMaps);
+        this.logger.log(`[applyAdjustment] adjustIntent type=${adjustIntent.type} days=${adjustIntent.dayIntents.length}`);
+
+        if (adjustIntent.type === 'structured' && adjustIntent.dayIntents.length > 0) {
+          // Only keep dayIntents that match the dates we need to regenerate
+          const filteredIntent: ParsedWeekIntent = {
+            ...adjustIntent,
+            dayIntents: adjustIntent.dayIntents.filter(di => {
+              const d = new Date(regenWeekStart + 'T00:00:00Z');
+              d.setUTCDate(d.getUTCDate() + di.dayOffset);
+              return regen.includes(this.formatDate(d));
+            }),
+          };
+          if (filteredIntent.dayIntents.length > 0) {
+            regenSlots = this.buildSlotsFromParsedIntent(filteredIntent, {
+              weekStartISO: regenWeekStart,
+              todayISO: this.formatDate(this.toDateOnly(new Date())),
+              dailyHours: dailyHoursForRegen,
+              userIntent: adjustText,
+              examDateISO,
+            }, subjectGroup);
+          }
+        }
+
+        // Fallback to deterministic if parsedIntent didn't produce slots
+        if (regenSlots.length === 0) {
+          const lastPhase = allPhasesThisWeek[allPhasesThisWeek.length - 1] ?? null;
+          const regenMappings = regen.map(d => {
+            const dt = this.toDateOnly(d);
+            const phase = allPhasesThisWeek.find(p => p.startDate <= dt && p.endDate >= dt) ?? lastPhase;
+            return { date: d, phaseId: phase?.id, phaseName: phase?.name ?? '', phaseDesc: phase?.description ?? '' };
+          });
+          regenSlots = this.buildSlotsFromPhaseMappings(regenMappings, dailyHoursForRegen, chapters);
+        }
+      }
+    }
+
+    // Merge: keep unchanged days from currentDraftSlots, replace regenerated days
+    const regenDaySet = new Set(regen);
+    const keptSlots: DraftSlot[] = currentDraftSlots
+      .filter(s => !regenDaySet.has(s.date))
+      .map(s => ({
+        date: s.date, chapterId: s.chapterId, chapterTitle: s.chapterTitle ?? '',
+        subjectName: s.subjectName ?? '', plannedHours: s.plannedHours,
+        timeSegment: s.timeSegment ?? '', phaseId: s.phaseId,
+      }));
+
+    return [...keptSlots, ...regenSlots].sort((a, b) => a.date.localeCompare(b.date) || (a.timeSegment ?? '').localeCompare(b.timeSegment ?? ''));
+  }
+
   // Deterministic slot builder: split each day into time segments and cycle chapters by phase-matched subject.
   private buildSlotsFromPhaseMappings(
     datePhaseMappings: Array<{ date: string; phaseId?: string; phaseName?: string; phaseDesc?: string }>,
@@ -349,7 +593,7 @@ export class PhasePlanService {
           date: day.date,
           chapterId: chapter.chapterId,
           subjectName: chapter.subjectName,
-          chapterTitle: this.buildSegmentTitle(chapter.chapterTitle, mapping?.phaseDesc, segment.label),
+          chapterTitle: chapter.chapterTitle,
           plannedHours: segment.hours,
           timeSegment: segment.label,
           phaseId: mapping?.phaseId,
@@ -393,24 +637,6 @@ export class PhasePlanService {
 
   private roundHalf(value: number) {
     return Math.round(value * 2) / 2;
-  }
-
-  private buildSegmentTitle(chapterTitle: string, phaseDesc?: string, segment?: string) {
-    if (!phaseDesc) return chapterTitle;
-    const cleanDesc = phaseDesc.replace(/[，。；;,.]/gu, ' ').trim();
-    if (!cleanDesc) return chapterTitle;
-
-    if (/套卷|复盘|错题/u.test(cleanDesc)) {
-      if (segment === '上午') return cleanDesc.includes('套卷') ? '套卷限时训练' : chapterTitle;
-      if (segment === '下午') return cleanDesc.includes('复盘') ? '套卷复盘' : chapterTitle;
-      if (segment === '晚上') return cleanDesc.includes('错题') ? '错题复盘' : '薄弱练习';
-    }
-
-    if (/刷题|模块|专项/u.test(cleanDesc)) {
-      return chapterTitle.includes('刷题') ? chapterTitle : `${chapterTitle}刷题`;
-    }
-
-    return chapterTitle;
   }
 
   private normalizeTimeSegmentSlots(slots: DraftSlot[]): DraftSlot[] {
@@ -633,6 +859,7 @@ export class PhasePlanService {
     planId: string,
     message: string,
     weekStart?: string,
+    currentDraftSlots?: Array<{ date: string; chapterId: string; chapterTitle?: string; subjectName?: string; plannedHours: number; timeSegment?: string; phaseId?: string }>,
   ): Promise<{
     action: 'generate_phases' | 'expand_week' | 'reply' | 'onboard_phases' | 'onboard_week';
     reply: string;
@@ -697,7 +924,7 @@ export class PhasePlanService {
       return { action: 'reply', reply: '当前学习计划已就绪。你可以继续微调阶段，或生成某一周的具体安排。' };
     }
 
-    // ── 如果消息包含草稿上下文（用户在调整已有草稿），直接重新生成周草稿 ──
+    // ── 如果消息包含草稿上下文（用户在调整已有草稿），做局部修改后 merge 回草稿 ──
     const hasDraftContext = message.includes('【当前未保存草稿');
     const restActions = this.extractRestDateActions(message, targetWeekStart);
     if (restActions.length > 0) {
@@ -710,7 +937,8 @@ export class PhasePlanService {
       };
     }
     if (hasDraftContext) {
-      return this.handleOnboardWeek(userId, planId, targetWeekStart, message);
+      this.logger.log(`[chatIntent] draft adjustment: currentDraftSlots=${currentDraftSlots?.length ?? 0} slots`);
+      return this.handleOnboardWeek(userId, planId, targetWeekStart, message, undefined, currentDraftSlots);
     }
 
     // ── 规则分类 ──
@@ -839,6 +1067,7 @@ export class PhasePlanService {
       missingDates: string[];
       existingSlots: Array<{ date: string; subjectName: string; chapterTitle: string; plannedHours: number; timeSegment?: string }>;
     },
+    currentDraftSlots?: Array<{ date: string; chapterId: string; chapterTitle?: string; subjectName?: string; plannedHours: number; timeSegment?: string; phaseId?: string }>,
   ): Promise<{
     action: 'onboard_week';
     reply: string;
@@ -942,9 +1171,38 @@ export class PhasePlanService {
       }
     }
 
-    const adjustContext = userAdjustment
-      ? `用户的调整要求：${userAdjustment.replace(/【当前未保存草稿[\s\S]*?】\n?/, '').replace('用户修改意见：', '').trim()}`
+    const adjustText = userAdjustment
+      ? userAdjustment.replace(/【当前未保存草稿[\s\S]*?】\n?/, '').replace('用户修改意见：', '').trim()
       : '';
+
+    // ── 调整模式：有草稿 slots + 用户修改意见 → 只重新生成用户要改的天，其余天原样保留 ──
+    if (userAdjustment && currentDraftSlots && currentDraftSlots.length > 0) {
+      const mergedSlots = await this.applyAdjustmentToCurrentDraft(
+        userId, planId, currentDraftSlots, adjustText, allPhasesThisWeek, examDateISO,
+      );
+      const lines: string[] = ['已根据你的调整更新计划：', ''];
+      const DAY_ZH2 = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      const byDate = new Map<string, DraftSlot[]>();
+      for (const s of mergedSlots) {
+        if (!byDate.has(s.date)) byDate.set(s.date, []);
+        byDate.get(s.date)!.push(s);
+      }
+      for (const [date, slots] of [...byDate.entries()].sort()) {
+        const d = new Date(date + 'T00:00:00Z');
+        const items = slots.map(s =>
+          `${s.timeSegment ? `[${s.timeSegment}] ` : ''}${s.subjectName ? `${s.subjectName}·` : ''}${s.chapterTitle} ${s.plannedHours}h`
+        ).join(' / ');
+        lines.push(`📅 ${date.slice(5)}（${DAY_ZH2[d.getUTCDay()]}）${items}`);
+      }
+      lines.push('');
+      lines.push('觉得合适就确认写入；也可以继续告诉我要调整的地方。');
+      return {
+        action: 'onboard_week',
+        reply: lines.join('\n'),
+        targetWeekStart: weekStart,
+        draftSlots: mergedSlots,
+      };
+    }
 
     const userIntent = [
       `考试日期：${examDateISO}（考试当天及之后不排课）`,
@@ -952,7 +1210,7 @@ export class PhasePlanService {
       refContext,
       progressContext,
       existingContext,
-      adjustContext,
+      adjustText ? `用户的调整要求：${adjustText}` : '',
     ].filter(Boolean).join('\n');
 
     // 把每天对应的阶段直接构造成 structured parsedIntent，跳过 AI parseWeekIntent
@@ -996,7 +1254,7 @@ export class PhasePlanService {
     const lines: string[] = [];
 
     if (isAdjustment) {
-      lines.push('已根据你的调整重新生成空缺天的计划：');
+      lines.push('已根据你的调整重新生成计划：');
     } else if (hasExisting) {
       lines.push(`本周有 **${missingDatesForAI.length}** 天还没有学习安排（距考试 **${daysLeft}** 天）。`);
       if (currentPhase) {
@@ -1442,6 +1700,11 @@ export class PhasePlanService {
       ? `\n参考资料（请结合这些资料的备考策略进行规划）：\n${input.topRefs.map((r: any) => `- ${r.name}（${r.durationDays > 0 ? r.durationDays + '天计划' : '通用'}）：${r.description || '无描述'}`).join('\n')}`
       : '';
 
+    // 最后一个备考日 = 考试日前一天（考试当天不排学习）
+    const examDate = this.toDateOnly(input.examDateISO);
+    examDate.setUTCDate(examDate.getUTCDate() - 1);
+    const lastStudyDayISO = this.formatDate(examDate);
+
     const systemPrompt = `你是备考规划专家。根据考试信息、科目掌握程度和参考资料，把备考期划分成若干阶段（一般3-5个），每个阶段说明核心任务和阶段结束时需要达到的掌握要求。
 
 考试：${input.examName}（${input.examType}）
@@ -1461,7 +1724,7 @@ ${refSection}
 
 约束：
 - 阶段必须连续，无间隔无重叠
-- 第一阶段从 ${input.todayISO} 开始，最后阶段在 ${input.examDateISO} 结束
+- 第一阶段从 ${input.todayISO} 开始，最后阶段结束于 ${lastStudyDayISO}（考试当天不安排学习，最后备考日为考试前一天）
 - 时间分配合理（基础期最长，冲刺期最短）
 - 针对当前掌握薄弱的科目在前期多分配时间
 

@@ -160,6 +160,33 @@ export class ConfirmWeekDto {
 export class EstimateHoursDto {
 }
 
+export class CurrentDraftSlotDto {
+  @IsString()
+  date: string;
+
+  @IsString()
+  chapterId: string;
+
+  @IsOptional()
+  @IsString()
+  chapterTitle?: string;
+
+  @IsOptional()
+  @IsString()
+  subjectName?: string;
+
+  @IsNumber()
+  plannedHours: number;
+
+  @IsOptional()
+  @IsString()
+  timeSegment?: string;
+
+  @IsOptional()
+  @IsString()
+  phaseId?: string;
+}
+
 export class PlanChatDto {
   @IsString()
   message: string;
@@ -167,6 +194,13 @@ export class PlanChatDto {
   @IsOptional()
   @IsString()
   weekStart?: string;
+
+  /** Current unconfirmed draft slots — used to preserve unchanged days during adjustment */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CurrentDraftSlotDto)
+  currentDraftSlots?: CurrentDraftSlotDto[];
 }
 
 export class PlanExecuteDto {

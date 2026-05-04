@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CheckSquare, Plus, X, Check, GripVertical, Pencil, Trash2, Timer } from 'lucide-react';
-import { taskAPI } from '@/lib/api';
+import { taskAPI, dailyAPI } from '@/lib/api';
 import { dispatchAgentDataChanged, PROACTIVE_TRIGGER_EVENT } from '@/lib/agent-events';
 import styles from './PendingTasks.module.css';
 import {
@@ -243,6 +243,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskTitle, setEditingTaskTitle] = useState<string>('');
+  const [dayStart, setDayStart] = useState<string | null>(null);
 
   // 鎷栨嫿浼犳劅鍣ㄩ厤缃?
   const sensors = useSensors(
@@ -359,6 +360,9 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
   // 鍒濆鍔犺浇
   useEffect(() => {
     loadTasks();
+    dailyAPI.getTodayStatus().then(res => {
+      setDayStart(res.data?.dayStart ?? null);
+    }).catch(() => {});
   }, []);
 
   // 褰撶暘鑼勯挓瀹屾垚鍒锋柊瑙﹀彂鍣ㄥ彉鍖栨椂锛岄噸鏂板姞杞戒换鍔″垪琛?
@@ -647,6 +651,18 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
           <div className={styles.progressFill} style={{ width: `${pct}%` }} />
         </div>
       </div>
+
+      {/* 今日主题 */}
+      {dayStart && (
+        <div style={{
+          padding: '8px 16px',
+          borderBottom: '1px solid var(--border)',
+          fontSize: 12,
+          color: 'var(--fg-2)',
+        }}>
+          {dayStart}
+        </div>
+      )}
 
       {/* 任务列表（可滚动） */}
       <div className={styles.scrollArea}>

@@ -353,7 +353,7 @@ export class StudyPlanController {
   @Post(':id/chat')
   @ApiOperation({ summary: 'AI 意图识别（快速），返回理解给用户确认' })
   chat(@Request() req, @Param('id') id: string, @Body() dto: PlanChatDto) {
-    return this.phasePlanService.chatIntent(req.user.id, id, dto.message, dto.weekStart);
+    return this.phasePlanService.chatIntent(req.user.id, id, dto.message, dto.weekStart, dto.currentDraftSlots);
   }
 
   @Post(':id/chat/execute')
