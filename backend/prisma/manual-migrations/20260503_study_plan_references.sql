@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS study_plan_references (
-  id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  id              TEXT PRIMARY KEY,
   exam_type       TEXT NOT NULL,
   name            TEXT NOT NULL,
   match_keywords  TEXT NOT NULL DEFAULT '',
