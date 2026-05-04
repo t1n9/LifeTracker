@@ -8,7 +8,7 @@ import {
   Moon, Settings2, Sun, X,
 } from 'lucide-react';
 import { userAPI, studyAPI, taskAPI, dailyAPI, studyPlanAPI } from '@/lib/api';
-import { AGENT_DATA_CHANGED_EVENT, eventAffectsDomains, PROACTIVE_TRIGGER_EVENT } from '@/lib/agent-events';
+import { AGENT_DATA_CHANGED_EVENT, dispatchAgentDataChanged, eventAffectsDomains, PROACTIVE_TRIGGER_EVENT } from '@/lib/agent-events';
 import { goalService, UserGoal } from '../services/goalService';
 import HistoryViewer from './HistoryViewer';
 import PomodoroTimer, { PomodoroTimerRef } from './PomodoroTimer';
@@ -165,6 +165,7 @@ export default function Dashboard() {
     const handler = (event: Event) => {
       if (eventAffectsDomains(event, ['tasks'])) { loadTasks(); setTaskRefreshTrigger(n => n + 1); }
       if (eventAffectsDomains(event, ['study'])) loadTodayStats();
+      if (eventAffectsDomains(event, ['studyPlan'])) loadStudyPlanWeekStatus();
       if (eventAffectsDomains(event, ['pomodoro'])) pomodoroTimerRef.current?.refreshSession();
     };
     window.addEventListener(AGENT_DATA_CHANGED_EVENT, handler);
@@ -214,6 +215,7 @@ export default function Dashboard() {
       setCurrentBoundTask(null);
       setPomodoroElapsedTime(0);
       setTaskRefreshTrigger(n => n + 1);
+      dispatchAgentDataChanged(['tasks', 'studyPlan']);
       loadTodayStats();
     } catch { alert('完成任务失败，请重试'); }
   };
@@ -226,6 +228,7 @@ export default function Dashboard() {
       setCurrentBoundTask(null);
       setPomodoroElapsedTime(0);
       setTaskRefreshTrigger(n => n + 1);
+      dispatchAgentDataChanged(['tasks', 'studyPlan']);
       loadTodayStats();
     } catch { alert('完成任务失败，请重试'); }
   };

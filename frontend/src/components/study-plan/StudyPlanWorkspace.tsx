@@ -60,15 +60,46 @@ function defaultExamDate() {
   return formatDate(d);
 }
 
+function getMissingSchedulableDates(
+  slots: DailySlot[],
+  rangeStart: Date,
+  rangeEnd: Date,
+  today: Date,
+  examDate: Date,
+  plan: Pick<StudyPlanLite, 'weekdayHours' | 'weekendHours'>,
+) {
+  const start = rangeStart < today ? today : rangeStart;
+  const lastStudyDay = addDays(examDate, -1);
+  const end = lastStudyDay < rangeEnd ? lastStudyDay : rangeEnd;
+  if (end < start) return [];
+
+  const coveredDates = new Set(
+    slots
+      .map((slot) => formatDate(toDateOnly(slot.date))),
+  );
+  const missingDates: string[] = [];
+  const current = toDateOnly(start);
+  while (current <= end) {
+    const iso = formatDate(current);
+    const day = current.getUTCDay();
+    const dailyHours = day === 0 || day === 6 ? plan.weekendHours : plan.weekdayHours;
+    if (dailyHours > 0 && !coveredDates.has(iso)) missingDates.push(iso);
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return missingDates;
+}
+
 export default function StudyPlanWorkspace() {
   const router = useRouter();
   const [plan, setPlan] = useState<StudyPlanLite | null>(null);
   const [phases, setPhases] = useState<PhasePlan[]>([]);
   const [slots, setSlots] = useState<DailySlot[]>([]);
+  const [weekSlotsLoaded, setWeekSlotsLoaded] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingExpand, setPendingExpand] = useState<Date | null>(null);
+  const [chatKey, setChatKey] = useState(0);
   const [mobileTab, setMobileTab] = useState<MobileTab>('chat');
   const [isMobile, setIsMobile] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -122,7 +153,11 @@ export default function StudyPlanWorkspace() {
   }, []);
 
   const loadWeekSlots = useCallback(async () => {
-    if (!plan) return;
+    if (!plan) {
+      setWeekSlotsLoaded(true);
+      return;
+    }
+    setWeekSlotsLoaded(false);
     const requests: Promise<DailySlot[]>[] = [];
     for (let i = 0; i < 7; i += 1) {
       const day = addDays(weekStart, i);
@@ -135,6 +170,7 @@ export default function StudyPlanWorkspace() {
     }
     const allSlots = (await Promise.all(requests)).flat();
     setSlots(allSlots);
+    setWeekSlotsLoaded(true);
   }, [plan, weekStart]);
 
   useEffect(() => {
@@ -179,6 +215,9 @@ export default function StudyPlanWorkspace() {
 
   const handlePhasesConfirmed = async () => {
     await loadPlan();
+    // 等 React 把 loadPlan 产生的 phases 状态更新刷到 DOM 之后，再 remount Chat
+    // 这样新 mount 的 Chat 拿到的 phases 已经是非空的，不会再触发阶段推荐
+    setTimeout(() => setChatKey((k) => k + 1), 0);
   };
 
   const handleWeekConfirmed = async () => {
@@ -337,12 +376,12 @@ export default function StudyPlanWorkspace() {
   const thisWeek = { start: getMonday(today), end: addDays(getMonday(today), 6) };
   const nextWeek = { start: addDays(thisWeek.start, 7), end: addDays(thisWeek.end, 7) };
   const isExamPassed = examDate < today;
-  const isExamThisWeek = examDate >= thisWeek.start && examDate <= thisWeek.end;
-  const isExamBeforeNextWeek = examDate < nextWeek.start;
   const isViewingThisWeek = formatDate(weekStart) === formatDate(thisWeek.start);
   const isViewingNextWeek = formatDate(weekStart) === formatDate(nextWeek.start);
-  const thisWeekMissing = !isExamPassed && !isExamThisWeek && isViewingThisWeek && slots.length === 0;
-  const nextWeekMissing = !isExamPassed && !isExamBeforeNextWeek && isViewingNextWeek && slots.length === 0;
+  const thisWeekMissingDates = getMissingSchedulableDates(slots, today, thisWeek.end, today, examDate, plan);
+  const nextWeekMissingDates = getMissingSchedulableDates(slots, nextWeek.start, nextWeek.end, today, examDate, plan);
+  const thisWeekMissing = weekSlotsLoaded && !isExamPassed && isViewingThisWeek && thisWeekMissingDates.length > 0;
+  const nextWeekMissing = weekSlotsLoaded && !isExamPassed && isViewingNextWeek && nextWeekMissingDates.length > 0;
 
   const headerNode = (
     <header style={styles.topBar}>
@@ -359,18 +398,24 @@ export default function StudyPlanWorkspace() {
   );
 
   const chatNode = (
-    <StudyPlanChat
-      plan={plan}
-      phases={phases}
-      today={today}
-      examDaysLeft={examDaysLeft}
-      thisWeekMissing={thisWeekMissing}
-      nextWeekMissing={nextWeekMissing}
-      onPhasesConfirmed={handlePhasesConfirmed}
-      onWeekConfirmed={handleWeekConfirmed}
-      pendingExpandWeekStart={pendingExpand}
-      onExpandHandled={() => setPendingExpand(null)}
-    />
+    weekSlotsLoaded ? (
+      <StudyPlanChat
+        key={chatKey}
+        plan={plan}
+        phases={phases}
+        hasWeekSlots={slots.length > 0}
+        today={today}
+        examDaysLeft={examDaysLeft}
+        thisWeekMissing={thisWeekMissing}
+        nextWeekMissing={nextWeekMissing}
+        onPhasesConfirmed={handlePhasesConfirmed}
+        onWeekConfirmed={handleWeekConfirmed}
+        pendingExpandWeekStart={pendingExpand}
+        onExpandHandled={() => setPendingExpand(null)}
+      />
+    ) : (
+      <div style={styles.chatLoading}>正在读取周计划...</div>
+    )
   );
 
   const calendarNode = (
@@ -443,6 +488,10 @@ const styles: Record<string, CSSProperties> = {
   examMeta: { fontSize: 12, color: 'var(--fg-3)' },
   body: { flex: 1, display: 'grid', gridTemplateColumns: '40% 60%', minHeight: 0 },
   leftCol: { display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' },
+  chatLoading: {
+    height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: 'var(--fg-3)', background: 'var(--bg-1)', borderRight: '1px solid var(--line)',
+  },
   rightCol: { display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', background: 'var(--bg-1)' },
   loading: {
     height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',

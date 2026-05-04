@@ -1,9 +1,9 @@
 // 自动生成的版本文件，请勿手动修改
 export const VERSION_INFO = {
-  version: '4.1.2',
+  version: '4.2.0',
   name: 'LifeTracker',
   description: '生活记录系统',
-  buildDate: '2026-04-29',
+  buildDate: '2026-05-04',
   features: [
   "任务管理",
   "学习记录",

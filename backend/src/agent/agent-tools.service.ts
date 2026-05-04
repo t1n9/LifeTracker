@@ -7,6 +7,7 @@ import { DailyService } from '../daily/daily.service';
 import { StudyService } from '../study/study.service';
 import { GoalsService } from '../goals/goals.service';
 import { ImportantInfoService } from '../important-info/important-info.service';
+import { StudyPlanService } from '../study-plan/study-plan.service';
 import {
   AgentTaskCandidate,
   findBestTaskMatch,
@@ -84,6 +85,31 @@ export const AGENT_TOOLS = [
           },
         },
         required: ['titles'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'inject_study_plan_slots',
+      description: '把今日学习计划中的指定安排注入为主页任务，并与学习计划 slot 绑定。只用于晨间规划确认后创建来自学习计划的任务；绑定后主页任务完成会同步完成对应学习计划安排。',
+      parameters: {
+        type: 'object',
+        properties: {
+          slots: {
+            type: 'array',
+            description: '要注入的学习计划安排列表。必须使用上下文中给出的 planId 和 slotId，不要编造。',
+            items: {
+              type: 'object',
+              properties: {
+                planId: { type: 'string', description: '学习计划ID' },
+                slotId: { type: 'string', description: '学习计划每日安排ID' },
+              },
+              required: ['planId', 'slotId'],
+            },
+          },
+        },
+        required: ['slots'],
       },
     },
   },
@@ -318,6 +344,7 @@ export class AgentToolsService {
     private studyService: StudyService,
     private goalsService: GoalsService,
     private importantInfoService: ImportantInfoService,
+    private studyPlanService: StudyPlanService,
   ) {}
 
   async executeTool(userId: string, toolName: string, args: Record<string, any>): Promise<any> {
@@ -337,6 +364,8 @@ export class AgentToolsService {
         } as any);
       case 'create_tasks':
         return this.createTasks(userId, args.titles);
+      case 'inject_study_plan_slots':
+        return this.injectStudyPlanSlots(userId, args.slots);
       case 'update_task':
         return this.updateTask(userId, args);
       case 'complete_task':
@@ -390,6 +419,10 @@ export class AgentToolsService {
 
   async getTaskById(userId: string, taskId: string) {
     return this.tasksService.findOne(userId, taskId);
+  }
+
+  async getTodayStudyPlanSuggestion(userId: string) {
+    return this.studyPlanService.getTodaySuggestion(userId);
   }
 
   async resolvePendingTask(userId: string, taskTitle: string) {
@@ -466,6 +499,50 @@ export class AgentToolsService {
       created,
       skipped,
       requestedCount: titles.length,
+    };
+  }
+
+  private async injectStudyPlanSlots(userId: string, slots: unknown) {
+    if (!Array.isArray(slots) || slots.length === 0) {
+      return { error: 'slots 必须是非空数组' };
+    }
+
+    const injected: Array<{ slotId: string; taskId: string; title: string }> = [];
+    const skipped: Array<{ slotId?: string; reason: string }> = [];
+    const seen = new Set<string>();
+
+    for (const item of slots) {
+      const slot = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+      const planId = typeof slot.planId === 'string' ? slot.planId.trim() : '';
+      const slotId = typeof slot.slotId === 'string' ? slot.slotId.trim() : '';
+      const key = `${planId}:${slotId}`;
+
+      if (!planId || !slotId || seen.has(key)) {
+        skipped.push({ slotId: slotId || undefined, reason: 'invalid_or_duplicate_slot' });
+        continue;
+      }
+      seen.add(key);
+
+      try {
+        const result = await this.studyPlanService.injectSlot(userId, planId, slotId);
+        if (result.task?.id) {
+          injected.push({
+            slotId,
+            taskId: result.task.id,
+            title: result.task.title,
+          });
+        } else {
+          skipped.push({ slotId, reason: 'no_task_created' });
+        }
+      } catch (error) {
+        skipped.push({ slotId, reason: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    return {
+      injected,
+      skipped,
+      requestedCount: slots.length,
     };
   }
 

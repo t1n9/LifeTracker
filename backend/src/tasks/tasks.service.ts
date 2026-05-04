@@ -124,6 +124,9 @@ export class TasksService {
     if (updateTaskDto.isCompleted === true && !current.isCompleted) {
       await this.syncStudyPlanSlotOnTaskCompleted(userId, id);
     }
+    if (updateTaskDto.isCompleted === false && current.isCompleted) {
+      await this.syncStudyPlanSlotOnTaskReopened(userId, id);
+    }
 
     return { count: 1 };
   }
@@ -367,12 +370,13 @@ export class TasksService {
     }
 
     const completedAt = new Date();
+    const actualHours = await this.calculateTaskActualHours(userId, taskId);
     const updatedSlot = await this.prisma.dailyStudySlot.update({
       where: { id: slot.id },
       data: {
         status: 'completed',
         completedAt,
-        actualHours: slot.actualHours > 0 ? slot.actualHours : slot.plannedHours,
+        actualHours: slot.actualHours > 0 ? slot.actualHours : (actualHours > 0 ? actualHours : slot.plannedHours),
       },
     });
 
@@ -393,8 +397,65 @@ export class TasksService {
       }
     }
 
-    await this.refreshWeeklyProgress(slot.weeklyPlanId);
+    if (slot.weeklyPlanId) {
+      await this.refreshWeeklyProgress(slot.weeklyPlanId);
+    }
     await this.refreshPlanCompletion(slot.planId);
+  }
+
+  private async syncStudyPlanSlotOnTaskReopened(userId: string, taskId: string) {
+    const slot = await this.prisma.dailyStudySlot.findFirst({
+      where: {
+        userId,
+        taskId,
+        status: 'completed',
+      },
+      orderBy: { completedAt: 'desc' },
+    });
+    if (!slot) {
+      return;
+    }
+
+    const rollbackHours = slot.actualHours || 0;
+    await this.prisma.dailyStudySlot.update({
+      where: { id: slot.id },
+      data: {
+        status: 'injected',
+        completedAt: null,
+        actualHours: 0,
+      },
+    });
+
+    if (slot.chapterId && rollbackHours > 0) {
+      const chapter = await this.prisma.studyChapter.findUnique({
+        where: { id: slot.chapterId },
+      });
+      if (chapter) {
+        const nextActual = Math.max(0, chapter.actualHours - rollbackHours);
+        await this.prisma.studyChapter.update({
+          where: { id: slot.chapterId },
+          data: {
+            actualHours: nextActual,
+            status: nextActual >= chapter.estimatedHours ? 'completed' : 'pending',
+            completedAt: nextActual >= chapter.estimatedHours ? chapter.completedAt : null,
+          },
+        });
+      }
+    }
+
+    if (slot.weeklyPlanId) {
+      await this.refreshWeeklyProgress(slot.weeklyPlanId);
+    }
+    await this.refreshPlanCompletion(slot.planId);
+  }
+
+  private async calculateTaskActualHours(userId: string, taskId: string) {
+    const studyRecordAgg = await this.prisma.studyRecord.aggregate({
+      where: { userId, taskId },
+      _sum: { duration: true },
+    });
+    const studyMinutes = studyRecordAgg._sum.duration || 0;
+    return studyMinutes / 60;
   }
 
   private async refreshWeeklyProgress(weeklyPlanId: string) {
@@ -422,11 +483,9 @@ export class TasksService {
       this.prisma.dailyStudySlot.count({ where: { planId } }),
       this.prisma.dailyStudySlot.count({ where: { planId, status: 'completed' } }),
     ]);
-    if (total > 0 && total === completed) {
-      await this.prisma.studyPlan.update({
-        where: { id: planId },
-        data: { status: 'completed' },
-      });
-    }
+    await this.prisma.studyPlan.update({
+      where: { id: planId },
+      data: { status: total > 0 && total === completed ? 'completed' : 'active' },
+    });
   }
 }

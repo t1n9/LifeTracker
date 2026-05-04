@@ -11,6 +11,8 @@ export interface PhasePlan {
 export interface PhaseDraft {
   name: string;
   description?: string;
+  /** 本阶段结束需达到的掌握要求 */
+  mastery?: string;
   startDate: string;
   endDate: string;
   sortOrder: number;
@@ -76,5 +78,6 @@ export interface ChatMessage {
   pendingAction?: PendingAction;
   draftPhases?: PhaseDraft[];
   draftSlots?: SlotDraft[];
+  skipDates?: string[];
   draftWeekStart?: string;
 }

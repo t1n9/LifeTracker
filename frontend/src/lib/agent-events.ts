@@ -18,6 +18,7 @@ export interface ProactiveTriggerPayload {
 
 export type AgentRefreshDomain =
   | 'tasks'
+  | 'studyPlan'
   | 'dayStart'
   | 'study'
   | 'pomodoro'
@@ -33,7 +34,8 @@ const TOOL_DOMAIN_MAP: Record<string, AgentRefreshDomain[]> = {
   start_day: ['dayStart'],
   create_task: ['tasks'],
   create_tasks: ['tasks'],
-  complete_task: ['tasks'],
+  inject_study_plan_slots: ['tasks', 'studyPlan'],
+  complete_task: ['tasks', 'studyPlan'],
   start_pomodoro: ['pomodoro', 'tasks'],
   stop_pomodoro: ['pomodoro', 'study', 'tasks'],
   record_meal_expense: ['expenses'],

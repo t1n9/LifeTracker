@@ -1,9 +1,10 @@
 'use client';
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { BookOpen, CalendarDays, ChevronRight, X } from 'lucide-react';
 import { studyPlanAPI } from '@/lib/api';
+import { AGENT_DATA_CHANGED_EVENT, eventAffectsDomains } from '@/lib/agent-events';
 
 export interface StudyPlanSidebarRef {
   open: () => void;
@@ -80,7 +81,6 @@ const StudyPlanSidebar = forwardRef<StudyPlanSidebarRef, { showFloatingTrigger?:
     const [thisWeekSlots, setThisWeekSlots] = useState<DailySlot[]>([]);
     const [nextWeekSlots, setNextWeekSlots] = useState<DailySlot[]>([]);
     const [loading, setLoading] = useState(false);
-    const loadedRef = useRef(false);
 
     useImperativeHandle(ref, () => ({
       open: () => setOpen(true),
@@ -134,10 +134,20 @@ const StudyPlanSidebar = forwardRef<StudyPlanSidebarRef, { showFloatingTrigger?:
     }, [thisMondayStr, nextMondayStr]);
 
     useEffect(() => {
-      if (open && !loadedRef.current) {
-        loadedRef.current = true;
+      if (open) {
         void loadData();
       }
+    }, [open, loadData]);
+
+    useEffect(() => {
+      if (!open) return;
+      const handler = (event: Event) => {
+        if (eventAffectsDomains(event, ['tasks', 'studyPlan'])) {
+          void loadData();
+        }
+      };
+      window.addEventListener(AGENT_DATA_CHANGED_EVENT, handler);
+      return () => window.removeEventListener(AGENT_DATA_CHANGED_EVENT, handler);
     }, [open, loadData]);
 
     if (!open) {
@@ -283,11 +293,17 @@ function WeekSlotList({ slots, weekStart }: { slots: DailySlot[]; weekStart: Dat
         const key = formatDate(day);
         const daySlots = byDate.get(key) || [];
         if (daySlots.length === 0) return null;
+        const activeDaySlots = daySlots.filter((slot) => slot.status !== 'skipped');
+        const isRestDay = activeDaySlots.length === 0;
         return (
           <div key={key} style={styles.slotDay}>
             <span style={styles.slotDayLabel}>周{DOW[i]} {fmtShort(day)}</span>
             <div style={styles.slotItems}>
-              {daySlots.map((slot) => (
+              {isRestDay ? (
+                <div style={{ ...styles.slotItem, ...styles.slotRest }}>
+                  <span style={styles.slotTitle}>休息日 · 不安排学习任务</span>
+                </div>
+              ) : activeDaySlots.map((slot) => (
                 <div key={slot.id} style={{ ...styles.slotItem, ...(slot.status === 'completed' ? styles.slotDone : {}) }}>
                   <span style={styles.slotTitle}>
                     {slot.subjectName ? `${slot.subjectName} · ` : ''}{slot.chapterTitle}
@@ -362,6 +378,7 @@ const styles: Record<string, CSSProperties> = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
     padding: '5px 8px', borderRadius: 7, background: 'var(--bg-2)',
   },
+  slotRest: { border: '1px dashed var(--line)', color: 'var(--fg-3)' },
   slotDone: { opacity: 0.5 },
   slotTitle: { fontSize: 12, color: 'var(--fg)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   slotHours: { fontSize: 11, color: 'var(--fg-3)', flexShrink: 0 },

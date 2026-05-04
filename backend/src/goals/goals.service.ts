@@ -59,7 +59,7 @@ export class GoalsService {
       data: {
         userId,
         goalName: goalData.goalName,
-        targetDate: goalData.targetDate ? new Date(goalData.targetDate) : null,
+        targetDate: goalData.targetDate ? this.parseDateInput(goalData.targetDate) : null,
         description: goalData.description,
         startDate: new Date(),
         isActive: true,
@@ -137,13 +137,21 @@ export class GoalsService {
       data: {
         ...updateData,
         // 确保日期字段正确处理
-        targetDate: updateData.targetDate ? new Date(updateData.targetDate) : undefined,
-        startDate: updateData.startDate ? new Date(updateData.startDate) : undefined,
-        endDate: updateData.endDate ? new Date(updateData.endDate) : undefined,
+        targetDate: updateData.targetDate ? this.parseDateInput(updateData.targetDate) : undefined,
+        startDate: updateData.startDate ? this.parseDateInput(updateData.startDate) : undefined,
+        endDate: updateData.endDate ? this.parseDateInput(updateData.endDate) : undefined,
       },
     });
 
     return updatedGoal;
+  }
+
+  private parseDateInput(value: string | Date) {
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [year, month, day] = value.split('-').map(Number);
+      return new Date(Date.UTC(year, month - 1, day));
+    }
+    return new Date(value);
   }
 
   // 获取目标下的所有学习计划（含暂停、归档）

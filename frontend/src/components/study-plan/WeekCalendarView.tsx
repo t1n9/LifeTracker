@@ -59,7 +59,8 @@ export default function WeekCalendarView({
   const goNext = () => onWeekChange(addDays(weekStart, 7));
   const goThis = () => onWeekChange(getMonday(today));
 
-  const totalHours = slots.reduce((sum, slot) => sum + (slot.plannedHours || 0), 0);
+  const activeSlots = slots.filter((slot) => slot.status !== 'skipped');
+  const totalHours = activeSlots.reduce((sum, slot) => sum + (slot.plannedHours || 0), 0);
   const completedHours = slots
     .filter((slot) => slot.status === 'completed')
     .reduce((sum, slot) => sum + (slot.actualHours || slot.plannedHours || 0), 0);
@@ -97,8 +98,11 @@ export default function WeekCalendarView({
           {weekDays.map((day) => {
             const key = formatDate(day);
             const daySlots = slotsByDate.get(key) || [];
+            const activeDaySlots = daySlots.filter((slot) => slot.status !== 'skipped');
+            const isRestDay = daySlots.length > 0 && activeDaySlots.length === 0;
             const isBeforeToday = day < today;
             const isToday = formatDate(day) === formatDate(today);
+            const canOperateToday = isToday;
 
             return (
               <div key={key} style={{ ...styles.dayRow, ...(isToday ? styles.dayRowToday : {}), ...(isBeforeToday ? styles.dayRowPast : {}) }}>
@@ -108,13 +112,15 @@ export default function WeekCalendarView({
                 </div>
                 {daySlots.length === 0 ? (
                   <div style={styles.daySlotEmpty}>暂无安排</div>
+                ) : isRestDay ? (
+                  <div style={styles.restDay}>休息日 · 不安排学习任务</div>
                 ) : (
                   <div style={styles.slotList}>
-                    {daySlots.map((slot) => (
+                    {activeDaySlots.map((slot) => (
                       <SlotItem
                         key={slot.id}
                         slot={slot}
-                        canEdit={!isBeforeToday}
+                        canEdit={canOperateToday}
                         onComplete={onSlotComplete}
                         onSkip={onSlotSkip}
                         onEdit={onSlotEdit}
@@ -146,7 +152,7 @@ function SlotItem({
 }) {
   const isDone = slot.status === 'completed';
   const isSkipped = slot.status === 'skipped';
-  const muted = isDone || isSkipped || !canEdit;
+  const muted = isDone || isSkipped;
 
   return (
     <div style={{ ...styles.slot, ...(muted ? styles.slotMuted : {}) }}>
@@ -217,6 +223,11 @@ const styles: Record<string, CSSProperties> = {
   dayLabel: { fontSize: 13, fontWeight: 700, color: 'var(--fg)' },
   todayBadge: { fontSize: 10, padding: '2px 6px', borderRadius: 999, background: 'var(--accent)', color: 'var(--accent-ink)' },
   daySlotEmpty: { fontSize: 12, color: 'var(--fg-4)', paddingLeft: 4 },
+  restDay: {
+    fontSize: 13, color: 'var(--fg-2)', padding: '9px 10px', borderRadius: 8,
+    background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-2))',
+    border: '1px dashed var(--line)',
+  },
   slotList: { display: 'flex', flexDirection: 'column', gap: 5 },
   slot: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,

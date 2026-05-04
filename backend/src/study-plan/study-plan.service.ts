@@ -108,6 +108,7 @@ export class StudyPlanService {
       where: { userId, status: { not: 'archived' } },
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
       include: {
+        goal: { select: { targetDate: true } },
         _count: {
           select: { subjects: true, weeklyPlans: true, dailySlots: true },
         },
@@ -130,7 +131,8 @@ export class StudyPlanService {
       return null;
     }
 
-    const today = this.toDateOnly(new Date());
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
     const todaySlots = await this.prisma.dailyStudySlot.findMany({
       where: { planId: plan.id, userId, date: today, isDraft: false },
       orderBy: { createdAt: 'asc' },
@@ -150,6 +152,7 @@ export class StudyPlanService {
 
     return {
       ...plan,
+      examDate: this.getEffectiveExamDate(plan),
       todaySlots,
       currentWeek,
       phasePlans,
@@ -373,7 +376,7 @@ export class StudyPlanService {
     const task = await this.prisma.task.create({
       data: {
         userId,
-        title: `${slot.subjectName} - ${slot.chapterTitle}`,
+        title: this.formatInjectedTaskTitle(slot),
         subject: slot.subjectName,
         estimatedHours: slot.plannedHours,
         isCompleted: false,
@@ -391,6 +394,14 @@ export class StudyPlanService {
     });
 
     return { slot: updatedSlot, task };
+  }
+
+  private formatInjectedTaskTitle(slot: { subjectName: string; chapterTitle: string; timeSegment?: string; plannedHours?: number | null }) {
+    const timeLabel = slot.timeSegment ? `[${slot.timeSegment}]` : '';
+    const hourLabel = slot.plannedHours ? `(${slot.plannedHours}h)` : '';
+    const meta = `${timeLabel}${hourLabel}`;
+    const title = `${slot.subjectName} - ${slot.chapterTitle}`;
+    return meta ? `${meta} ${title}` : title;
   }
 
   async skipSlot(userId: string, planId: string, slotId: string) {
@@ -483,21 +494,32 @@ export class StudyPlanService {
       orderBy: { updatedAt: 'desc' },
     });
     if (!active) {
-      return { plan: null, slots: [] };
+      return { plan: null, slots: [], phases: [], currentPhase: null };
     }
-    const date = this.toDateOnly(new Date());
+    const now = new Date();
+    const date = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
     const slots = await this.prisma.dailyStudySlot.findMany({
       where: {
         userId,
         planId: active.id,
         date,
         status: { in: ['pending', 'injected'] },
+        isDraft: false,
       },
       orderBy: { createdAt: 'asc' },
       take: 5,
     });
 
-    return { plan: active, slots };
+    // 拿所有阶段，找当前所处阶段
+    const phases = await this.prisma.phasePlan.findMany({
+      where: { planId: active.id },
+      orderBy: { sortOrder: 'asc' },
+    });
+    const currentPhase = phases.find(
+      p => new Date(p.startDate) <= date && new Date(p.endDate) >= date,
+    ) ?? null;
+
+    return { plan: active, slots, phases, currentPhase };
   }
 
   async injectToday(userId: string) {
@@ -642,6 +664,7 @@ export class StudyPlanService {
     const plan = await this.prisma.studyPlan.findFirst({
       where: { id, userId },
       include: {
+        goal: { select: { targetDate: true } },
         subjects: {
           orderBy: { sortOrder: 'asc' },
           include: {
@@ -663,7 +686,7 @@ export class StudyPlanService {
     if (!plan) {
       throw new NotFoundException('Study plan not found');
     }
-    return plan;
+    return { ...plan, examDate: this.getEffectiveExamDate(plan) };
   }
 
   private async getPlanDetailTx(tx: any, userId: string, id: string) {
@@ -1041,8 +1064,31 @@ export class StudyPlanService {
   }
 
   private toDateOnly(value: string | Date) {
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [year, month, day] = value.split('-').map(Number);
+      return new Date(Date.UTC(year, month - 1, day));
+    }
     const date = value instanceof Date ? value : new Date(value);
     return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  }
+
+  private getEffectiveExamDate(plan: { examDate: Date; goal?: { targetDate: Date | null } | null }) {
+    const planDate = this.toDateOnly(plan.examDate);
+    const goalDate = plan.goal?.targetDate ? this.toDateOnlyInTimezone(plan.goal.targetDate, 'Asia/Shanghai') : null;
+    return goalDate && goalDate > planDate ? goalDate : planDate;
+  }
+
+  private toDateOnlyInTimezone(value: Date, timezone: string) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(value);
+    const year = Number(parts.find(part => part.type === 'year')?.value);
+    const month = Number(parts.find(part => part.type === 'month')?.value);
+    const day = Number(parts.find(part => part.type === 'day')?.value);
+    return new Date(Date.UTC(year, month - 1, day));
   }
 
   async aiAssist(_userId: string, dto: AiAssistDto) {

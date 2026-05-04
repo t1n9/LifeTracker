@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckSquare, Plus, X, Check, GripVertical, Pencil, Trash2, Timer } from 'lucide-react';
 import { taskAPI } from '@/lib/api';
-import { PROACTIVE_TRIGGER_EVENT } from '@/lib/agent-events';
+import { dispatchAgentDataChanged, PROACTIVE_TRIGGER_EVENT } from '@/lib/agent-events';
 import styles from './PendingTasks.module.css';
 import {
   DndContext,
@@ -36,6 +36,18 @@ interface Task {
   sortOrder?: number; // 鎺掑簭椤哄簭
   createdAt: string;
   updatedAt: string;
+}
+
+function parseTaskDisplayTitle(title: string) {
+  const match = title.match(/^\[(上午|下午|晚上|早上|中午)\](?:\(([\d.]+)h\))?\s*(.+)$/u);
+  if (!match) {
+    return { title, timeSegment: '', hours: '' };
+  }
+  return {
+    title: match[3],
+    timeSegment: match[1],
+    hours: match[2] ? `${match[2]}h` : '',
+  };
 }
 
 interface PendingTasksProps {
@@ -103,6 +115,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
 
 
   const isBound = currentBoundTask === task.id;
+  const displayTitle = parseTaskDisplayTitle(task.title);
 
   return (
     <div
@@ -139,7 +152,12 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
             />
           ) : (
             <span className={`${styles.taskTitle} ${task.isCompleted ? styles.taskTitleCompleted : ''}`}>
-              {task.title}
+              {displayTitle.timeSegment && (
+                <span className={styles.taskMeta}>
+                  {displayTitle.timeSegment}{displayTitle.hours ? ` · ${displayTitle.hours}` : ''}
+                </span>
+              )}
+              {displayTitle.title}
             </span>
           )}
 
@@ -478,6 +496,7 @@ const PendingTasks: React.FC<PendingTasksProps> = ({
       await taskAPI.updateTask(taskId, {
         isCompleted: !currentStatus
       });
+      dispatchAgentDataChanged(['tasks', 'studyPlan']);
 
       // 任务完成时 dispatch task_done 事件，触发 AI 主动推送
       if (!currentStatus) {

@@ -63,6 +63,23 @@ export class UpdatePhasePlanDto {
   sortOrder?: number;
 }
 
+export class DatePhaseMappingDto {
+  @IsString()
+  date: string;
+
+  @IsOptional()
+  @IsString()
+  phaseId?: string;
+
+  @IsOptional()
+  @IsString()
+  phaseName?: string;
+
+  @IsOptional()
+  @IsString()
+  phaseDesc?: string;
+}
+
 export class ExpandWeekDto {
   @IsDateString()
   weekStart: string;
@@ -74,6 +91,23 @@ export class ExpandWeekDto {
   @IsOptional()
   @IsString()
   userIntent?: string;
+
+  /** Dates (YYYY-MM-DD) with no existing slots — only these days get generated */
+  @IsOptional()
+  @IsArray()
+  missingDates?: string[];
+
+  /** Hard cutoff: do not schedule on or after this date */
+  @IsOptional()
+  @IsString()
+  examDateISO?: string;
+
+  /** Per-day phase assignments for deterministic generation (bypasses LLM) */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DatePhaseMappingDto)
+  datePhaseMappings?: DatePhaseMappingDto[];
 }
 
 export class WeekSlotDraftDto {
@@ -116,6 +150,11 @@ export class ConfirmWeekDto {
   @IsOptional()
   @IsBoolean()
   replaceExisting?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsDateString({}, { each: true })
+  skipDates?: string[];
 }
 
 export class EstimateHoursDto {

@@ -10,6 +10,16 @@ export interface MorningPlanningData {
   greetingMessageId?: string;
   proposedPlan?: string;   // AI 列出的草稿计划文本，用于注入下一轮上下文
   wakeUpTime?: string;
+  activeStudyPlanTitle?: string;
+  todayStudySlots?: Array<{
+    planId: string;
+    slotId: string;
+    title: string;
+    subjectName?: string;
+    chapterTitle?: string;
+    plannedHours?: number;
+    timeSegment?: string;
+  }>;
 }
 
 export interface AgentSessionData {
@@ -42,21 +52,26 @@ export class AgentSessionService {
     };
   }
 
-  async startMorningSession(userId: string, greetingMessageId: string): Promise<void> {
+  async startMorningSession(
+    userId: string,
+    greetingMessageId: string,
+    dataPatch: Partial<MorningPlanningData> = {},
+  ): Promise<void> {
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+    const data = { greetingMessageId, ...dataPatch } as any;
     await this.prisma.agentSession.upsert({
       where: { userId },
       create: {
         userId,
         flow: 'morning_planning',
         state: 'greeting_sent',
-        data: { greetingMessageId } as any,
+        data,
         expiresAt,
       },
       update: {
         flow: 'morning_planning',
         state: 'greeting_sent',
-        data: { greetingMessageId } as any,
+        data,
         expiresAt,
       },
     });

@@ -11,12 +11,27 @@ import { AgentToolsService, AGENT_TOOLS } from './agent-tools.service';
 import { StudyPlanService } from '../study-plan/study-plan.service';
 import { AgentMessageHints, extractAgentMessageHints, toTaskMatchKey } from './agent-intent.utils';
 import { AgentSessionService } from './agent-session.service';
+import { AgentIntentClassifierService, IntentFlags } from './agent-intent-classifier.service';
 
 interface LLMMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
   tool_call_id?: string;
   tool_calls?: any[];
+}
+
+interface MorningPlanningContext {
+  activeStudyPlanTitle?: string;
+  todayStudySlots: Array<{
+    planId: string;
+    slotId: string;
+    title: string;
+    subjectName?: string;
+    chapterTitle?: string;
+    plannedHours?: number;
+    timeSegment?: string;
+  }>;
+  contextText: string;
 }
 
 // 只读工具，不需要确认
@@ -34,6 +49,7 @@ const TOOL_LABELS: Record<string, string> = {
   start_day: '开启今日',
   create_task: '创建任务',
   create_tasks: '批量创建任务',
+  inject_study_plan_slots: '绑定学习计划任务',
   create_and_complete_task: '创建并完成任务',
   update_task: '修改任务',
   complete_task: '完成任务',
@@ -101,6 +117,7 @@ const SYSTEM_PROMPT = `你是 LifeTracker 的专属助手，只服务于本网�
 13. 番茄钟默认25分钟；如果长期记忆里有用户明确保存的默认番茄时长，优先使用长期记忆；本轮用户明确指定时长时，以本轮指令为准
 14. 任务完成要走工具：用户说"资料分析任务完成"、"25.9福建事业单位完成了"、"这个任务做完了"这类话时，应调用 complete_task，不要把内部上下文或 UUID 原样回复给用户
 15. 永远不要向用户展示内部上下文标记，例如"【已执行操作】"、"最近工具结果"这类文字
+16. 晨间规划里来自学习计划的任务，必须使用 inject_study_plan_slots 绑定创建；不要用 create_tasks 重建同名学习计划任务。只有用户额外提到的非学习计划任务才用 create_tasks。
 
 【关键示例】
 示例1：用户说 "今天早上7:30起床，今天任务是套卷+下午公差+晚上毕设"
@@ -134,9 +151,10 @@ const SYSTEM_PROMPT = `你是 LifeTracker 的专属助手，只服务于本网�
 == 阶段 2：执行（仅在用户明确表达确认意愿后） ==
 确认信号包括：'好/可以/确认/对/没问题/同意/OK/就这样/开始吧/创建吧'，或对计划提出修改后又确认。
 此时才调用工具，按顺序：
-1. create_tasks({ titles: [...] }) 批量创建当天任务
-2. start_day({ wakeUpTime, dayStart }) — dayStart 是一句话主题（如"备考冲刺日"），不是任务列表
-3. 用文字回复"已经创建好啦，要开始第一个番茄钟吗？"
+1. 对计划中来自学习计划的项目，调用 inject_study_plan_slots({ slots: [{ planId, slotId }] })，必须使用上下文提供的 planId/slotId
+2. 对用户额外安排的非学习计划任务，调用 create_tasks({ titles: [...] })
+3. 调用 start_day({ wakeUpTime, dayStart }) — dayStart 是一句话主题（如"备考冲刺日"），不是任务列表
+4. 用文字回复"已经创建好啦，要开始第一个番茄钟吗？"
 
 如果用户要调整，回到阶段 1 重新提案。
 `;
@@ -162,6 +180,7 @@ export class AgentService {
     private agentTraceService: AgentTraceService,
     private agentToolsService: AgentToolsService,
     private studyPlanService: StudyPlanService,
+    private intentClassifier: AgentIntentClassifierService,
   ) {}
 
   /**
@@ -443,7 +462,10 @@ export class AgentService {
     try {
     // 从 DB 加载最近的对话作为 LLM 上下文
     const messageHints = extractAgentMessageHints(message);
-    const memoryWrite = await this.agentMemoryService.processExplicitMemory(userId, message);
+    const [intentFlags, memoryWrite] = await Promise.all([
+      this.intentClassifier.classify(message),
+      this.agentMemoryService.processExplicitMemory(userId, message),
+    ]);
     await this.agentTraceService.recordStep({
       runId,
       userId,
@@ -484,16 +506,36 @@ export class AgentService {
     });
     // 检查是否有活跃的 morning_planning session，如有则注入上下文
     const activeSession = await this.agentSessionService.getSession(userId);
+    const shouldEnterMorningPlanning = this.shouldEnterMorningPlanning(messageHints, intentFlags, activeSession);
+    const shouldAskMorningIntro = shouldEnterMorningPlanning
+      || (intentFlags.isMorningPlanning && !messageHints.wakeUpTime && !activeSession);
+    if (shouldAskMorningIntro) {
+      const morningContext = await this.buildMorningPlanningContext(userId);
+      const wakeUpTime = messageHints.wakeUpTime;
+      const reply = this.buildMorningPlanningIntro(morningContext, wakeUpTime);
+      const savedReply = await this.createAssistantReply(userId, reply);
+      await this.agentSessionService.startMorningSession(userId, savedReply.id, {
+        wakeUpTime,
+        activeStudyPlanTitle: morningContext.activeStudyPlanTitle,
+        todayStudySlots: morningContext.todayStudySlots,
+      });
+      return finishRun(savedReply);
+    }
+
+    const morningPlanningContext = (activeSession?.flow === 'morning_planning' || intentFlags.isMorningPlanning)
+      ? await this.buildMorningPlanningContext(userId, activeSession?.data)
+      : null;
     let sessionContext: string | null = null;
     if (activeSession?.flow === 'morning_planning') {
       const { state, data } = activeSession;
       const sessionParts: string[] = [`【晨间规划流程状态: ${state}】`];
       if (data.wakeUpTime) sessionParts.push(`用户起床时间: ${data.wakeUpTime}`);
+      if (morningPlanningContext?.contextText) sessionParts.push(morningPlanningContext.contextText);
       if (state === 'plan_proposed' && data.proposedPlan) {
         sessionParts.push(`上一轮AI提出的计划草稿:\n${data.proposedPlan}`);
         const isConfirm = this.isPlanConfirmation(message);
         if (isConfirm) {
-          sessionParts.push('用户已明确同意当前方案。立即调用 create_tasks 批量创建任务，再 start_day，然后回复"已经创建好啦"。');
+          sessionParts.push('用户已明确同意当前方案。立即按草稿执行：学习计划任务调用 inject_study_plan_slots，额外任务调用 create_tasks，再 start_day，然后回复"已经创建好啦"。');
         } else {
           sessionParts.push(
             '用户对当前方案提出了修改/补充意见（不是确认）。你必须：\n'
@@ -506,9 +548,11 @@ export class AgentService {
         sessionParts.push('已完成晨间问候，等待用户提供今天的时间安排。用户现在的消息可能包含时间段或任务信息，请结合学习计划制定全天计划并列出，然后等待确认。');
       }
       sessionContext = sessionParts.join('\n');
+    } else if (morningPlanningContext?.contextText) {
+      sessionContext = morningPlanningContext.contextText;
     }
 
-    const structuredGuidance = await this.buildStructuredGuidance(userId, message, messageHints);
+    const structuredGuidance = await this.buildStructuredGuidance(userId, message, messageHints, intentFlags);
 
     // 把结构化指令附加到当前用户消息末尾，确保 LLM 在处理请求时第一时间看到已解析的 taskId 和匹配结果
     // 注意：shortTermContext.messages 最后一条不一定是 user，需精确找到最后一条 user 消息
@@ -565,7 +609,7 @@ export class AgentService {
     //  (b) 调整中：已在 plan_proposed 状态，但用户消息不是确认信号 → 视为要调整，回到提案阶段
     const isInPlanProposed = activeSession?.flow === 'morning_planning' && activeSession.state === 'plan_proposed';
     const isMorningProposalPhase =
-      (this.isMorningPlanningMessage(message) && !isInPlanProposed)
+      (intentFlags.isMorningPlanning && !isInPlanProposed)
       || (isInPlanProposed && !this.isPlanConfirmation(message));
 
     // 循环处理 tool calls
@@ -617,6 +661,7 @@ export class AgentService {
           message,
           messageHints,
           toolResults,
+          intentFlags,
         );
         if (todayTasksFallback) {
           return finishRun(todayTasksFallback);
@@ -650,9 +695,9 @@ export class AgentService {
         // 复盘 fallback：LLM 查完数据后输出了文字但没调 update_day_reflection，自动提取并保存
         const reflectionFallback = await this.handleReflectionFallback(
           userId,
-          message,
           assistantMsg.content,
           toolResults,
+          intentFlags,
         );
         if (reflectionFallback) {
           return finishRun(reflectionFallback);
@@ -667,6 +712,7 @@ export class AgentService {
           messageHints,
           memoryContext.preferredPomodoroMinutes,
           runId,
+          intentFlags,
         );
         if (deterministicConfirmFallback) {
           return finishRun(
@@ -679,18 +725,30 @@ export class AgentService {
         if (activeSession?.flow === 'morning_planning' && activeSession.state === 'greeting_sent' && replyText.length > 50) {
           // 已有 session（按按钮"开启今日"启动） + greeting_sent → plan_proposed
           await this.agentSessionService.transitionTo(userId, 'plan_proposed', {
+            wakeUpTime: messageHints.wakeUpTime || activeSession.data?.wakeUpTime,
+            activeStudyPlanTitle: morningPlanningContext?.activeStudyPlanTitle,
+            todayStudySlots: morningPlanningContext?.todayStudySlots,
             proposedPlan: replyText.slice(0, 800),
           });
         } else if (!activeSession && isMorningProposalPhase && replyText.length > 50) {
           // 用户文字开启的晨间规划：本轮已生成计划草稿（被 guardrail 强制无工具），直接建立 session 进入 plan_proposed
-          await this.agentSessionService.startMorningSession(userId, '');
+          await this.agentSessionService.startMorningSession(userId, '', {
+            wakeUpTime: messageHints.wakeUpTime,
+            activeStudyPlanTitle: morningPlanningContext?.activeStudyPlanTitle,
+            todayStudySlots: morningPlanningContext?.todayStudySlots,
+          });
           await this.agentSessionService.transitionTo(userId, 'plan_proposed', {
             wakeUpTime: messageHints.wakeUpTime,
+            activeStudyPlanTitle: morningPlanningContext?.activeStudyPlanTitle,
+            todayStudySlots: morningPlanningContext?.todayStudySlots,
             proposedPlan: replyText.slice(0, 800),
           });
         } else if (isInPlanProposed && isMorningProposalPhase && replyText.length > 50) {
           // 用户提出调整 → AI 输出新版方案，刷新 proposedPlan
           await this.agentSessionService.transitionTo(userId, 'plan_proposed', {
+            wakeUpTime: messageHints.wakeUpTime || activeSession?.data?.wakeUpTime,
+            activeStudyPlanTitle: morningPlanningContext?.activeStudyPlanTitle,
+            todayStudySlots: morningPlanningContext?.todayStudySlots,
             proposedPlan: replyText.slice(0, 800),
           });
         }
@@ -741,8 +799,8 @@ export class AgentService {
           toolResults.push({ tool: call.name, args: call.args, result });
           llmMessages.push({ role: 'tool', content: JSON.stringify(result), tool_call_id: call.id });
 
-          // 晨间规划 session 推进：create_tasks 成功 → 流程结束
-          if (call.name === 'create_tasks' && !result?.error && activeSession?.flow === 'morning_planning') {
+          // 晨间规划 session 推进：任务创建/绑定成功 → 流程结束
+          if ((call.name === 'create_tasks' || call.name === 'inject_study_plan_slots') && !result?.error && activeSession?.flow === 'morning_planning') {
             await this.agentSessionService.transitionTo(userId, 'done');
           }
         } else {
@@ -762,7 +820,7 @@ export class AgentService {
     if (confirmMode && pendingWriteOps.length > 0) {
       const normalizedPendingWriteOps = this.normalizePendingWriteOps(messageHints, pendingWriteOps);
       const hasReflectionWrite = normalizedPendingWriteOps.some((op) => op.name === 'update_day_reflection');
-      const reflectionSafePendingWriteOps = (this.isReflectionIntentMessage(message) || hasReflectionWrite)
+      const reflectionSafePendingWriteOps = (intentFlags.isReflectionIntent || hasReflectionWrite)
         ? normalizedPendingWriteOps.filter((op) => op.name === 'update_day_reflection')
         : normalizedPendingWriteOps;
       const memorySafePendingWriteOps = this.isExplicitMemoryIntent(message)
@@ -771,17 +829,23 @@ export class AgentService {
       const intentSafePendingWriteOps = this.isPomodoroCandidateIntentQuery(message)
         ? []
         : memorySafePendingWriteOps;
-      const finalPendingWriteOps = this.sanitizePendingWriteOps(
+      let finalPendingWriteOps = this.sanitizePendingWriteOps(
         messageHints,
         intentSafePendingWriteOps,
         memoryContext.preferredPomodoroMinutes,
+      );
+
+      finalPendingWriteOps = this.ensureMorningStudyPlanBindings(
+        activeSession,
+        message,
+        finalPendingWriteOps,
       );
 
       // 晨间规划闭环：用户确认了 plan_proposed 方案 + LLM 生成了 create_tasks 但漏了 start_day → 自动补齐
       if (
         isInPlanProposed
         && this.isPlanConfirmation(message)
-        && finalPendingWriteOps.some((op) => op.name === 'create_tasks')
+        && finalPendingWriteOps.some((op) => op.name === 'create_tasks' || op.name === 'inject_study_plan_slots')
         && !finalPendingWriteOps.some((op) => op.name === 'start_day')
       ) {
         const wakeUpTime = activeSession?.data?.wakeUpTime;
@@ -1109,6 +1173,7 @@ export class AgentService {
     hints: AgentMessageHints,
     preferredPomodoroMinutes: number | null,
     runId: string | null,
+    intentFlags?: IntentFlags,
   ) {
     if (!confirmMode || !runId) {
       return null;
@@ -1120,7 +1185,7 @@ export class AgentService {
       return null;
     }
     // 晨间规划场景：用户提供了时间段安排，需要 LLM 编排任务，不能被 deterministic fallback 截断
-    if (this.isMorningPlanningMessage(message)) {
+    if (intentFlags?.isMorningPlanning) {
       return null;
     }
     // plan_proposed 状态下，用户的非确认消息（含 "再加"、"调整"、具体修改）应该让 LLM 重新提案，
@@ -1134,7 +1199,7 @@ export class AgentService {
     const importantInfo = this.extractImportantInfoIntentContent(message);
     const dayReflection = this.extractDayReflectionIntentContent(message);
 
-    if (hints.wakeUpTime || this.looksLikeStartDayIntent(message)) {
+    if (hints.wakeUpTime || intentFlags?.isStartDay) {
       pendingWriteOps.push({
         id: `fallback-start-day-${Date.now()}`,
         name: 'start_day',
@@ -1162,7 +1227,7 @@ export class AgentService {
       });
     }
 
-    if (!this.isReflectionIntentMessage(message) && hints.createAndCompleteTaskTitle) {
+    if (!intentFlags?.isReflectionIntent && hints.createAndCompleteTaskTitle) {
       pendingWriteOps.push({
         id: `fallback-create-complete-${Date.now()}`,
         name: 'create_and_complete_task',
@@ -1171,7 +1236,7 @@ export class AgentService {
           createArgs: { title: hints.createAndCompleteTaskTitle },
         },
       });
-    } else if (!this.isReflectionIntentMessage(message) && hints.completionTaskTitle) {
+    } else if (!intentFlags?.isReflectionIntent && hints.completionTaskTitle) {
       pendingWriteOps.push({
         id: `fallback-complete-${Date.now()}`,
         name: 'complete_task',
@@ -1190,7 +1255,7 @@ export class AgentService {
             : {}),
         },
       });
-    } else if (this.isSimplePomodoroStartIntent(message)) {
+    } else if (intentFlags?.isSimplePomodoroStart) {
       pendingWriteOps.push({
         id: `fallback-pomodoro-${Date.now()}`,
         name: 'start_pomodoro',
@@ -1536,10 +1601,11 @@ export class AgentService {
     }
 
     const priority: Record<string, number> = {
-      start_day: 10,
+      inject_study_plan_slots: 10,
       create_tasks: 20,
       create_task: 30,
       create_and_complete_task: 40,
+      start_day: 50,
       complete_task: 50,
       start_pomodoro: 60,
       record_exercise: 70,
@@ -1551,6 +1617,113 @@ export class AgentService {
     };
 
     return deduped.sort((left, right) => (priority[left.name] ?? 999) - (priority[right.name] ?? 999));
+  }
+
+  private ensureMorningStudyPlanBindings(
+    activeSession: { flow?: string; state?: string; data?: any } | null,
+    message: string,
+    pendingWriteOps: Array<{ id: string; name: string; args: any }>,
+  ) {
+    if (
+      activeSession?.flow !== 'morning_planning'
+      || activeSession.state !== 'plan_proposed'
+      || !this.isPlanConfirmation(message)
+    ) {
+      return pendingWriteOps;
+    }
+
+    const slots = Array.isArray(activeSession.data?.todayStudySlots)
+      ? activeSession.data.todayStudySlots.filter((slot: any) => slot?.planId && slot?.slotId)
+      : [];
+    if (slots.length === 0) {
+      return pendingWriteOps;
+    }
+
+    const selectedSlots = this.pickStudyPlanSlotsFromProposal(slots, activeSession.data?.proposedPlan);
+    const slotKeys = new Set(
+      selectedSlots.flatMap((slot: any) => [
+        toTaskMatchKey(slot.title || ''),
+        toTaskMatchKey(slot.chapterTitle || ''),
+      ]).filter(Boolean),
+    );
+    const looksLikeStudyPlanTask = (title: unknown) => {
+      const titleKey = toTaskMatchKey(typeof title === 'string' ? title : '');
+      if (!titleKey) return false;
+      return Array.from(slotKeys).some((slotKey) => (
+        slotKey.length >= 2
+        && (titleKey === slotKey || titleKey.includes(slotKey) || slotKey.includes(titleKey))
+      ));
+    };
+
+    const cleanedOps = pendingWriteOps.flatMap((op) => {
+      if (op.name === 'create_task') {
+        if (looksLikeStudyPlanTask(op.args?.title)) {
+          return [];
+        }
+      }
+
+      if (op.name === 'create_tasks' && Array.isArray(op.args?.titles)) {
+        const titles = op.args.titles.filter((title: unknown) => {
+          return !looksLikeStudyPlanTask(title);
+        });
+        if (titles.length === 0) {
+          return [];
+        }
+        return [{ ...op, args: { ...op.args, titles } }];
+      }
+
+      return [op];
+    });
+
+    const expectedSlots = selectedSlots.map((slot: any) => ({
+      planId: slot.planId,
+      slotId: slot.slotId,
+    }));
+    const existingBindingOp = cleanedOps.find((op) => op.name === 'inject_study_plan_slots');
+
+    if (existingBindingOp) {
+      const existingSlots = Array.isArray(existingBindingOp.args?.slots) ? existingBindingOp.args.slots : [];
+      const mergedSlots = [...existingSlots, ...expectedSlots].reduce((acc: any[], slot: any) => {
+        const planId = typeof slot?.planId === 'string' ? slot.planId.trim() : '';
+        const slotId = typeof slot?.slotId === 'string' ? slot.slotId.trim() : '';
+        if (!planId || !slotId) return acc;
+        if (!acc.some(item => item.planId === planId && item.slotId === slotId)) {
+          acc.push({ planId, slotId });
+        }
+        return acc;
+      }, []);
+
+      return cleanedOps.map((op) => (
+        op === existingBindingOp
+          ? { ...op, args: { ...op.args, slots: mergedSlots } }
+          : op
+      ));
+    }
+
+    return [{
+      id: `fallback-inject-study-plan-${Date.now()}`,
+      name: 'inject_study_plan_slots',
+      args: { slots: expectedSlots },
+    }, ...cleanedOps];
+  }
+
+  private pickStudyPlanSlotsFromProposal(slots: any[], proposedPlan?: string) {
+    const planTextKey = toTaskMatchKey(proposedPlan || '');
+    if (!planTextKey) {
+      return slots;
+    }
+
+    const matched = slots.filter((slot) => {
+      const title = String(slot.title || '');
+      const chapterTitle = String(slot.chapterTitle || '');
+      const keys = [
+        title,
+        chapterTitle,
+      ].map(value => toTaskMatchKey(value || '')).filter(Boolean);
+      return keys.some(key => key.length >= 2 && planTextKey.includes(key));
+    });
+
+    return matched.length > 0 ? matched : slots;
   }
 
   private async buildPendingWritePreview(userId: string, pendingWriteOps: Array<{ id: string; name: string; args: any }>) {
@@ -1721,6 +1894,17 @@ export class AgentService {
           }
           break;
         }
+        case 'inject_study_plan_slots': {
+          const injectedTitles = (toolResult.result?.injected ?? []).map((task: any) => task.title).filter(Boolean);
+          const skippedCount = Array.isArray(toolResult.result?.skipped) ? toolResult.result.skipped.length : 0;
+          if (injectedTitles.length > 0) {
+            lines.push(`已绑定学习计划任务：${injectedTitles.join('、')}。`);
+          }
+          if (skippedCount > 0) {
+            lines.push(`有 ${skippedCount} 个学习计划安排未绑定成功。`);
+          }
+          break;
+        }
         case 'complete_task': {
           const title =
             toolResult.result?.title
@@ -1806,11 +1990,12 @@ export class AgentService {
 
   private async handleTodayTasksFallback(
     userId: string,
-    message: string,
-    hints: AgentMessageHints,
+    _message: string,
+    _hints: AgentMessageHints,
     toolResults: Array<{ tool: string; args?: any; result?: any }>,
+    intentFlags?: IntentFlags,
   ) {
-    if (!this.isSimpleTodayTasksQuery(message, hints)) {
+    if (!intentFlags?.isSimpleTodayTasksQuery) {
       return null;
     }
 
@@ -1837,23 +2022,6 @@ export class AgentService {
     }
 
     return this.createAssistantReply(userId, this.formatTodayTasksReply(result), nextToolResults);
-  }
-
-  private isSimpleTodayTasksQuery(message: string, hints: AgentMessageHints) {
-    if (
-      hints.wakeUpTime
-      || hints.explicitTaskTitles.length > 0
-      || hints.completionTaskTitle
-      || hints.pomodoro
-      || hints.exerciseRecord
-      || hints.exerciseFeeling
-    ) {
-      return false;
-    }
-
-    const normalized = message.replace(/\s+/gu, '');
-    return /^(?:帮我|给我|麻烦|请)?(?:看|查|列出|展示|告诉我)?(?:一下|一眼)?(?:今天|今日)(?:的)?(?:任务|待办|安排|计划)(?:列表|情况)?$/u.test(normalized)
-      || /^(?:今天|今日)(?:有什么|有啥|有哪些)(?:任务|待办|安排|计划)$/u.test(normalized);
   }
 
   private formatTodayTasksReply(tasks: Array<{ title?: string; isCompleted?: boolean }>) {
@@ -2048,12 +2216,12 @@ export class AgentService {
 
   private async handleReflectionFallback(
     userId: string,
-    message: string,
     llmReply: string,
     toolResults: Array<{ tool: string; args?: any; result?: any }>,
+    intentFlags?: IntentFlags,
   ) {
     // 触发条件：用户意图是写复盘，LLM 已查了今日数据，但没调 update_day_reflection
-    if (!this.isReflectionIntentMessage(message)) {
+    if (!intentFlags?.isReflectionIntent) {
       return null;
     }
     const hasDataQuery = toolResults.some(({ tool }) =>
@@ -2181,19 +2349,110 @@ export class AgentService {
     return { id: saved.id, reply, toolResults, type: 'reply' as const };
   }
 
-  private async buildStructuredGuidance(userId: string, message: string, hints: AgentMessageHints = extractAgentMessageHints(message)) {
+  private shouldEnterMorningPlanning(
+    hints: AgentMessageHints,
+    intentFlags: IntentFlags,
+    activeSession: { flow?: string } | null,
+  ) {
+    if (activeSession?.flow === 'morning_planning') return false;
+    if (!intentFlags.isStartDay) return false;
+    if (intentFlags.isMorningPlanning) return false;
+    if (hints.explicitTaskTitles.length > 0) return false;
+    if (hints.completionTaskTitle || hints.createAndCompleteTaskTitle) return false;
+    if (hints.pomodoro || hints.exerciseRecord || hints.exerciseFeeling) return false;
+    return true;
+  }
+
+  private async buildMorningPlanningContext(
+    userId: string,
+    sessionData?: {
+      activeStudyPlanTitle?: string;
+      todayStudySlots?: MorningPlanningContext['todayStudySlots'];
+    },
+  ): Promise<MorningPlanningContext> {
+    const suggestion = await this.studyPlanService.getTodaySuggestion(userId);
+    const todayStudySlots = suggestion.slots.map((slot: any) => ({
+      planId: slot.planId,
+      slotId: slot.id,
+      subjectName: slot.subjectName || undefined,
+      chapterTitle: slot.chapterTitle || undefined,
+      title: `${slot.subjectName ? `${slot.subjectName} - ` : ''}${slot.chapterTitle || '未命名学习任务'}`,
+      plannedHours: Number(slot.plannedHours || 0) || undefined,
+      timeSegment: slot.timeSegment || undefined,
+    }));
+
+    const mergedSlots = todayStudySlots.length > 0
+      ? todayStudySlots
+      : (sessionData?.todayStudySlots || []);
+    const activeStudyPlanTitle = suggestion.plan?.title || sessionData?.activeStudyPlanTitle;
+    const lines: string[] = ['【晨间规划上下文】'];
+
+    if (activeStudyPlanTitle) {
+      lines.push(`活跃学习计划: ${activeStudyPlanTitle}`);
+    } else {
+      lines.push('当前没有活跃学习计划。');
+    }
+
+    if (mergedSlots.length > 0) {
+      lines.push('今日学习计划任务（确认后必须用 inject_study_plan_slots 绑定创建，不能用 create_tasks 重建）：');
+      for (const slot of mergedSlots) {
+        lines.push(`- planId=${slot.planId} slotId=${slot.slotId} 标题="${slot.title}"${slot.plannedHours ? ` 预计${slot.plannedHours}h` : ''}${slot.timeSegment ? ` 时段=${slot.timeSegment}` : ''}`);
+      }
+    } else if (activeStudyPlanTitle) {
+      lines.push('今日学习计划里暂时没有待执行安排。');
+    }
+
+    lines.push('晨间规划要求：先询问/确认起床时间和今日可用时间；用户给出可用时间后，结合学习计划任务和用户额外意图编排全天计划；确认前不要调用任何写工具。');
+
+    return {
+      activeStudyPlanTitle,
+      todayStudySlots: mergedSlots,
+      contextText: lines.join('\n'),
+    };
+  }
+
+  private buildMorningPlanningIntro(context: MorningPlanningContext, wakeUpTime?: string) {
+    const lines: string[] = [];
+    if (wakeUpTime) {
+      lines.push(`看到你 ${wakeUpTime} 起床了。`);
+    } else {
+      lines.push('准备开启今天了。你今天几点起床的？');
+    }
+
+    if (context.activeStudyPlanTitle && context.todayStudySlots.length > 0) {
+      lines.push(`今天学习计划里有这些安排：`);
+      context.todayStudySlots.forEach((slot, index) => {
+        lines.push(`${index + 1}. ${slot.title}${slot.plannedHours ? `（约 ${slot.plannedHours}h）` : ''}`);
+      });
+      lines.push('你今天上午、下午、晚上分别大概有哪些可用时间？我会按你的时间把这些学习安排编进今日任务，并和学习计划绑定。');
+    } else if (context.activeStudyPlanTitle) {
+      lines.push(`你有学习计划「${context.activeStudyPlanTitle}」，但今天暂时没有待执行安排。`);
+      lines.push('你今天有哪些可用时间？也可以告诉我今天想做什么，我来帮你排成今日任务。');
+    } else {
+      lines.push('你今天大概有哪些可用时间？上午、下午、晚上分别想安排什么？');
+      lines.push('你说完后，我会先整理全天计划，确认后再帮你创建到任务列表。');
+    }
+
+    return lines.join('\n');
+  }
+
+  private async buildStructuredGuidance(userId: string, message: string, hints: AgentMessageHints = extractAgentMessageHints(message), intentFlags?: IntentFlags) {
     const notes: string[] = [];
 
     if (hints.wakeUpTime) {
-      if (this.isMorningPlanningMessage(message)) {
+      if (intentFlags?.isMorningPlanning) {
         // 晨间规划场景：先做任务编排和用户确认，最后再调 start_day
-        notes.push(`检测到起床时间 ${hints.wakeUpTime}，且用户提供了时间段安排。请先按【晨间规划流程】分析时间段、列出全天任务计划并让用户确认；用户确认后再调用 start_day({"wakeUpTime":"${hints.wakeUpTime}","dayStart":"..."}) 开启今日，同时用 create_tasks 批量创建任务。不要在规划前就调用 start_day。`);
+        notes.push(`检测到起床时间 ${hints.wakeUpTime}，且用户提供了时间段安排。请先按【晨间规划流程】分析时间段、列出全天任务计划并让用户确认；用户确认后，学习计划任务用 inject_study_plan_slots 绑定创建，额外任务用 create_tasks 创建，最后调用 start_day({"wakeUpTime":"${hints.wakeUpTime}","dayStart":"..."}) 开启今日。不要在规划前调用任何写工具。`);
       } else {
         notes.push(`检测到起床时间 ${hints.wakeUpTime}。调用 start_day 时必须把 wakeUpTime 设为这个值，不要把起床时间原文写进 dayStart。`);
       }
     }
 
-    if (this.isSimpleTodayTasksQuery(message, hints)) {
+    if (intentFlags?.isMorningPlanning) {
+      notes.push('这是晨间规划场景：当前轮只输出全天计划草稿并询问确认，禁止直接调用写工具。确认后的执行规则：学习计划任务必须用 inject_study_plan_slots，非学习计划任务才用 create_tasks，再调用 start_day。');
+    }
+
+    if (intentFlags?.isSimpleTodayTasksQuery) {
       notes.push('用户在查询今天的任务，应优先调用 get_today_tasks。get_tasks 只用于查询全部未完成任务或为其他操作匹配任务，不要把 get_tasks 的结果说成“今天的任务”。');
     }
 
@@ -2279,7 +2538,7 @@ export class AgentService {
     }
 
     // 复盘：用户明确要写复盘时，必须先查数据再调用 update_day_reflection 保存
-    if (this.isReflectionIntentMessage(message)) {
+    if (intentFlags?.isReflectionIntent) {
       notes.push('用户要求写今日复盘。流程：① 调用 get_today_summary 获取数据 ② 根据数据生成复盘文字 ③ 必须调用 update_day_reflection({ dayReflection: "..." }) 将复盘保存，不要只输出文字而不保存。');
     }
 
@@ -2305,6 +2564,8 @@ export class AgentService {
           return `- create_task: "${toolCall.result?.title ?? toolCall.args?.title ?? ''}"`;
         case 'create_tasks':
           return `- create_tasks: created=${(toolCall.result?.created ?? []).map((task: any) => task.title).join('、') || '无'} skipped=${(toolCall.result?.skipped ?? []).map((task: any) => task.title).join('、') || '无'}`;
+        case 'inject_study_plan_slots':
+          return `- inject_study_plan_slots: injected=${(toolCall.result?.injected ?? []).map((task: any) => task.title).join('、') || '无'}`;
         case 'complete_task':
           return `- complete_task: "${toolCall.result?.title ?? toolCall.args?.taskId ?? ''}"`;
         case 'start_pomodoro':
@@ -2343,6 +2604,20 @@ export class AgentService {
         return `"${result?.title || args.title}"`;
       case 'create_tasks':
         return Array.isArray(args.titles) ? args.titles.map((title: string) => `"${title}"`).join('、') : '{}';
+      case 'inject_study_plan_slots': {
+        const slots = Array.isArray(args.slots) ? args.slots : [];
+        const labels = await Promise.all(slots.map(async (slot: any) => {
+          const slotId = typeof slot?.slotId === 'string' ? slot.slotId : '';
+          if (!slotId) return '未指定安排';
+          const found = await this.prisma.dailyStudySlot.findFirst({
+            where: { id: slotId, userId },
+            select: { subjectName: true, chapterTitle: true, plannedHours: true },
+          });
+          if (!found) return `安排ID ${slotId}`;
+          return `"${found.subjectName ? `${found.subjectName} - ` : ''}${found.chapterTitle}"${found.plannedHours ? ` ${found.plannedHours}h` : ''}`;
+        }));
+        return labels.length > 0 ? labels.join('、') : '{}';
+      }
       case 'complete_task': {
         const taskTitle =
           result?.title ||
@@ -2462,10 +2737,6 @@ export class AgentService {
     return match?.[1]?.trim() || '';
   }
 
-  private isReflectionIntentMessage(message: string) {
-    return /(?:\u4eca\u65e5\u590d\u76d8|\u4eca\u5929\u590d\u76d8|\u5199\u590d\u76d8|\u66f4\u65b0\u590d\u76d8|\u8bb0\u5f55\u590d\u76d8|\u603b\u7ed3\u4eca\u5929)/u.test(message);
-  }
-
   private isExplicitMemoryIntent(message: string) {
     return /^(?:\u8bf7\u4f60)?(?:\u4ee5\u540e)?(?:\u8bb0\u4f4f|\u5fd8\u6389|\u5fd8\u8bb0|\u6211\u7684\u504f\u597d|\u4ee5\u540e\u6211|\u6211\u4e60\u60ef|\u6211\u559c\u6b22)/u.test(message.trim());
   }
@@ -2543,10 +2814,6 @@ export class AgentService {
     return 'auto';
   }
 
-  private looksLikeStartDayIntent(message: string) {
-    return /(?:\u5f00\u542f\u4eca\u5929|\u5f00\u59cb\u4eca\u5929|\u4eca\u65e5\u5f00\u542f|\u4eca\u5929\u8ba1\u5212|\u4eca\u65e5\u8ba1\u5212|\u8d77\u5e8a)/u.test(message);
-  }
-
   private deriveDayStartFromTitles(titles: string[]): string | null {
     if (!titles.length) return null;
     // Strip parenthetical suffixes like \uff08\u4e0a\u5348\uff09\uff08\u4e0b\u5348\uff09, deduplicate, take up to 3
@@ -2587,59 +2854,9 @@ export class AgentService {
     return /(?:\u597d\u7684|\u53ef\u4ee5|\u6ca1\u95ee\u9898|\u5c31\u8fd9\u6837|\u5f00\u59cb\u5427|\u521b\u5efa\u5427|\u6267\u884c\u5427|\u521b\u5efa\u4efb\u52a1)/u.test(trimmed);
   }
 
-  private isMorningPlanningMessage(message: string) {
-    // \u7528\u6237\u63d0\u4f9b\u4e86\u65f6\u95f4\u6bb5\u5b89\u6392\uff08\u4e0a\u5348X-Y\u3001\u4e0b\u5348X-Y\u3001\u665a\u4e0aX-Y\uff09\uff0c\u8fd9\u662f\u6668\u95f4\u89c4\u5212\u573a\u666f
-    // \u65f6\u95f4\u683c\u5f0f\uff1a8\u70b9\u30018:00\u30018-11:30\u3001\u4e09\u70b9\u3001\u516b\u70b9\u534a \u7b49\uff0c\u5141\u8bb8\u7701\u7565\u5206\u949f\u90e8\u5206\uff0c\u652f\u6301\u4e2d\u6587\u6570\u5b57
-    const TIME = /(?:[\u96f6\u4e00\u4e8c\u4e24\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]+|\d{1,2})(?:[:.\u70b9]\d{0,2}|\u534a)?/u.source;
-    const hasTimeSlots = new RegExp(
-      `(?:\u4e0a\u5348|\u4e0b\u5348|\u665a\u4e0a|\u65e9\u4e0a|\u4e2d\u5348)\\s*${TIME}\\s*[-~\uff5e\u5230\u81f3]\\s*${TIME}`, 'u'
-    ).test(message);
-    const hasScheduleKeywords = /(?:\u65f6\u95f4\u6bb5|\u65f6\u95f4\u5b89\u6392|\u53ef\u4ee5\u5b89\u6392|\u53ef\u7528\u65f6\u95f4|\u7a7a\u95f2\u65f6\u95f4|\u5e2e\u6211\u5b89\u6392|\u5e2e\u6211\u89c4\u5212|\u5e2e\u6211\u6392|\u4efb\u52a1\u5b89\u6392)/u.test(message);
-    return hasTimeSlots || hasScheduleKeywords;
-  }
-
-  private isSimplePomodoroStartIntent(message: string) {
-    const normalized = message.replace(/\s+/gu, '');
-    return /^(?:\u5f00\u542f|\u5f00\u59cb|\u6765\u4e2a)?(?:\u4e00\u4e2a)?(?:\u756a\u8304\u949f|\u756a\u8304|\u4e13\u6ce8)(?:\u5427)?$/u.test(normalized);
-  }
-
   private isPomodoroCandidateIntentQuery(message: string) {
     return /(?:\u756a\u8304\u949f|\u756a\u8304|\u4e13\u6ce8)/u.test(message)
       && /(?:\u7ed1\u5b9a\u54ea\u4e9b\u4eca\u65e5\u4efb\u52a1|\u7ed1\u5b9a\u4ec0\u4e48\u4eca\u65e5\u4efb\u52a1|\u53ef\u4ee5\u7ed1\u5b9a\u54ea\u4e2a\u4efb\u52a1|\u80fd\u7ed1\u5b9a\u54ea\u4e9b|\u5019\u9009|\u4efb\u52a1\u5019\u9009|\u5173\u8054\u54ea\u4e2a)/u.test(message);
-  }
-
-  private extractImportantInfoContent(message: string) {
-    const match = message.match(/(?:添加|更新|记录|记一下)(?:重要信息|重要的事|重要事项)[：:\s]*(.+)$/u);
-    return match?.[1]?.trim() || '';
-  }
-
-  private extractDayReflectionContent(message: string) {
-    const match = message.match(/(?:写|更新|记录)?(?:今日复盘|今天复盘|复盘)[：:\s]*(.+)$/u);
-    return match?.[1]?.trim() || '';
-  }
-
-  private isReflectionMessage(message: string) {
-    return /(?:今日复盘|今天复盘|复盘)/u.test(message);
-  }
-
-  private isExplicitMemoryMessage(message: string) {
-    return /^(?:请你)?(?:帮我)?(?:记住|忘掉|忘记|删除记忆|不要记住)/u.test(message.trim());
-  }
-
-  private extractMealExpenses(message: string) {
-    const categories = [
-      { category: 'breakfast', pattern: /早餐(?:花了|花费|消费|用了)?\s*(\d+(?:\.\d+)?)\s*元/u },
-      { category: 'lunch', pattern: /午餐(?:花了|花费|消费|用了)?\s*(\d+(?:\.\d+)?)\s*元/u },
-      { category: 'dinner', pattern: /晚餐(?:花了|花费|消费|用了)?\s*(\d+(?:\.\d+)?)\s*元/u },
-    ] as const;
-
-    return categories.flatMap(({ category, pattern }) => {
-      const match = message.match(pattern);
-      if (!match?.[1]) {
-        return [];
-      }
-      return [{ category, amount: Number(match[1]) }];
-    });
   }
 
   private extractDayStartContent(message: string, hints: AgentMessageHints) {
@@ -2647,20 +2864,6 @@ export class AgentService {
       ? message.replace(/\d{1,2}(?::|点)\d{0,2}\s*(?:起床|醒来|起来)?/u, '').trim()
       : message.trim();
     return withoutWakeUpTime || undefined;
-  }
-
-  private looksLikeStartDayMessage(message: string) {
-    return /(?:开启今天|开启今日|新的一天|今天计划|今日计划|今天安排|今日安排|起床)/u.test(message);
-  }
-
-  private isSimplePomodoroStart(message: string) {
-    const normalized = message.replace(/\s+/gu, '');
-    return /^(?:帮我|给我|请)?(?:开启|开|开始)(?:一个|一轮)?(?:番茄钟|番茄|专注)(?:计时)?$/u.test(normalized);
-  }
-
-  private isPomodoroCandidateQuery(message: string) {
-    return /(?:番茄|专注|计时)/u.test(message)
-      && /(?:哪个任务|哪些任务|可绑定|可以绑定|候选|看看|查看|列出)/u.test(message);
   }
 
   /**
@@ -2834,7 +3037,11 @@ export class AgentService {
           data: { content: fullContent },
         });
         if (trigger === 'morning') {
-          await this.agentSessionService.startMorningSession(userId, saved.id);
+          const morningContext = await this.buildMorningPlanningContext(userId);
+          await this.agentSessionService.startMorningSession(userId, saved.id, {
+            activeStudyPlanTitle: morningContext.activeStudyPlanTitle,
+            todayStudySlots: morningContext.todayStudySlots,
+          });
         }
         resolve({ id: saved.id, reply: fullContent });
       });
@@ -2889,7 +3096,7 @@ export class AgentService {
 2. 用户没分享时间 → 再次友好地询问，不要跳过
 3. 用户始终不愿说具体时间 → 灵活应变，基于学习计划建议默认方案
 4. 列出计划后务必先让用户确认，不要直接创建任务
-5. 用户确认后，用create_tasks批量创建所有任务
+5. 用户确认后，学习计划任务用 inject_study_plan_slots 绑定创建，额外任务用 create_tasks 创建
 6. 创建完成后，主动询问："要开始第一个番茄钟吗？"
 7. 特殊安排（模考、运动等）必须纳入全天计划表中`;
 
@@ -2976,9 +3183,9 @@ export class AgentService {
           }
           if (studyPlanSuggestion.slots.length > 0) {
             const slotLines = studyPlanSuggestion.slots.map(s =>
-              `  ${s.subjectName}: ${s.chapterTitle} (预计${s.plannedHours}h)`
+              `  planId=${s.planId} slotId=${s.id} ${s.subjectName}: ${s.chapterTitle} (预计${s.plannedHours}h)`
             );
-            parts.push(`今日学习安排:\n${slotLines.join('\n')}`);
+            parts.push(`今日学习安排（确认后必须用 inject_study_plan_slots 绑定创建）:\n${slotLines.join('\n')}`);
           } else {
             parts.push('今日暂无学习安排');
           }

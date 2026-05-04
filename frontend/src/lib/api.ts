@@ -79,10 +79,20 @@ function processRequestTimeFields(data: any): any {
 
   const result = { ...data };
   const timeFields = ['startedAt', 'completedAt', 'targetDate', 'examDate', 'dueDate'];
+  const dateOnlyFields = new Set(['targetDate', 'examDate', 'dueDate']);
 
   for (const field of timeFields) {
     if (result[field]) {
       try {
+        // 日期选择器提交的是 YYYY-MM-DD，语义是“某一天”，不是某个时刻。
+        // 这里不能转成 UTC ISO，否则 Asia/Shanghai 的 2026-05-10 会变成 2026-05-09T16:00:00.000Z。
+        if (
+          dateOnlyFields.has(field)
+          && typeof result[field] === 'string'
+          && /^\d{4}-\d{2}-\d{2}$/.test(result[field])
+        ) {
+          continue;
+        }
         result[field] = toUTCForSubmit(result[field]);
       } catch (error) {
         console.warn(`Failed to process time field ${field}:`, error);
@@ -288,7 +298,7 @@ export const studyPlanAPI = {
     api.delete(`/study-plans/${planId}/phase-plans/${phaseId}`),
   expandWeek: (planId: string, data: { weekStart: string; phaseId?: string; userIntent?: string }) =>
     api.post(`/study-plans/${planId}/expand-week`, data, { timeout: 90000 }),
-  confirmWeek: (planId: string, data: { weekStart: string; slots: Array<Record<string, unknown>>; replaceExisting?: boolean }) =>
+  confirmWeek: (planId: string, data: { weekStart: string; slots: Array<Record<string, unknown>>; replaceExisting?: boolean; skipDates?: string[] }) =>
     api.post(`/study-plans/${planId}/confirm-week`, data),
   clearWeek: (planId: string, weekStart: string) =>
     api.delete(`/study-plans/${planId}/week/${weekStart}`),

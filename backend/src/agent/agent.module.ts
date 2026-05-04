@@ -9,6 +9,7 @@ import { AgentService } from './agent.service';
 import { AgentSessionService } from './agent-session.service';
 import { AgentTraceService } from './agent-trace.service';
 import { AgentToolsService } from './agent-tools.service';
+import { AgentIntentClassifierService } from './agent-intent-classifier.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { TasksModule } from '../tasks/tasks.module';
 import { PomodoroModule } from '../pomodoro/pomodoro.module';
@@ -44,6 +45,7 @@ import { StudyPlanModule } from '../study-plan/study-plan.module';
     AgentSessionService,
     AgentTraceService,
     AgentToolsService,
+    AgentIntentClassifierService,
   ],
 })
 export class AgentModule {}

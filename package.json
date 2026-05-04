@@ -1,6 +1,6 @@
 {
   "name": "life-tracker",
-  "version": "4.1.2",
+  "version": "4.2.0",
   "description": "A comprehensive life tracking application for students preparing for graduate school entrance exams",
   "private": true,
   "scripts": {
