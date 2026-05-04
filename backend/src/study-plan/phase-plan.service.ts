@@ -281,11 +281,27 @@ export class PhasePlanService {
     // ── Tier 1: deterministic (auto-onboard with per-day phase mapping) ──
     // Used by handleOnboardWeek. Bypasses LLM entirely, but still splits a day into
     // 上午/下午/晚上 slots so initial generation matches later adjustment style.
-    if (dto.datePhaseMappings && dto.datePhaseMappings.length > 0) {
+    let datePhaseMappings = dto.datePhaseMappings;
+    if (!datePhaseMappings || datePhaseMappings.length === 0) {
+      const allPhases = await this.prisma.phasePlan.findMany({
+        where: { planId, startDate: { lte: weekEnd }, endDate: { gte: weekStart } },
+        orderBy: { sortOrder: 'asc' },
+      });
+      if (allPhases.length > 0) {
+        const lastPh = allPhases[allPhases.length - 1];
+        datePhaseMappings = dailyHours.map(d => {
+          const dt = this.toDateOnly(d.date);
+          const ph = allPhases.find(p => p.startDate <= dt && p.endDate >= dt) ?? lastPh;
+          return { date: d.date, phaseId: ph.id, phaseName: ph.name, phaseDesc: ph.description ?? '' };
+        });
+      }
+    }
+
+    if (datePhaseMappings && datePhaseMappings.length > 0) {
       const slots = this.normalizeTimeSegmentSlots(
-        this.buildSlotsFromPhaseMappings(dto.datePhaseMappings, dailyHours, chapters),
+        this.buildSlotsFromPhaseMappings(datePhaseMappings, dailyHours, chapters),
       );
-      this.logger.log(`[expandWeekDraft] tier=deterministic slots=${slots.map(s => s.date).join(',')}`);
+      this.logger.log(`[expandWeekDraft] tier=deterministic slots=${slots.length}`);
       return { slots, phase, plan: { id: plan.id, examName: plan.examName } };
     }
 
@@ -564,9 +580,9 @@ ${confirmedSummary}
     chapters: Array<{ chapterId: string; chapterTitle: string; subjectName: string; remainingHours: number }>,
   ): DraftSlot[] {
     const subjectMap = new Map<string, typeof chapters>();
-    for (const c of chapters) {
-      if (!subjectMap.has(c.subjectName)) subjectMap.set(c.subjectName, []);
-      subjectMap.get(c.subjectName)!.push(c);
+    for (const ch of chapters) {
+      if (!subjectMap.has(ch.subjectName)) subjectMap.set(ch.subjectName, []);
+      subjectMap.get(ch.subjectName)!.push(ch);
     }
     const chapterPointers = new Map<string, number>();
     const slots: DraftSlot[] = [];
@@ -574,26 +590,61 @@ ${confirmedSummary}
     for (const day of dailyHours) {
       const mapping = datePhaseMappings.find(m => m.date === day.date);
       let subjectChapters = chapters;
+      let phaseText = '';
+
       if (mapping?.phaseName) {
-        const phaseText = `${mapping.phaseName ?? ''} ${mapping.phaseDesc ?? ''}`.toLowerCase();
-        const matched = [...subjectMap.entries()].find(([k]) => phaseText.includes(k.toLowerCase()) || k.toLowerCase().includes(phaseText));
-        if (matched) subjectChapters = matched[1];
-        const focusedChapters = subjectChapters.filter(chapter => this.chapterMatchesPhaseText(chapter.chapterTitle, phaseText));
-        if (focusedChapters.length > 0) {
-          subjectChapters = focusedChapters;
+        phaseText = (mapping.phaseName + ' ' + (mapping.phaseDesc ?? '')).toLowerCase();
+
+        // 1) Match subjects mentioned in the phase text, preserving the user's order.
+        const matchedSubjects = [...subjectMap.entries()]
+          .map(([name, items]) => {
+            const match = this.findBestTextMentionIndex(phaseText, [name]);
+            return { name, items, ...match };
+          })
+          .filter(item => item.index >= 0)
+          .sort((a, b) => a.index - b.index || b.score - a.score);
+        if (matchedSubjects.length > 0) {
+          subjectChapters = matchedSubjects.flatMap(item => item.items);
+        }
+
+        // 2) Phase text can explicitly define chapter/module order.
+        const orderedByPhaseText = this.orderChaptersByPhaseText(subjectChapters, phaseText);
+        const scored = orderedByPhaseText.length > 0
+          ? orderedByPhaseText.map((ch, index) => ({ ch, score: 1000 - index }))
+          : subjectChapters
+              .map(ch => ({ ch, score: this.scoreChapterPhaseMatch(ch.chapterTitle, phaseText) }))
+              .filter(({ score }) => score > 0)
+              .sort((a, b) => b.score - a.score);
+
+        // 3) Daily focus mode: "每天主攻/依次/专项突破" → one chapter per day
+        const isDailyFocus = /每天.{0,8}(主攻|专攻|突破|一个模块|一科)/.test(phaseText)
+          || /依次|逐一|逐项|顺序专项/.test(phaseText);
+
+        if (scored.length > 0) {
+          if (isDailyFocus) {
+            const phaseDayIdx = this.getPhaseDayIndex(datePhaseMappings, mapping, day.date);
+            subjectChapters = [scored[phaseDayIdx % scored.length].ch];
+          } else {
+            subjectChapters = scored.map(({ ch }) => ch);
+          }
+        } else if (matchedSubjects.length === 0) {
+          // No subject match + no scored chapters → treat as comprehensive (use all)
+          subjectChapters = chapters;
         }
       }
+
       if (subjectChapters.length === 0) subjectChapters = chapters;
       const subjectName = subjectChapters[0]?.subjectName ?? '学习';
       for (const segment of this.splitDailyHours(day.hours)) {
         const ptr = chapterPointers.get(subjectName) ?? 0;
         const chapter = subjectChapters[ptr % subjectChapters.length];
         chapterPointers.set(subjectName, ptr + 1);
+        const phaseSlot = this.buildPhaseSlotOverride(phaseText, segment.label, chapter);
         slots.push({
           date: day.date,
-          chapterId: chapter.chapterId,
-          subjectName: chapter.subjectName,
-          chapterTitle: chapter.chapterTitle,
+          chapterId: phaseSlot.chapterId,
+          subjectName: phaseSlot.subjectName,
+          chapterTitle: phaseSlot.chapterTitle,
           plannedHours: segment.hours,
           timeSegment: segment.label,
           phaseId: mapping?.phaseId,
@@ -603,18 +654,136 @@ ${confirmedSummary}
     return slots;
   }
 
-  private chapterMatchesPhaseText(chapterTitle: string, phaseText: string) {
-    const normalizedTitle = chapterTitle.replace(/\s+/gu, '').toLowerCase();
-    const normalizedPhase = phaseText.replace(/\s+/gu, '').toLowerCase();
-    if (!normalizedTitle || !normalizedPhase) return false;
-    if (normalizedPhase.includes(normalizedTitle) || normalizedTitle.includes(normalizedPhase)) return true;
-
-    const compactKeywords = normalizedTitle
-      .split(/[·：:（）()、，,。；;\-_/]+/u)
-      .map(item => item.trim())
-      .filter(item => item.length >= 2);
-    return compactKeywords.some(keyword => normalizedPhase.includes(keyword));
+  private getPhaseDayIndex(
+    mappings: Array<{ date: string; phaseId?: string; phaseName?: string }>,
+    current: { phaseId?: string; phaseName?: string },
+    date: string,
+  ) {
+    const samePhase = mappings
+      .filter(item => (current.phaseId ? item.phaseId === current.phaseId : item.phaseName === current.phaseName))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    return Math.max(0, samePhase.findIndex(item => item.date === date));
   }
+
+  private orderChaptersByPhaseText(
+    chapters: Array<{ chapterId: string; chapterTitle: string; subjectName: string; remainingHours: number }>,
+    phaseText: string,
+  ) {
+    return chapters
+      .map((chapter, originalIndex) => {
+        const match = this.findBestChapterMention(phaseText, chapter);
+        return { chapter, originalIndex, ...match };
+      })
+      .filter(item => item.index >= 0)
+      .sort((a, b) => a.index - b.index || b.score - a.score || a.originalIndex - b.originalIndex)
+      .map(item => item.chapter);
+  }
+
+  private buildPhaseSlotOverride(
+    phaseText: string,
+    segment: string,
+    fallback: { chapterId: string; chapterTitle: string; subjectName: string },
+  ) {
+    const chapterTitle = this.extractSegmentInstruction(phaseText, segment) || fallback.chapterTitle;
+    return {
+      chapterId: fallback.chapterId,
+      subjectName: fallback.subjectName,
+      chapterTitle,
+    };
+  }
+
+  private extractSegmentInstruction(phaseText: string, segment: string) {
+    const labels = segment === '上午'
+      ? ['上午', '早上', '早晨']
+      : segment === '下午'
+        ? ['下午', '午后']
+        : ['晚上', '晚间'];
+    const boundary = '(上午|早上|早晨|下午|午后|晚上|晚间|；|;|。|\\n|$)';
+
+    for (const label of labels) {
+      const match = phaseText.match(new RegExp(`${label}[:：\\s]*(.{2,30}?)(?=${boundary})`, 'u'));
+      const text = match?.[1]?.trim().replace(/[，,、；;。]+$/u, '');
+      if (text && !/^(安排|学习|练习|复习)$/u.test(text)) return text;
+    }
+    return '';
+  }
+
+  private findBestChapterMention(
+    phaseText: string,
+    chapter: { chapterTitle: string; subjectName: string },
+  ) {
+    return this.findBestTextMentionIndex(phaseText, [chapter.chapterTitle, chapter.subjectName]);
+  }
+
+  private findBestTextMentionIndex(phaseText: string, sourceTexts: string[]) {
+    const phase = this.normalizeMatchText(phaseText);
+    const terms = this.buildGenericMatchTerms(sourceTexts);
+    let best = { index: -1, score: 0 };
+
+    for (const term of terms) {
+      const index = phase.indexOf(term);
+      if (index < 0) continue;
+      const score = term.length;
+      if (best.index < 0 || index < best.index || (index === best.index && score > best.score)) {
+        best = { index, score };
+      }
+    }
+    return best;
+  }
+
+  private buildGenericMatchTerms(sourceTexts: string[]) {
+    const terms = new Set<string>();
+    for (const source of sourceTexts) {
+      const text = this.normalizeMatchText(source);
+      if (text.length < 2) continue;
+      terms.add(text);
+
+      const maxLength = Math.min(8, text.length);
+      for (let length = maxLength; length >= 2; length--) {
+        for (let start = 0; start <= text.length - length; start++) {
+          terms.add(text.slice(start, start + length));
+        }
+      }
+
+      // Generic abbreviation support: "线性代数" can match "线代", "数据结构" can match "数结".
+      if (text.length >= 3) {
+        for (let i = 0; i < text.length - 1; i++) {
+          for (let j = i + 1; j < text.length; j++) {
+            terms.add(`${text[i]}${text[j]}`);
+          }
+        }
+      }
+    }
+    return [...terms].sort((a, b) => b.length - a.length);
+  }
+
+  private normalizeMatchText(text: string) {
+    return String(text || '')
+      .toLowerCase()
+      .replace(/[\s"'“”‘’（）()【】\[\]{}<>《》,，.。:：;；、/\\|+_-]+/gu, '');
+  }
+
+  /** Score how well a chapter title matches a phase description.
+   *  Higher = better. Prefers matches at the START of the title and longer matches. */
+  private scoreChapterPhaseMatch(chapterTitle: string, phaseText: string): number {
+    const t = this.normalizeMatchText(chapterTitle);
+    const p = this.normalizeMatchText(phaseText);
+    if (!t || !p) return 0;
+    if (p.includes(t)) return 100 + t.length;
+    if (t.includes(p)) return 90 + p.length;
+    let best = 0;
+    for (let i = 0; i <= t.length - 2; i++) {
+      for (let len = 2; len <= Math.min(t.length - i, 6); len++) {
+        const sub = t.slice(i, i + len);
+        if (p.includes(sub)) {
+          const score = len * 10 + (t.length - i);
+          if (score > best) best = score;
+        }
+      }
+    }
+    return best;
+  }
+
 
   private splitDailyHours(hours: number): Array<{ label: string; hours: number }> {
     if (hours <= 2) return [{ label: '上午', hours }];
@@ -1251,21 +1420,22 @@ ${confirmedSummary}
 
     const isAdjustment = !!userAdjustment;
     const hasExisting = gapInfo && gapInfo.existingSlots.length > 0;
+    const weekPhaseSummary = allPhasesThisWeek.length > 1
+      ? `本周涉及阶段：${allPhasesThisWeek.map(p => `**${p.name}**（${this.formatDate(p.startDate).slice(5)}-${this.formatDate(p.endDate).slice(5)}）`).join('、')}`
+      : currentPhase
+        ? `当前阶段：**${currentPhase.name}**${currentPhase.description ? `——${currentPhase.description}` : ''}`
+        : '';
     const lines: string[] = [];
 
     if (isAdjustment) {
       lines.push('已根据你的调整重新生成计划：');
     } else if (hasExisting) {
       lines.push(`本周有 **${missingDatesForAI.length}** 天还没有学习安排（距考试 **${daysLeft}** 天）。`);
-      if (currentPhase) {
-        lines.push(`当前阶段：**${currentPhase.name}**${currentPhase.description ? `——${currentPhase.description}` : ''}`);
-      }
+      if (weekPhaseSummary) lines.push(weekPhaseSummary);
       lines.push('结合你已有的安排，为空缺天生成推荐：');
     } else {
       lines.push(`本周还没有学习安排（距考试 **${daysLeft}** 天）。`);
-      if (currentPhase) {
-        lines.push(`当前阶段：**${currentPhase.name}**${currentPhase.description ? `——${currentPhase.description}` : ''}`);
-      }
+      if (weekPhaseSummary) lines.push(weekPhaseSummary);
       if (topRef) {
         lines.push(`结合参考资料「${topRef.name}」，为你生成本周推荐计划：`);
       } else {
@@ -1519,11 +1689,9 @@ ${confirmedSummary}
 
   private isReferenceAliasMatch(ref: any, examName: string) {
     const refText = `${ref?.examType ?? ''} ${ref?.name ?? ''} ${ref?.matchKeywords ?? ''}`;
-    const civilServicePlan = /(公务员|国考|省考|事业单位|行测|申论)/u.test(examName);
-    if (civilServicePlan && /(civil_service|公务员|国考|省考|事业单位|行测|申论)/u.test(refText)) {
-      return true;
-    }
-    return false;
+    const examTerms = this.buildGenericMatchTerms([examName]).filter(term => term.length >= 2);
+    const normalizedRef = this.normalizeMatchText(refText);
+    return examTerms.some(term => normalizedRef.includes(term));
   }
 
   private formatRestDatesReply(actions: WeekSkipAction[]) {
@@ -1589,9 +1757,11 @@ ${confirmedSummary}
   // ─────────────────────────────────────────────────────────────
 
   private classifyIntent(message: string): 'expand_week' | 'generate_phases' | 'reply' {
-    if (/阶段|基础期|强化期|冲刺期|备考期/.test(message)) return 'generate_phases';
+    if (/(阶段|时期|周期|分期|规划期|第[一二三四五六七八九十\d]+阶段|前期|中期|后期|初期|末期)/u.test(message)) {
+      return 'generate_phases';
+    }
     if (
-      /\d+[号月.\/]|本周|下周|这周|今天|明天|每天|周[一二三四五六日]|小时|h|模块|套卷|练习|章节|科目|言语|判断|数量|申论|行测/.test(message)
+      /(\d+[号月.\/]|本周|下周|这周|今天|明天|后天|每天|每日|周[一二三四五六日天]|星期[一二三四五六日天]|上午|下午|晚上|早上|晚间|\d+(?:\.\d+)?\s*(?:小时|h|分钟|min)|安排|排课|学习|复习|刷题|训练|练习|任务|章节|科目|课程|专题|专项|单元|模块)/u.test(message)
     ) return 'expand_week';
     return 'reply';
   }
@@ -1657,7 +1827,7 @@ ${confirmedSummary}
     for (const di of intent.dayIntents) {
       const dateStr = dateAtOffset(di.dayOffset);
       const subjectStr = di.subjects
-        .map(s => s === '__mock__' ? '综合套卷练习' : s)
+        .map(s => s === '__mock__' ? '综合检验练习' : s)
         .join('、');
       const dayTitle = di.title || subjectStr;
 
@@ -1715,9 +1885,9 @@ ${refSection}
 用户意图：${input.userIntent || '请根据上述信息自动规划最优方案'}
 
 请输出 JSON 数组，每个阶段包含：
-- name: 阶段名（≤10字，如"行测基础期""申论强化期""套卷冲刺期"）
+- name: 阶段名（≤10字，如"基础熟悉期""专项强化期""综合模拟期"）
 - description: 本阶段核心任务（≤40字，说明做什么、每科侧重什么）
-- mastery: 本阶段结束时的掌握要求（≤40字，具体可量化，如"行测错误率降至30%以下，申论框架熟练输出"）
+- mastery: 本阶段结束时的掌握要求（≤40字，具体可量化，如"核心题型正确率提升到80%左右"）
 - startDate: YYYY-MM-DD
 - endDate: YYYY-MM-DD
 - sortOrder: 从0开始的数字
@@ -1781,8 +1951,8 @@ ${refSection}
 解析规则：
 - 今天是${todayStr}，本周范围：${weekDates[0]}（周日）到${weekDates[6]}（周六）
 - 只写日号（如"4号"）时，月份为当前月
-- subject 的判断：用户描述的是"做综合练习/模拟测试/套卷/真题模考"等整体性检验行为（而非学习某个具体知识点）时，填 "__mock__"；描述的是学习某科目知识时，填该科目名
-- title 是最终要展示和写入计划的学习标题，必须尽量贴近用户原话，例如"言语理解"、"行测套卷练习"、"行测套卷复盘+薄弱练习"
+- subject 的判断：用户描述的是"综合练习/模拟测试/整套训练/阶段测验"等整体性检验行为（而非学习某个具体知识点）时，填 "__mock__"；描述的是学习某科目知识时，填该科目名
+- title 是最终要展示和写入计划的学习标题，必须尽量贴近用户原话，例如"科目A专项练习"、"综合模拟训练"、"错题复盘+薄弱练习"
 - 如果同一天不同时段学习内容不同，在 timeSlots 内分别写 title；如果相同，可以只写 day.title
 - 不要把用户明确给出的一个时段拆成多个子任务，例如"下午3小时复盘+薄弱练习"仍然只返回一个下午时段
 - 可用科目列表：${subjectList || '（无限制）'}
@@ -1793,7 +1963,7 @@ ${refSection}
     const userMsg = `解析以下学习安排：\n${message}`;
 
     try {
-      const raw = await this.callLLMInternal(systemPrompt, userMsg, 1200, 1.0, true);
+      const raw = await this.callLLMInternal(systemPrompt, userMsg, 2000, 0.3, true, true);
       const parsed = JSON.parse(raw) as {
         days: Array<{
           date: string;
@@ -2110,7 +2280,7 @@ ${dayInstructions}
     );
 
     this.logger.log(`[askLLMForWeekSlots] chapters=${chapterList.length}, prompt_system=\n${systemPrompt}\n---userMsg=${userMsg}`);
-    const raw = await this.callLLMStrict(systemPrompt, userMsg, 3000);
+    const raw = await this.callLLMInternal(systemPrompt, userMsg, 3000, 0.3, true, true);
     this.logger.log(`[askLLMForWeekSlots] raw (first 800): ${raw.slice(0, 800)}`);
     const parsed = this.parseJSONArray(raw) as Array<DraftSlot & { chapterId: string }>;
     this.logger.log(`[askLLMForWeekSlots] parsed ${parsed.length} slots`);
@@ -2191,24 +2361,25 @@ ${input.chapters.map((c) => `[${c.chapterId}] ${c.subjectName}·${c.chapterTitle
 
 只输出 JSON 数组：[{"chapterId":"xxx", "estimatedHours": 2.5, "reason": "可选"}]`;
 
-    const raw = await this.callLLM(systemPrompt, '请估算章节时长。', 2000);
+    const raw = await this.callLLM(systemPrompt, '请估算章节时长。', 2000, 0.3);
     return this.parseJSONArray(raw) as Array<{ chapterId: string; estimatedHours: number; reason?: string }>;
   }
 
-  private async callLLM(systemPrompt: string, userMessage: string, maxTokens: number): Promise<string> {
-    return this.callLLMInternal(systemPrompt, userMessage, maxTokens, 1.0);
+  private async callLLM(systemPrompt: string, userMessage: string, maxTokens: number, temperature = 0.7): Promise<string> {
+    return this.callLLMInternal(systemPrompt, userMessage, maxTokens, temperature);
   }
 
-  private async callLLMStrict(systemPrompt: string, userMessage: string, maxTokens: number): Promise<string> {
-    return this.callLLMInternal(systemPrompt, userMessage, maxTokens, 1.0, true);
+  private async callLLMStrict(systemPrompt: string, userMessage: string, maxTokens: number, temperature = 0.3): Promise<string> {
+    return this.callLLMInternal(systemPrompt, userMessage, maxTokens, temperature, true);
   }
 
   private async callLLMInternal(
     systemPrompt: string,
     userMessage: string,
     maxTokens: number,
-    _temperature: number,
+    temperature: number,
     jsonMode = false,
+    enableThinking = false,
   ): Promise<string> {
     const apiUrl = this.configService.get<string>('AI_API_URL');
     const apiKey = this.configService.get<string>('AI_API_KEY');
@@ -2224,8 +2395,9 @@ ${input.chapters.map((c) => `[${c.chapterId}] ${c.subjectName}·${c.chapterTitle
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      thinking: { type: 'disabled' },
+      thinking: { type: enableThinking ? 'enabled' : 'disabled' },
       max_tokens: maxTokens,
+      temperature,
     };
 
     if (jsonMode) {
@@ -2240,7 +2412,7 @@ ${input.chapters.map((c) => `[${c.chapterId}] ${c.subjectName}·${c.chapterTitle
     const msg = response.data?.choices?.[0]?.message;
     const content = msg?.content;
     const finishReason = response.data?.choices?.[0]?.finish_reason;
-    this.logger.log(`[callLLM] finish=${finishReason} content_len=${content?.length ?? 0}`);
+    this.logger.log(`[callLLM] finish=${finishReason} content_len=${content?.length ?? 0} thinking=${enableThinking}`);
     if (!content) {
       this.logger.warn(`[callLLM] empty content, finish=${finishReason}, usage=${JSON.stringify(response.data?.usage)}`);
     }

@@ -12,6 +12,7 @@ import { StudyPlanService } from '../study-plan/study-plan.service';
 import { AgentMessageHints, extractAgentMessageHints, toTaskMatchKey } from './agent-intent.utils';
 import { AgentSessionService } from './agent-session.service';
 import { AgentIntentClassifierService, IntentFlags } from './agent-intent-classifier.service';
+import { formatDateString, getTodayEnd, getTodayStart, parseDateString } from '../common/utils/date.util';
 
 interface LLMMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -208,6 +209,73 @@ export class AgentService {
       messages: messages.reverse(), // 返回时正序
       hasMore: messages.length === limit,
       nextCursor: messages.length > 0 ? messages[0].id : null,
+    };
+  }
+
+  async getDailyMorningGreeting(userId: string) {
+    const timezone = 'Asia/Shanghai';
+    const todayStart = getTodayStart(timezone);
+    const todayEnd = getTodayEnd(timezone);
+    const todayDate = parseDateString(formatDateString(todayStart, timezone));
+
+    const dailyData = await this.prisma.dailyData.findUnique({
+      where: {
+        userId_date: {
+          userId,
+          date: todayDate,
+        },
+      },
+      select: {
+        dayStart: true,
+        wakeUpTime: true,
+      },
+    });
+
+    if (dailyData?.dayStart || dailyData?.wakeUpTime) {
+      return { shouldGreet: false, reason: 'today_started' };
+    }
+
+    const activeSession = await this.agentSessionService.getSession(userId);
+    if (activeSession?.flow === 'morning_planning') {
+      return { shouldGreet: false, reason: 'active_morning_session' };
+    }
+
+    const existingGreeting = await this.prisma.agentMessage.findFirst({
+      where: {
+        userId,
+        role: 'assistant',
+        createdAt: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+        OR: [
+          { content: { contains: '你今天几点起床' } },
+          { content: { contains: '今天大概有哪些可用时间' } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existingGreeting) {
+      return { shouldGreet: false, reason: 'already_greeted' };
+    }
+
+    const morningContext = await this.buildMorningPlanningContext(userId);
+    const saved = await this.createAssistantReply(userId, this.buildMorningPlanningIntro(morningContext));
+
+    await this.agentSessionService.startMorningSession(userId, saved.id, {
+      activeStudyPlanTitle: morningContext.activeStudyPlanTitle,
+      todayStudySlots: morningContext.todayStudySlots,
+    });
+
+    return {
+      shouldGreet: true,
+      message: {
+        id: saved.id,
+        role: 'assistant',
+        content: saved.reply,
+        createdAt: new Date().toISOString(),
+      },
     };
   }
 

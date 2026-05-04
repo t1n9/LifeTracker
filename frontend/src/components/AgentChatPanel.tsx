@@ -429,6 +429,7 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
   const [emptyStateSuggestions, setEmptyStateSuggestions] = useState<ReplySuggestion[]>([]);
   const cooldownMapRef = useRef<Map<string, number>>(new Map());
   const pendingProactiveRef = useRef<ProactiveTriggerPayload | null>(null);
+  const dailyMorningGreetingRef = useRef(false);
   const isOpenRef = useRef(false);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -476,6 +477,30 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
       setLoadingHistory(false);
     }
   }, [loadingHistory, shouldShowChatMessage]);
+
+  const loadDailyMorningGreeting = useCallback(async () => {
+    if (dailyMorningGreetingRef.current) return;
+    dailyMorningGreetingRef.current = true;
+
+    try {
+      const { data } = await api.get('/agent/morning-greeting');
+      const message = data?.message as AgentMessage | undefined;
+      if (!data?.shouldGreet || !message || !shouldShowChatMessage(message)) return;
+
+      setMessages((prev) => {
+        if (prev.some((item) => item.id === message.id)) return prev;
+        return [...prev, message];
+      });
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+
+      if (!isOpenRef.current && !inline) {
+        setHintState('breathing');
+        setUnreadCount((count) => count + 1);
+      }
+    } catch (err) {
+      console.error('加载每日晨间问候失败:', err);
+    }
+  }, [inline, shouldShowChatMessage]);
 
   const mapConfirmationsToCards = useCallback((items: AgentConfirmationQueueItem[]): ConfirmCard[] => (
     items.map((item) => ({
@@ -654,15 +679,18 @@ export default function AgentChatPanel({ inline = false }: { inline?: boolean })
   useEffect(() => {
     if (!isOpen && !inline) return;
     if (panelMode === 'chat' && !historyLoaded) {
-      void loadHistory();
-      void loadConfirmations();
       setHistoryLoaded(true);
+      void (async () => {
+        await loadHistory();
+        await loadConfirmations();
+        await loadDailyMorningGreeting();
+      })();
     }
     if (panelMode === 'capture' && !capturesLoaded) {
       void loadCaptures();
     }
     inputRef.current?.focus();
-  }, [capturesLoaded, historyLoaded, isOpen, inline, loadCaptures, loadConfirmations, loadHistory, panelMode]);
+  }, [capturesLoaded, historyLoaded, isOpen, inline, loadCaptures, loadConfirmations, loadDailyMorningGreeting, loadHistory, panelMode]);
 
   // 空状态时拉取建议 chips
   useEffect(() => {

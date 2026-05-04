@@ -17,6 +17,11 @@ export class AgentController {
     return this.agentService.getMessages(req.user.id, cursor, limit ? parseInt(limit, 10) : 30);
   }
 
+  @Get('morning-greeting')
+  async getDailyMorningGreeting(@Req() req) {
+    return this.agentService.getDailyMorningGreeting(req.user.id);
+  }
+
   @Get('runs')
   async getRuns(@Req() req, @Query('limit') limit?: string) {
     return this.agentService.getRuns(req.user.id, limit ? parseInt(limit, 10) : 20);
