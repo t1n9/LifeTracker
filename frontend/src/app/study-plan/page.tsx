@@ -1,14 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import '@/styles/theme.css';
+import StudyPlanWorkspace from '@/components/study-plan/StudyPlanWorkspace';
 
 export default function StudyPlanPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace('/');
-  }, [router]);
-
-  return null;
+  return <StudyPlanWorkspace />;
 }

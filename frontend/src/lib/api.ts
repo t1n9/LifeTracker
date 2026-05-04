@@ -274,6 +274,30 @@ export const studyPlanAPI = {
   injectToday: () => api.post('/study-plans/inject-today'),
   aiAssist: (data: { step: string; userMessage: string; context?: Record<string, unknown> }) =>
     api.post('/study-plans/ai-assist', data),
+
+  // Phase plan / Week expansion
+  weekCheck: () => api.get('/study-plans/week-check'),
+  listPhases: (planId: string) => api.get(`/study-plans/${planId}/phase-plans`),
+  generatePhasesDraft: (planId: string, userIntent: string) =>
+    api.post(`/study-plans/${planId}/phase-plans/draft`, { userIntent }),
+  confirmPhases: (planId: string, phases: Array<Record<string, unknown>>) =>
+    api.post(`/study-plans/${planId}/phase-plans/confirm`, { phases }),
+  updatePhase: (planId: string, phaseId: string, data: Record<string, unknown>) =>
+    api.patch(`/study-plans/${planId}/phase-plans/${phaseId}`, data),
+  deletePhase: (planId: string, phaseId: string) =>
+    api.delete(`/study-plans/${planId}/phase-plans/${phaseId}`),
+  expandWeek: (planId: string, data: { weekStart: string; phaseId?: string; userIntent?: string }) =>
+    api.post(`/study-plans/${planId}/expand-week`, data, { timeout: 90000 }),
+  confirmWeek: (planId: string, data: { weekStart: string; slots: Array<Record<string, unknown>>; replaceExisting?: boolean }) =>
+    api.post(`/study-plans/${planId}/confirm-week`, data),
+  clearWeek: (planId: string, weekStart: string) =>
+    api.delete(`/study-plans/${planId}/week/${weekStart}`),
+  estimateHours: (planId: string) =>
+    api.post(`/study-plans/${planId}/estimate-hours`),
+  chat: (planId: string, message: string, weekStart?: string) =>
+    api.post(`/study-plans/${planId}/chat`, { message, weekStart }, { timeout: 30000 }),
+  chatExecute: (planId: string, action: string, message: string, weekStart?: string, parsedIntent?: unknown) =>
+    api.post(`/study-plans/${planId}/chat/execute`, { action, message, weekStart, parsedIntent }, { timeout: 90000 }),
 };
 
 // 邮箱验证API
@@ -400,4 +424,12 @@ export const adminAPI = {
 
   getAuditLogs: (params?: Record<string, string>) =>
     api.get('/admin/audit-logs', { params }),
+
+  // 计划参考
+  listPlanReferences: () => api.get('/admin/plan-references'),
+  fetchRefTitle: (url: string) => api.post('/admin/plan-references/fetch-title', { url }),
+  createPlanReference: (data: Record<string, unknown>) => api.post('/admin/plan-references', data),
+  updatePlanReference: (id: string, data: Record<string, unknown>) => api.patch(`/admin/plan-references/${id}`, data),
+  setPlanReferenceActive: (id: string, isActive: boolean) => api.patch(`/admin/plan-references/${id}/active`, { isActive }),
+  deletePlanReference: (id: string) => api.delete(`/admin/plan-references/${id}`),
 };

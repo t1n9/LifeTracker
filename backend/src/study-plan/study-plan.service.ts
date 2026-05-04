@@ -16,7 +16,6 @@ import {
   UpdateStudySubjectDto,
   UploadOcrDto,
 } from './dto/study-plan.dto';
-import { EXAM_TEMPLATES } from './templates/exam-templates';
 
 type ChapterUnit = {
   subjectId: string;
@@ -33,10 +32,6 @@ export class StudyPlanService {
     private readonly configService: ConfigService,
     private readonly goalsService: GoalsService,
   ) {}
-
-  getTemplates() {
-    return EXAM_TEMPLATES;
-  }
 
   async create(userId: string, dto: CreateStudyPlanDto) {
     // 先确定绑定的目标 ID（传入 goalId 优先，否则自动找/建同名活跃目标）
@@ -60,7 +55,6 @@ export class StudyPlanService {
       });
 
       await this.upsertSubjectsAndChapters(tx, newPlan.id, dto.subjects || []);
-      await this.regeneratePlanSchedule(tx, userId, newPlan.id, true);
       return this.getPlanDetailTx(tx, userId, newPlan.id);
     });
 
@@ -138,7 +132,7 @@ export class StudyPlanService {
 
     const today = this.toDateOnly(new Date());
     const todaySlots = await this.prisma.dailyStudySlot.findMany({
-      where: { planId: plan.id, userId, date: today },
+      where: { planId: plan.id, userId, date: today, isDraft: false },
       orderBy: { createdAt: 'asc' },
     });
     const currentWeek = await this.prisma.weeklyPlan.findFirst({
@@ -149,11 +143,16 @@ export class StudyPlanService {
       },
       orderBy: { weekNumber: 'asc' },
     });
+    const phasePlans = await this.prisma.phasePlan.findMany({
+      where: { planId: plan.id },
+      orderBy: { sortOrder: 'asc' },
+    });
 
     return {
       ...plan,
       todaySlots,
       currentWeek,
+      phasePlans,
     };
   }
 
@@ -346,7 +345,7 @@ export class StudyPlanService {
     await this.ensurePlan(userId, planId);
     const targetDate = this.toDateOnly(date || new Date());
     return this.prisma.dailyStudySlot.findMany({
-      where: { planId, userId, date: targetDate },
+      where: { planId, userId, date: targetDate, isDraft: false },
       orderBy: { createdAt: 'asc' },
       include: {
         chapter: true,

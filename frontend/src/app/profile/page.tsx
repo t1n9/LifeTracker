@@ -10,6 +10,7 @@ import SystemConfigPanel from '@/components/admin/SystemConfigPanel';
 import SuggestionManagement from '@/components/admin/SuggestionManagement';
 import UserManagement from '@/components/admin/UserManagement';
 import AuditLogViewer from '@/components/admin/AuditLogViewer';
+import { PlanReferencesAdminPanel } from '@/components/admin/ExamTemplateManagement';
 import GoalManagement from '@/components/GoalManagement';
 import SystemSuggestion from '@/components/SystemSuggestion';
 import { VERSION_INFO, getVersionString } from '@/lib/version';
@@ -31,7 +32,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading, hasInitialized, initializeAuth, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'account' | 'suggestion' | 'admin'>('profile');
-  const [adminSubTab, setAdminSubTab] = useState<'config' | 'suggestions' | 'users' | 'logs'>('config');
+  const [adminSubTab, setAdminSubTab] = useState<'config' | 'suggestions' | 'users' | 'logs' | 'plan-references'>('config');
   const [isLoading, setIsLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [error, setError] = useState('');
@@ -518,6 +519,12 @@ export default function ProfilePage() {
                 >
                   操作日志
                 </button>
+                <button
+                  onClick={() => setAdminSubTab('plan-references')}
+                  className={`admin-subtab ${adminSubTab === 'plan-references' ? 'active' : ''}`}
+                >
+                  计划参考库
+                </button>
               </div>
 
               {/* 子标签内容 */}
@@ -525,6 +532,7 @@ export default function ProfilePage() {
               {adminSubTab === 'suggestions' && <SuggestionManagement />}
               {adminSubTab === 'users' && <UserManagement />}
               {adminSubTab === 'logs' && <AuditLogViewer />}
+              {adminSubTab === 'plan-references' && <PlanReferencesAdminPanel />}
             </div>
           )}
         </div>

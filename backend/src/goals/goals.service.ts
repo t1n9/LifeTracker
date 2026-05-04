@@ -187,7 +187,6 @@ export class GoalsService {
 
   // 删除目标
   async deleteGoal(goalId: string, userId: string) {
-    // 验证目标是否属于该用户
     const goal = await this.prisma.userGoal.findFirst({
       where: { id: goalId, userId },
     });
@@ -196,7 +195,12 @@ export class GoalsService {
       throw new Error('目标不存在或无权限删除');
     }
 
-    // 删除目标
+    // 先把关联的学习计划归档，避免孤儿计划继续出现在学习计划页
+    await this.prisma.studyPlan.updateMany({
+      where: { goalId, userId, status: { not: 'archived' } },
+      data: { status: 'archived' },
+    });
+
     await this.prisma.userGoal.delete({
       where: { id: goalId },
     });

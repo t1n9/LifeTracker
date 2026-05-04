@@ -3,6 +3,7 @@ import {
   Get,
   Patch,
   Post,
+  Delete,
   Body,
   Param,
   Query,
@@ -13,6 +14,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from './admin.guard';
 import { AdminService } from './admin.service';
+import { StudyPlanReferenceService } from '../study-plan/study-plan-reference.service';
 import {
   UpdateUserRoleDto,
   BanUserDto,
@@ -25,7 +27,10 @@ import {
 @UseGuards(JwtAuthGuard, AdminGuard)
 @ApiBearerAuth()
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly refService: StudyPlanReferenceService,
+  ) {}
 
   @Get('users')
   @ApiOperation({ summary: '用户列表（分页/搜索/筛选）' })
@@ -93,5 +98,43 @@ export class AdminController {
     const p = Math.max(1, parseInt(page || '1', 10));
     const l = Math.min(100, Math.max(1, parseInt(limit || '20', 10)));
     return this.adminService.getAuditLogs({ page: p, limit: l, adminId });
+  }
+
+  // ─── 计划参考管理 ────────────────────────────────────────────
+
+  @Get('plan-references')
+  @ApiOperation({ summary: '所有计划参考' })
+  listRefs() {
+    return this.refService.listAll();
+  }
+
+  @Post('plan-references/fetch-title')
+  @ApiOperation({ summary: '抓取 URL 标题' })
+  fetchTitle(@Body('url') url: string) {
+    return this.refService.fetchTitleForUrl(url);
+  }
+
+  @Post('plan-references')
+  @ApiOperation({ summary: '新建计划参考' })
+  createRef(@Body() dto: any) {
+    return this.refService.create(dto);
+  }
+
+  @Patch('plan-references/:id')
+  @ApiOperation({ summary: '更新计划参考' })
+  updateRef(@Param('id') id: string, @Body() dto: any) {
+    return this.refService.update(id, dto);
+  }
+
+  @Patch('plan-references/:id/active')
+  @ApiOperation({ summary: '启用/停用计划参考' })
+  setRefActive(@Param('id') id: string, @Body('isActive') isActive: boolean) {
+    return this.refService.setActive(id, isActive);
+  }
+
+  @Delete('plan-references/:id')
+  @ApiOperation({ summary: '删除计划参考' })
+  deleteRef(@Param('id') id: string) {
+    return this.refService.delete(id);
   }
 }

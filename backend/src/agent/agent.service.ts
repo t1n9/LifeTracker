@@ -785,7 +785,11 @@ export class AgentService {
         && !finalPendingWriteOps.some((op) => op.name === 'start_day')
       ) {
         const wakeUpTime = activeSession?.data?.wakeUpTime;
-        const dayStart = this.deriveDayStartFromPlan(activeSession?.data?.proposedPlan) || '新的一天';
+        const createTasksOp = finalPendingWriteOps.find((op) => op.name === 'create_tasks');
+        const taskTitles: string[] = (createTasksOp?.args?.titles ?? []).filter((t: any) => typeof t === 'string' && t.length > 0);
+        const dayStart = this.deriveDayStartFromTitles(taskTitles)
+          || this.deriveDayStartFromPlan(activeSession?.data?.proposedPlan)
+          || '新的一天';
         finalPendingWriteOps.push({
           id: `auto-start-day-${Date.now()}`,
           name: 'start_day',
@@ -2541,6 +2545,15 @@ export class AgentService {
 
   private looksLikeStartDayIntent(message: string) {
     return /(?:\u5f00\u542f\u4eca\u5929|\u5f00\u59cb\u4eca\u5929|\u4eca\u65e5\u5f00\u542f|\u4eca\u5929\u8ba1\u5212|\u4eca\u65e5\u8ba1\u5212|\u8d77\u5e8a)/u.test(message);
+  }
+
+  private deriveDayStartFromTitles(titles: string[]): string | null {
+    if (!titles.length) return null;
+    // Strip parenthetical suffixes like \uff08\u4e0a\u5348\uff09\uff08\u4e0b\u5348\uff09, deduplicate, take up to 3
+    const cores = [...new Set(titles.map(t => t.replace(/[\uff08(][^\uff09)]*[\uff09)]/g, '').trim()).filter(Boolean))];
+    if (!cores.length) return null;
+    const joined = cores.slice(0, 3).join(' + ');
+    return joined.length > 30 ? joined.slice(0, 28) + '..' : joined;
   }
 
   /**

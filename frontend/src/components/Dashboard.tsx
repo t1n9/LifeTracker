@@ -7,7 +7,7 @@ import {
   CalendarClock, History, LayoutDashboard,
   Moon, Settings2, Sun, X,
 } from 'lucide-react';
-import { userAPI, studyAPI, taskAPI, dailyAPI } from '@/lib/api';
+import { userAPI, studyAPI, taskAPI, dailyAPI, studyPlanAPI } from '@/lib/api';
 import { AGENT_DATA_CHANGED_EVENT, eventAffectsDomains, PROACTIVE_TRIGGER_EVENT } from '@/lib/agent-events';
 import { goalService, UserGoal } from '../services/goalService';
 import HistoryViewer from './HistoryViewer';
@@ -62,6 +62,7 @@ export default function Dashboard() {
   const [studyTime, setStudyTime] = useState(0);
   const [pomodoroCount, setPomodoroCount] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(1440);
+  const [studyPlanWeekMissing, setStudyPlanWeekMissing] = useState(false);
 
   // ── 数据加载 ──────────────────────────────────────────────────────
 
@@ -85,6 +86,16 @@ export default function Dashboard() {
       const goal = await goalService.getCurrentGoal();
       setCurrentGoal(goal);
     } catch {}
+  };
+
+  const loadStudyPlanWeekStatus = async () => {
+    try {
+      const res = await studyPlanAPI.weekCheck();
+      const r = res.data;
+      setStudyPlanWeekMissing(!!(r?.hasActivePlan && (r.thisWeekMissing || r.nextWeekMissing)));
+    } catch {
+      setStudyPlanWeekMissing(false);
+    }
   };
 
   const loadTasks = async () => {
@@ -121,6 +132,7 @@ export default function Dashboard() {
     loadCurrentGoal();
     loadTodayStats();
     loadTasks();
+    loadStudyPlanWeekStatus();
   }, []);
 
   // ── 晨间流检测：若无 dayStart 则发送 morning 主动推送（每天只发一次） ──
@@ -330,9 +342,27 @@ export default function Dashboard() {
 
           {/* 右侧工具 */}
           <div className={styles.rightTools}>
-            <button className={styles.iconBtn} title="学习计划"
-              onClick={() => studyPlanSidebarRef.current?.open()}>
+            <button
+              className={styles.iconBtn}
+              title={studyPlanWeekMissing ? '学习计划（本周/下周还没排好）' : '学习计划'}
+              style={{ position: 'relative' }}
+              onClick={() => studyPlanSidebarRef.current?.open()}
+            >
               <CalendarClock size={16} />
+              {studyPlanWeekMissing && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: '#ef4444',
+                    border: '1.5px solid var(--bg-1)',
+                  }}
+                />
+              )}
             </button>
             <button className={styles.iconBtn} title="历史记录"
               onClick={() => setIsHistoryOpen(true)}>

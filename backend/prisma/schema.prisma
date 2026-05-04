@@ -661,6 +661,7 @@ model StudyPlan {
   weeklyPlans      WeeklyPlan[]
   dailySlots       DailyStudySlot[]
   ocrUploads       OcrUpload[]
+  phasePlans       PhasePlan[]
 
   @@index([userId, status])
   @@index([goalId])
@@ -735,19 +736,41 @@ model DailyStudySlot {
   taskId        String?       @map("task_id")
   isInjected    Boolean       @default(false) @map("is_injected")
   isRescheduled Boolean       @default(false) @map("is_rescheduled")
+  isDraft       Boolean       @default(false) @map("is_draft")
   originalDate  DateTime?     @map("original_date") @db.Date
   injectedAt    DateTime?     @map("injected_at") @db.Timestamptz(6)
   completedAt   DateTime?     @map("completed_at") @db.Timestamptz(6)
   createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  timeSegment   String        @default("") @map("time_segment")
+  phaseId       String?       @map("phase_id")
   plan          StudyPlan     @relation(fields: [planId], references: [id], onDelete: Cascade)
   weeklyPlan    WeeklyPlan?   @relation(fields: [weeklyPlanId], references: [id])
   chapter       StudyChapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   task          Task?         @relation(fields: [taskId], references: [id])
+  phase         PhasePlan?    @relation(fields: [phaseId], references: [id], onDelete: SetNull)
 
   @@index([planId, date])
   @@index([planId, status])
   @@index([userId, taskId])
+  @@index([phaseId])
   @@map("daily_study_slots")
+}
+
+model PhasePlan {
+  id          String           @id @default(uuid())
+  planId      String           @map("plan_id")
+  name        String
+  startDate   DateTime         @map("start_date") @db.Date
+  endDate     DateTime         @map("end_date") @db.Date
+  description String?
+  sortOrder   Int              @default(0) @map("sort_order")
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  plan        StudyPlan        @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dailySlots  DailyStudySlot[]
+
+  @@index([planId, sortOrder])
+  @@map("phase_plans")
 }
 
 model OcrUpload {
