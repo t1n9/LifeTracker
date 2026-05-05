@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import axios from 'axios';
 
@@ -54,7 +55,7 @@ export class StudyPlanReferenceService {
   }
 
   async create(dto: StudyPlanReferenceDto) {
-    const id = crypto.randomUUID();
+    const id = randomUUID();
     const sourceTitle = dto.sourceTitle?.trim() || (dto.sourceUrl ? await this.fetchTitle(dto.sourceUrl) : null);
     await this.prisma.$executeRawUnsafe(
       `INSERT INTO study_plan_references
